@@ -1,0 +1,32 @@
+@model List<BiletSatis.Web.Domain.Bilet>
+@{
+    ViewData["Title"] = "Biletlerim";
+}
+
+<div class="hero">
+    <h1>🎫 Biletlerim</h1>
+    <p>Satın aldığınız biletlerin geçmişi.</p>
+</div>
+
+@if (!Model.Any())
+{
+    <p class="text-muted">Henüz satın aldığınız bir bilet yok.</p>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-primary">Etkinliklere Göz At</a>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var bilet in Model)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="seat-card">
+                    <h2 class="h5 mb-1">@bilet.Etkinlik?.Ad</h2>
+                    <p class="text-muted small mb-2">@bilet.Etkinlik?.Tarih.ToString("dd.MM.yyyy HH:mm")</p>
+                    <div class="seat-no mb-1">@bilet.KoltukNo</div>
+                    <div class="fw-semibold mb-2">@bilet.Fiyat.ToString("C")</div>
+                    <span class="badge badge-satildi">✅ Satıldı</span>
+                </div>
+            </div>
+        }
+    </div>
+}

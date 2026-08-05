@@ -3,6 +3,7 @@ using BiletSatis.Web.Domain;
 using BiletSatis.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Stripe.Checkout;
 
 namespace BiletSatis.Web.Controllers;
 
@@ -65,6 +66,20 @@ public class BiletlerController : Controller
         return View(biletler);
     }
 
+    public async Task<IActionResult> Biletlerim()
+    {
+        var kullaniciId = _currentUser.GetKullaniciId();
+
+        var biletler = await _db.Biletler
+            .AsNoTracking()
+            .Include(b => b.Etkinlik)
+            .Where(b => b.RezerveEdenKullaniciId == kullaniciId && b.Durum == BiletDurumu.Satildi)
+            .OrderByDescending(b => b.Id)
+            .ToListAsync();
+
+        return View(biletler);
+    }
+
     public async Task<IActionResult> OdemeStub(int biletId)
     {
         var bilet = await _db.Biletler.AsNoTracking().FirstOrDefaultAsync(b => b.Id == biletId);
@@ -82,12 +97,74 @@ public class BiletlerController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> OdemeyiTamamla(int biletId)
+    public async Task<IActionResult> OdemeBaslat(int biletId)
     {
+        var bilet = await _db.Biletler.AsNoTracking().Include(b => b.Etkinlik).FirstOrDefaultAsync(b => b.Id == biletId);
+        if (bilet == null) return NotFound();
+
+        var kullaniciId = _currentUser.GetKullaniciId();
+        if (bilet.Durum != BiletDurumu.Sepette || bilet.RezerveEdenKullaniciId != kullaniciId)
+        {
+            TempData["Hata"] = "Bu bilet üzerinde bir rezervasyonunuz yok.";
+            return RedirectToAction(nameof(Index), new { etkinlikId = bilet.EtkinlikId });
+        }
+
+        var domain = $"{Request.Scheme}://{Request.Host}";
+        var options = new SessionCreateOptions
+        {
+            PaymentMethodTypes = new List<string> { "card" },
+            LineItems = new List<SessionLineItemOptions>
+            {
+                new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        Currency = "try",
+                        UnitAmount = (long)(bilet.Fiyat * 100),
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = $"{bilet.Etkinlik?.Ad} — Koltuk {bilet.KoltukNo}",
+                        },
+                    },
+                    Quantity = 1,
+                },
+            },
+            Mode = "payment",
+            SuccessUrl = $"{domain}/Biletler/OdemeBasarili?session_id={{CHECKOUT_SESSION_ID}}&biletId={biletId}",
+            CancelUrl = $"{domain}/Biletler/OdemeStub?biletId={biletId}",
+            Metadata = new Dictionary<string, string>
+            {
+                { "BiletId", biletId.ToString() },
+                { "KullaniciId", kullaniciId },
+            },
+        };
+
+        var service = new SessionService();
+        var session = await service.CreateAsync(options);
+
+        return Redirect(session.Url);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> OdemeBasarili(string session_id, int biletId)
+    {
+        var sessionService = new SessionService();
+        var session = await sessionService.GetAsync(session_id);
+
         var bilet = await _db.Biletler.AsNoTracking().FirstOrDefaultAsync(b => b.Id == biletId);
         if (bilet == null) return NotFound();
 
         var kullaniciId = _currentUser.GetKullaniciId();
+
+        var metadataUyusuyor = session.Metadata.TryGetValue("BiletId", out var metaBiletId) && metaBiletId == biletId.ToString()
+            && session.Metadata.TryGetValue("KullaniciId", out var metaKullaniciId) && metaKullaniciId == kullaniciId;
+
+        if (session.PaymentStatus != "paid" || !metadataUyusuyor)
+        {
+            TempData["Hata"] = "Ödeme tamamlanamadı.";
+            return RedirectToAction(nameof(OdemeStub), new { biletId });
+        }
+
         var basarili = await _rezervasyon.CompletePaymentAsync(biletId, kullaniciId);
 
         if (basarili)

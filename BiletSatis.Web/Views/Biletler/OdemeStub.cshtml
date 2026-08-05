@@ -20,9 +20,9 @@
             ⏱️ Rezervasyonunuz <strong>@Model.KilitBitisZamani?.ToLocalTime().ToString("HH:mm:ss")</strong> zamanına kadar geçerlidir.
         </div>
 
-        <form asp-action="OdemeyiTamamla" method="post" class="d-grid mb-2">
+        <form asp-action="OdemeBaslat" method="post" class="d-grid mb-2">
             <input type="hidden" name="biletId" value="@Model.Id" />
-            <button type="submit" class="btn btn-success">✅ Ödemeyi Tamamla (test)</button>
+            <button type="submit" class="btn btn-success">💳 Stripe ile Öde</button>
         </form>
         <form asp-action="IptalEt" method="post" class="d-grid">
             <input type="hidden" name="biletId" value="@Model.Id" />

@@ -57,6 +57,8 @@ builder.Services.AddScoped<IKuyrukServisi, KuyrukServisi>();
 builder.Services.AddHostedService<CartExpiryWorker>();
 builder.Services.AddHostedService<WaitlistWorker>();
 
+Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
