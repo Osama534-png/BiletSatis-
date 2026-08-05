@@ -117,6 +117,5 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 
 ## Bilinen Kapsam Dışı Konular
 
-- k6 yük test script'leri, giriş zorunluluğu eklenmeden önce yazıldığı için şu an anonim istek atıyor — kimlik doğrulama akışını script'lere eklemek gerekiyor.
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut).

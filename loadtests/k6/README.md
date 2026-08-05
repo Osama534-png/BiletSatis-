@@ -8,6 +8,14 @@ gerçek yük altında doğrular.
 - [k6](https://k6.io/docs/get-started/installation/) kurulu olmalı.
 - Uygulama çalışıyor olmalı: `dotnet run --project BiletSatis.Web` (varsayılan: `http://localhost:5052`).
 - Veritabanında en az bir etkinlik ve "Satışta" durumda biletler bulunmalı (varsayılan seed verisi yeterli).
+- Uygulama genelinde giriş zorunlu olduğu için her sanal kullanıcı (VU) testin başında **kendi
+  tek kullanımlık hesabını otomatik olarak oluşturup giriş yapar** — ayrıca bir şey yapmanıza
+  gerek yok. Sadece admin işlemleri (satış başlatma, tanılama endpoint'i) için varsayılan admin
+  hesabı (`admin@biletsatis.local` / `Admin123!`) kullanılır; farklıysa `ADMIN_EMAIL`/`ADMIN_SIFRE`
+  ortam değişkenleriyle geçebilirsiniz.
+- ⚠️ Testler gerçek veritabanına yazar ve **her çalıştırmada yeni test kullanıcıları oluşturur**
+  (`yuktest-...@test.local`). Sık test ediyorsanız zaman zaman bu kayıtları ve kuyruk tablosunu
+  temizlemek isteyebilirsiniz.
 
 ## Testler
 

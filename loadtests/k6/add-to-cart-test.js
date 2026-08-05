@@ -2,9 +2,14 @@
 // Amaç: atomik UPDATE ... WHERE Durum='Satışta' korumasının gerçek eşzamanlı yük altında
 // hiçbir "double booking"e izin vermediğini kanıtlamak.
 //
+// Uygulama artık tüm işlemler için giriş zorunlu olduğundan, her sanal kullanıcı (VU) önce
+// kendi tek kullanımlık hesabını oluşturup giriş yapar — gerçek dünyada olduğu gibi
+// birbirinden bağımsız, gerçekten farklı kullanıcıları simüle eder.
+//
 // Çalıştırma:
 //   k6 run loadtests/k6/add-to-cart-test.js
-//   (uygulama http://localhost:5052 adresinde çalışıyor ve etkinlikte en az 1 "Satışta" bilet olmalı)
+//   (uygulama http://localhost:5052 adresinde çalışıyor, admin@biletsatis.local/Admin123!
+//    seed edilmiş olmalı ve etkinlikte en az 1 "Satışta" bilet olmalı)
 //
 // Farklı adres/etkinlik için:
 //   k6 run -e BASE_URL=http://localhost:5052 -e ETKINLIK_ID=1 loadtests/k6/add-to-cart-test.js
@@ -16,6 +21,8 @@ import { Counter } from 'k6/metrics';
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:5052';
 const ETKINLIK_ID = __ENV.ETKINLIK_ID || 1;
 const ES_ZAMANLI_KULLANICI = Number(__ENV.VUS || 50);
+const ADMIN_EMAIL = __ENV.ADMIN_EMAIL || 'admin@biletsatis.local';
+const ADMIN_SIFRE = __ENV.ADMIN_SIFRE || 'Admin123!';
 
 const sepeteEklemeBasarili = new Counter('sepete_ekleme_basarili');
 const sepeteEklemeZatenAlinmis = new Counter('sepete_ekleme_zaten_alinmis');
@@ -26,7 +33,7 @@ export const options = {
       executor: 'shared-iterations',
       vus: ES_ZAMANLI_KULLANICI,
       iterations: ES_ZAMANLI_KULLANICI,
-      maxDuration: '30s',
+      maxDuration: '60s',
     },
   },
   thresholds: {
@@ -42,7 +49,41 @@ function antiForgeryTokenAl(html) {
   return match ? match[1] : null;
 }
 
+// Bu fonksiyonun içindeki ardışık istekler aynı yürütme bağlamının (VU ya da setup/teardown)
+// çerez kavanozunu paylaşır, bu yüzden giriş sonrası oturum sonraki isteklerde geçerli kalır.
+function girisYap(email, sifre) {
+  const sayfa = http.get(`${BASE_URL}/Account/GirisYap`);
+  const token = antiForgeryTokenAl(sayfa.body);
+  return http.post(
+    `${BASE_URL}/Account/GirisYap`,
+    { Email: email, Sifre: sifre, __RequestVerificationToken: token },
+    { redirects: 5 },
+  );
+}
+
+// Her VU kendi tek kullanımlık hesabını oluşturur (kayıt olma, otomatik giriş yapar) —
+// gerçekten birbirinden bağımsız kullanıcıları simüle etmek için.
+function kayitOlVeGirisYap() {
+  const kayitSayfasi = http.get(`${BASE_URL}/Account/KayitOl`);
+  const token = antiForgeryTokenAl(kayitSayfasi.body);
+  const email = `yuktest-sepet-${__VU}-${Date.now()}@test.local`;
+
+  http.post(
+    `${BASE_URL}/Account/KayitOl`,
+    {
+      Ad: `Yük Testi ${__VU}`,
+      Email: email,
+      Sifre: 'YukTest123',
+      SifreTekrar: 'YukTest123',
+      __RequestVerificationToken: token,
+    },
+    { redirects: 5 },
+  );
+}
+
 export function setup() {
+  girisYap(ADMIN_EMAIL, ADMIN_SIFRE);
+
   const ozet = http.get(`${BASE_URL}/Admin/Ozet?etkinlikId=${ETKINLIK_ID}`).json();
   const satistakiBilet = ozet.biletDurumlari.find((b) => b.durum === 'Satista' || b.Durum === 'Satista');
 
@@ -56,8 +97,8 @@ export function setup() {
 }
 
 export default function (data) {
-  // Her VU kendi cookie jar'ına sahiptir (k6 varsayılanı) — bu da gerçek dünyada olduğu gibi
-  // her sanal kullanıcının ayrı bir kullaniciId çerezine (ve ayrı bir antiforgery token'a) sahip olmasını sağlar.
+  kayitOlVeGirisYap();
+
   const listeSayfasi = http.get(`${BASE_URL}/Biletler/Index?etkinlikId=${ETKINLIK_ID}`);
   const token = antiForgeryTokenAl(listeSayfasi.body);
 
@@ -81,6 +122,8 @@ export default function (data) {
 }
 
 export function teardown(data) {
+  girisYap(ADMIN_EMAIL, ADMIN_SIFRE);
+
   const ozet = http.get(`${BASE_URL}/Admin/Ozet?etkinlikId=${ETKINLIK_ID}`).json();
   const hedefBilet = ozet.biletDurumlari.find((b) => (b.id ?? b.Id) === data.biletId);
 
