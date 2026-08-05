@@ -15,7 +15,10 @@
         @if (Model == null)
         {
             <p class="text-muted mb-3">Bu etkinlik için kuyruk kaydınız yok.</p>
-            <a asp-action="Katil" asp-route-etkinlikId="@etkinlik.Id" class="btn btn-primary">🚪 Sıraya Gir</a>
+            <form asp-action="Katil" method="post">
+                <input type="hidden" name="etkinlikId" value="@etkinlik.Id" />
+                <button type="submit" class="btn btn-primary">🚪 Sıraya Gir</button>
+            </form>
         }
         else
         {
@@ -43,7 +46,10 @@
             else if (Model.Durum == KuyrukDurumu.SuresiDoldu)
             {
                 <div class="alert alert-danger">⌛ Satın alma süreniz doldu.</div>
-                <a asp-action="Katil" asp-route-etkinlikId="@etkinlik.Id" class="btn btn-primary">🔄 Tekrar Sıraya Gir</a>
+                <form asp-action="Katil" method="post">
+                    <input type="hidden" name="etkinlikId" value="@etkinlik.Id" />
+                    <button type="submit" class="btn btn-primary">🔄 Tekrar Sıraya Gir</button>
+                </form>
             }
             else if (Model.Durum == KuyrukDurumu.Tamamlandi)
             {

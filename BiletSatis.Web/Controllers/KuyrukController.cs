@@ -19,6 +19,8 @@ public class KuyrukController : Controller
         _currentUser = currentUser;
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Katil(int etkinlikId)
     {
         var etkinlik = await _db.Etkinlikler.FindAsync(etkinlikId);

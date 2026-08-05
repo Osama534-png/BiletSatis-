@@ -78,7 +78,16 @@ export default function () {
   // katılımını simüle eder.
   kayitOlVeGirisYap();
 
-  const durumSayfasi = http.get(`${BASE_URL}/Kuyruk/Katil?etkinlikId=${ETKINLIK_ID}`);
+  // "Sıraya Gir" artık bir POST işlemi (yan etkili GET/CSRF riskini önlemek için) —
+  // token'ı Kuyruk Durumu sayfasındaki formdan alıyoruz.
+  const durumSayfasiOnce = http.get(`${BASE_URL}/Kuyruk/Durum?etkinlikId=${ETKINLIK_ID}`);
+  const token = antiForgeryTokenAl(durumSayfasiOnce.body);
+
+  const durumSayfasi = http.post(
+    `${BASE_URL}/Kuyruk/Katil`,
+    { etkinlikId: ETKINLIK_ID, __RequestVerificationToken: token },
+    { redirects: 5 },
+  );
   const siraNo = siraNoAl(durumSayfasi.body);
 
   check(siraNo, {

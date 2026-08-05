@@ -13,13 +13,15 @@ public class BiletlerController : Controller
     private readonly IBiletRezervasyonServisi _rezervasyon;
     private readonly IKuyrukServisi _kuyruk;
     private readonly ICurrentUserService _currentUser;
+    private readonly ILogger<BiletlerController> _logger;
 
-    public BiletlerController(BiletSatisDbContext db, IBiletRezervasyonServisi rezervasyon, IKuyrukServisi kuyruk, ICurrentUserService currentUser)
+    public BiletlerController(BiletSatisDbContext db, IBiletRezervasyonServisi rezervasyon, IKuyrukServisi kuyruk, ICurrentUserService currentUser, ILogger<BiletlerController> logger)
     {
         _db = db;
         _rezervasyon = rezervasyon;
         _kuyruk = kuyruk;
         _currentUser = currentUser;
+        _logger = logger;
     }
 
     public async Task<IActionResult> Index(int etkinlikId)
@@ -139,20 +141,38 @@ public class BiletlerController : Controller
             },
         };
 
-        var service = new SessionService();
-        var session = await service.CreateAsync(options);
-
-        return Redirect(session.Url);
+        try
+        {
+            var service = new SessionService();
+            var session = await service.CreateAsync(options);
+            return Redirect(session.Url);
+        }
+        catch (Stripe.StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe ödeme oturumu oluşturulamadı: BiletId={BiletId}", biletId);
+            TempData["Hata"] = "Ödeme sayfası açılamadı, lütfen tekrar deneyin.";
+            return RedirectToAction(nameof(OdemeStub), new { biletId });
+        }
     }
 
     [HttpGet]
     public async Task<IActionResult> OdemeBasarili(string session_id, int biletId)
     {
-        var sessionService = new SessionService();
-        var session = await sessionService.GetAsync(session_id);
-
         var bilet = await _db.Biletler.AsNoTracking().FirstOrDefaultAsync(b => b.Id == biletId);
         if (bilet == null) return NotFound();
+
+        Stripe.Checkout.Session session;
+        try
+        {
+            var sessionService = new SessionService();
+            session = await sessionService.GetAsync(session_id);
+        }
+        catch (Stripe.StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe session doğrulanamadı: SessionId={SessionId} BiletId={BiletId}", session_id, biletId);
+            TempData["Hata"] = "Ödeme doğrulanamadı.";
+            return RedirectToAction(nameof(OdemeStub), new { biletId });
+        }
 
         var kullaniciId = _currentUser.GetKullaniciId();
 
