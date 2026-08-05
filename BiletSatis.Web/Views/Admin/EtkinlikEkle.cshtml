@@ -1,0 +1,32 @@
+@model BiletSatis.Web.Models.EtkinlikEkleViewModel
+@{
+    ViewData["Title"] = "Yeni Etkinlik";
+}
+
+<div class="card auth-card">
+    <div class="card-body">
+        <h1 class="h3 mb-4">Yeni Etkinlik Oluştur</h1>
+
+        <form asp-action="EtkinlikEkle" method="post">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+            <div class="mb-3">
+                <label asp-for="Ad" class="form-label"></label>
+                <input asp-for="Ad" class="form-control" />
+                <span asp-validation-for="Ad" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Tarih" class="form-label"></label>
+                <input asp-for="Tarih" class="form-control" />
+                <span asp-validation-for="Tarih" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 mb-2">Oluştur</button>
+            <a asp-action="Index" class="btn btn-outline-secondary w-100">Vazgeç</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

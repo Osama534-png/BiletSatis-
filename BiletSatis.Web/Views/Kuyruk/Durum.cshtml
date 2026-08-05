@@ -1,0 +1,54 @@
+@model BiletSatis.Web.Domain.RezervasyonKuyrugu?
+@using BiletSatis.Web.Domain
+@{
+    var etkinlik = (Etkinlik)ViewBag.Etkinlik;
+    ViewData["Title"] = "Kuyruk Durumu";
+}
+
+<div class="hero">
+    <h1>⏳ @etkinlik.Ad</h1>
+    <p>Kuyruk Durumu</p>
+</div>
+
+<div class="card auth-card">
+    <div class="card-body text-center">
+        @if (Model == null)
+        {
+            <p class="text-muted mb-3">Bu etkinlik için kuyruk kaydınız yok.</p>
+            <a asp-action="Katil" asp-route-etkinlikId="@etkinlik.Id" class="btn btn-primary">🚪 Sıraya Gir</a>
+        }
+        else
+        {
+            var (badgeClass, badgeIcon) = Model.Durum switch
+            {
+                KuyrukDurumu.Beklemede => ("badge-beklemede", "⏳"),
+                KuyrukDurumu.HakTanindi => ("badge-haktanindi", "🎉"),
+                KuyrukDurumu.Tamamlandi => ("badge-tamamlandi", "✅"),
+                _ => ("badge-suresidoldu", "⌛")
+            };
+
+            <div class="seat-no mb-2" style="font-size:2.5rem;">#@Model.SiraNo</div>
+            <p class="text-muted mb-3">Sıra Numaranız</p>
+            <span class="badge @badgeClass mb-3" style="font-size:1rem;">@badgeIcon @Model.Durum</span>
+
+            @if (Model.Durum == KuyrukDurumu.HakTanindi)
+            {
+                <div class="alert alert-success">🎉 Satın alma hakkınız tanındı! <strong>@Model.HakBitisZamani?.ToLocalTime().ToString("HH:mm:ss")</strong> zamanına kadar geçerli.</div>
+                <a asp-controller="Biletler" asp-action="Index" asp-route-etkinlikId="@etkinlik.Id" class="btn btn-success">🎟️ Bilet Seç</a>
+            }
+            else if (Model.Durum == KuyrukDurumu.Beklemede)
+            {
+                <p class="text-muted">Sıranız geldiğinde bildirim alacaksınız. Sayfayı yenileyerek durumu kontrol edebilirsiniz.</p>
+            }
+            else if (Model.Durum == KuyrukDurumu.SuresiDoldu)
+            {
+                <div class="alert alert-danger">⌛ Satın alma süreniz doldu.</div>
+                <a asp-action="Katil" asp-route-etkinlikId="@etkinlik.Id" class="btn btn-primary">🔄 Tekrar Sıraya Gir</a>
+            }
+            else if (Model.Durum == KuyrukDurumu.Tamamlandi)
+            {
+                <p class="text-muted">Satın alma işleminiz tamamlandı. 🎊</p>
+            }
+        }
+    </div>
+</div>

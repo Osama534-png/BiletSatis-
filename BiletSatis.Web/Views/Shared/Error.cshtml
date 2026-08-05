@@ -1,0 +1,19 @@
+@model ErrorViewModel
+@{
+    ViewData["Title"] = "Hata";
+}
+
+<div class="card auth-card">
+    <div class="card-body text-center">
+        <div style="font-size:3rem;">😵</div>
+        <h1 class="h3 mb-2">Bir şeyler ters gitti</h1>
+        <p class="text-muted mb-3">İsteğiniz işlenirken bir hata oluştu.</p>
+
+        @if (Model.ShowRequestId)
+        {
+            <p class="text-muted small"><strong>Request ID:</strong> <code>@Model.RequestId</code></p>
+        }
+
+        <a asp-controller="Home" asp-action="Index" class="btn btn-primary">Ana Sayfaya Dön</a>
+    </div>
+</div>

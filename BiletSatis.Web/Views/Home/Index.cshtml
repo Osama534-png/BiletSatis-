@@ -1,0 +1,32 @@
+@model List<BiletSatis.Web.Domain.Etkinlik>
+@{
+    ViewData["Title"] = "Etkinlikler";
+}
+
+<div class="hero">
+    <h1>🎉 Biletini Kap, Sahneye Yaklaş!</h1>
+    <p>En sıcak etkinlikler burada — sepete ekle, öde, ya da kuyruğa katılıp şansını dene.</p>
+</div>
+
+@if (!Model.Any())
+{
+    <p class="text-muted">Henüz etkinlik yok.</p>
+}
+else
+{
+    <div class="row g-4">
+        @foreach (var e in Model)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="event-card h-100 d-flex flex-column">
+                    <h2>🎤 @e.Ad</h2>
+                    <p class="text-muted mb-3">📅 @e.Tarih.ToString("dd.MM.yyyy HH:mm")</p>
+                    <div class="mt-auto d-flex gap-2">
+                        <a asp-controller="Biletler" asp-action="Index" asp-route-etkinlikId="@e.Id" class="btn btn-primary btn-sm flex-grow-1">🎟️ Bilet Al</a>
+                        <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@e.Id" class="btn btn-outline-secondary btn-sm flex-grow-1">⏳ Kuyruk</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

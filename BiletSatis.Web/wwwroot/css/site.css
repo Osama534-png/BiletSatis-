@@ -1,0 +1,376 @@
+/* =========================================================
+   BiletSatış — Sade & Şık Tasarım Sistemi (tek vurgu rengi)
+   ========================================================= */
+
+:root {
+  --primary: #4338ca;
+  --primary-dark: #362e9e;
+  --primary-light: #eef2ff;
+
+  --bg: #eeecf9;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+
+  --success: #16a34a;
+  --success-bg: #f0fdf4;
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --info: #0891b2;
+  --info-bg: #ecfeff;
+  --neutral-bg: #f1f5f9;
+  --neutral-text: #475569;
+
+  --radius-lg: 0.9rem;
+  --radius-md: 0.6rem;
+  --radius-pill: 999px;
+  --shadow-soft: 0 4px 16px -8px rgba(15, 23, 42, 0.10);
+  --shadow-hover: 0 10px 24px -10px rgba(15, 23, 42, 0.16);
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin-bottom: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--primary);
+}
+
+/* ---------- Navbar ---------- */
+
+.navbar-clean {
+  background: var(--primary);
+}
+
+.navbar-clean .navbar-brand {
+  color: #fff !important;
+  font-weight: 800;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+.navbar-clean .nav-link {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.8rem !important;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.navbar-clean .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #fff !important;
+}
+
+.navbar-clean .btn-link.nav-link {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.navbar-clean .navbar-toggler {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.navbar-clean .navbar-toggler-icon {
+  filter: invert(1);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  padding: 0.5rem 1.15rem;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-primary {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.btn-success {
+  background: var(--success);
+  border: 1px solid var(--success);
+}
+
+.btn-success:hover {
+  filter: brightness(0.93);
+}
+
+.btn-warning {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: #fff;
+}
+
+.btn-warning:hover {
+  background: var(--primary-dark);
+  color: #fff;
+}
+
+.btn-outline-secondary {
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: #fff;
+}
+
+.btn-outline-secondary:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.btn-link {
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--primary);
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(67, 56, 202, 0.18);
+}
+
+/* ---------- Cards ---------- */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+.card-body {
+  padding: 1.75rem;
+}
+
+.hero {
+  border-radius: var(--radius-lg);
+  background: var(--primary);
+  color: #fff;
+  padding: 2.5rem 2.25rem;
+  margin-bottom: 2rem;
+}
+
+.hero h1 {
+  font-size: 2.1rem;
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+}
+
+.hero p {
+  font-size: 1.05rem;
+  opacity: 0.9;
+  margin-bottom: 0;
+}
+
+.event-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  background: var(--surface);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.event-card h2 {
+  font-size: 1.2rem;
+  margin-bottom: 0.15rem;
+  color: var(--text);
+}
+
+.seat-card {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--primary);
+  background: var(--surface);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  height: 100%;
+}
+
+.seat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.seat-card .seat-no {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+/* ---------- Badges / Status pills ---------- */
+
+.badge {
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  padding: 0.4em 0.85em;
+  letter-spacing: 0.01em;
+}
+
+.badge-satista {
+  background: var(--success-bg);
+  color: #15803d;
+}
+
+.badge-sepette {
+  background: var(--warning-bg);
+  color: #b45309;
+}
+
+.badge-satildi {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
+.badge-beklemede {
+  background: var(--info-bg);
+  color: #0e7490;
+}
+
+.badge-haktanindi {
+  background: var(--success-bg);
+  color: #15803d;
+}
+
+.badge-tamamlandi {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
+.badge-suresidoldu {
+  background: var(--danger-bg);
+  color: #b91c1c;
+}
+
+/* ---------- Forms ---------- */
+
+.form-control, .form-select {
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  padding: 0.6rem 0.9rem;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--primary);
+}
+
+.form-label {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.auth-card {
+  max-width: 420px;
+  margin: 2rem auto;
+}
+
+.auth-card .card-body {
+  padding: 2.25rem;
+}
+
+/* ---------- Alerts ---------- */
+
+.alert {
+  border: none;
+  border-radius: var(--radius-md);
+  border-left: 4px solid transparent;
+  font-weight: 500;
+}
+
+.alert-success {
+  background: var(--success-bg);
+  color: #15803d;
+  border-left-color: var(--success);
+}
+
+.alert-danger {
+  background: var(--danger-bg);
+  color: #b91c1c;
+  border-left-color: var(--danger);
+}
+
+/* ---------- Table (Admin) ---------- */
+
+.table {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.table thead {
+  background: var(--neutral-bg);
+}
+
+.table thead th {
+  border: none;
+  font-weight: 700;
+  color: var(--neutral-text);
+  text-transform: uppercase;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+}
+
+.table td, .table th {
+  vertical-align: middle;
+  border-color: var(--border);
+}
+
+/* ---------- Footer ---------- */
+
+footer.site-footer {
+  background: var(--primary);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 1.25rem 0;
+  margin-top: 3rem;
+}
+
+footer.site-footer a {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---------- Misc ---------- */
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.stat-tile {
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.stat-tile .stat-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--primary);
+}

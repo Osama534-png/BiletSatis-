@@ -1,0 +1,48 @@
+@model List<BiletSatis.Web.Domain.Bilet>
+@{
+    ViewData["Title"] = "Sepetim";
+}
+
+<div class="hero">
+    <h1>🛒 Sepetim</h1>
+    <p>Ödeme bekleyen rezervasyonlarınız burada listelenir.</p>
+</div>
+
+@if (TempData["Hata"] != null)
+{
+    <div class="alert alert-danger">⚠️ @TempData["Hata"]</div>
+}
+@if (TempData["Bilgi"] != null)
+{
+    <div class="alert alert-success">✅ @TempData["Bilgi"]</div>
+}
+
+@if (!Model.Any())
+{
+    <p class="text-muted">Sepetinizde bekleyen bir rezervasyon yok.</p>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-primary">Etkinliklere Göz At</a>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var bilet in Model)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h2 class="h5 mb-1">@bilet.Etkinlik?.Ad</h2>
+                        <p class="text-muted small mb-2">Koltuk: <strong>@bilet.KoltukNo</strong> — @bilet.Fiyat.ToString("C")</p>
+                        <div class="alert alert-danger py-2 px-3 mb-3">
+                            ⏱️ <strong>@bilet.KilitBitisZamani?.ToLocalTime().ToString("HH:mm:ss")</strong> zamanına kadar geçerli
+                        </div>
+                        <a asp-action="OdemeStub" asp-route-biletId="@bilet.Id" class="btn btn-primary btn-sm w-100 mb-2">Ödemeye Git</a>
+                        <form asp-action="IptalEt" method="post">
+                            <input type="hidden" name="biletId" value="@bilet.Id" />
+                            <button type="submit" class="btn btn-outline-secondary btn-sm w-100">Vazgeç</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

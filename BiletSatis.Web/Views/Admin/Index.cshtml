@@ -1,0 +1,90 @@
+@model List<BiletSatis.Web.Models.AdminEtkinlikOzeti>
+@{
+    ViewData["Title"] = "Admin";
+}
+
+<div class="hero d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+        <h1>⚙️ Yönetim Paneli</h1>
+        <p>Etkinlik durumlarını izle, kuyruktaki kullanıcılara satış hakkı tanı.</p>
+    </div>
+    <a asp-action="EtkinlikEkle" class="btn btn-outline-secondary bg-white">+ Yeni Etkinlik</a>
+</div>
+
+@if (TempData["Bilgi"] != null)
+{
+    <div class="alert alert-success mb-4">✅ @TempData["Bilgi"]</div>
+}
+@if (TempData["Hata"] != null)
+{
+    <div class="alert alert-danger mb-4">⚠️ @TempData["Hata"]</div>
+}
+
+@if (!Model.Any())
+{
+    <p class="text-muted">Henüz etkinlik yok. Yukarıdan yeni bir etkinlik oluşturun.</p>
+}
+
+@foreach (var e in Model)
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h4 mb-3">🎤 @e.Ad</h2>
+
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3">
+                    <div class="stat-tile">
+                        <div class="stat-value" style="color:var(--success);">@e.SatistaSayisi</div>
+                        <div class="text-muted small">Satışta</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-tile">
+                        <div class="stat-value" style="color:var(--warning);">@e.SepetteSayisi</div>
+                        <div class="text-muted small">Sepette</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-tile">
+                        <div class="stat-value">@e.SatildiSayisi</div>
+                        <div class="text-muted small">Satıldı</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-tile">
+                        <div class="stat-value" style="color:var(--info);">@e.KuyrukBeklemede</div>
+                        <div class="text-muted small">Kuyrukta Bekleyen</div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-muted small mb-2">Hak Tanındı: <strong>@e.KuyrukHakTanindi</strong> kişi</p>
+
+            <form asp-action="SatisiBaslat" method="post" class="d-flex gap-2 align-items-center mb-3">
+                <input type="hidden" name="etkinlikId" value="@e.EtkinlikId" />
+                <label class="form-label mb-0">Satışı başlat:</label>
+                <input type="number" name="n" value="@e.SatistaSayisi" min="1" class="form-control form-control-sm" style="width: 90px;" />
+                <button type="submit" class="btn btn-warning btn-sm">🚀 Başlat</button>
+            </form>
+
+            <hr />
+
+            <form asp-action="BiletEkle" method="post" class="d-flex gap-2 align-items-end flex-wrap">
+                <input type="hidden" name="etkinlikId" value="@e.EtkinlikId" />
+                <div>
+                    <label class="form-label mb-1 small">Koltuk Öneki</label>
+                    <input type="text" name="koltukOnEki" value="B" maxlength="10" required class="form-control form-control-sm" style="width: 90px;" />
+                </div>
+                <div>
+                    <label class="form-label mb-1 small">Adet</label>
+                    <input type="number" name="adet" value="10" min="1" max="1000" required class="form-control form-control-sm" style="width: 90px;" />
+                </div>
+                <div>
+                    <label class="form-label mb-1 small">Fiyat</label>
+                    <input type="number" name="fiyat" value="250" min="1" step="0.01" required class="form-control form-control-sm" style="width: 110px;" />
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">+ Bilet Ekle</button>
+            </form>
+        </div>
+    </div>
+}
