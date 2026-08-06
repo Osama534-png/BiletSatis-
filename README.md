@@ -58,8 +58,11 @@ BiletSatis/
     Services/              # Atomik SQL sorgularını içeren servisler
     BackgroundServices/    # CartExpiryWorker, WaitlistWorker
     Controllers/, Views/   # MVC katmanı
+    Dockerfile             # Multi-stage build (SDK -> ASP.NET runtime)
   BiletSatis.Tests/        # xUnit entegrasyon testleri (gerçek SQL Server'a karşı)
   loadtests/k6/            # k6 yük testi script'leri
+  docker-compose.yml       # web + db container'larını birlikte ayağa kaldırır
+  .env.example             # Docker için gerekli ortam değişkenleri şablonu
 ```
 
 ## Kurulum
@@ -80,6 +83,18 @@ dotnet run --project BiletSatis.Web
 
 - **E-posta:** `admin@biletsatis.local`
 - **Şifre:** `Admin123!`
+
+### Docker ile çalıştırma
+
+.NET SDK veya yerel SQL Server kurmadan, tek komutla hem uygulamayı hem de kendi SQL Server veritabanını ayağa kaldırabilirsiniz:
+
+```bash
+cp .env.example .env
+# .env dosyasını açıp DB_SA_PASSWORD ve STRIPE_SECRET_KEY değerlerini girin
+docker compose up --build
+```
+
+Uygulama `http://localhost:8080` adresinde açılır. `docker-compose.yml`, uygulama container'ı (`web`) ile ayrı bir SQL Server container'ını (`db`) birlikte başlatır; veritabanı bağlantısı Windows Authentication yerine SQL Server kimlik doğrulaması (kullanıcı/şifre) ile ortam değişkenleri üzerinden yapılandırılır — bu yüzden yerel geliştirme (`appsettings.json`) ile Docker yapılandırması birbirinden bağımsızdır.
 
 > ⚠️ Bu, sadece yerel geliştirme için hardcoded bir seed hesabıdır — gerçek bir dağıtımda bu yaklaşım değiştirilmelidir.
 

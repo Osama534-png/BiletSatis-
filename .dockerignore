@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/logs/
+**/.vs/
+**/.vscode/
+**/.claude/
+**/*.user
+.git/
+.gitignore
+.env
+BiletSatis.Tests/
+loadtests/
+*.md
