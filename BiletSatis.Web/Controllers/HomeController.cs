@@ -45,7 +45,13 @@ public class HomeController : Controller
             Etkinlikler = etkinlikler,
             ToplamEtkinlik = etkinlikler.Count,
             ToplamSatistaBilet = etkinlikler.Sum(e => e.MusaitKoltukSayisi),
-            ToplamKuyruktaBekleyen = kuyruktaBekleyen
+            ToplamKuyruktaBekleyen = kuyruktaBekleyen,
+            Sehirler = etkinlikler
+                .Select(e => e.Sehir)
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .OrderBy(s => s, StringComparer.CurrentCulture)
+                .ToList()
         };
         return View(vm);
     }

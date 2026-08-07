@@ -156,10 +156,15 @@ function initEventSearch() {
   const priceValue = document.getElementById("priceValue");
   const onlyAvailable = document.getElementById("onlyAvailable");
   const resetBtn = document.getElementById("filterReset");
+  const cityPicker = document.getElementById("cityPicker");
+  const cityCurrent = document.getElementById("cityCurrent");
   const cards = Array.from(rail.querySelectorAll(".event-card"));
+
+  const SEHIR_ANAHTARI = "biletsatis.sehir";
 
   let dateRange = "all";
   let category = "all";
+  let city = "all";
 
   // Seçilen aralığın son günü — "all" ise sınır yok.
   const rangeLimit = () => {
@@ -185,8 +190,9 @@ function initEventSearch() {
       const availableOk = !onlyAvailable?.checked || Number(card.dataset.available || 0) > 0;
       const dateOk = !limit || new Date(card.dataset.date) <= limit;
       const categoryOk = category === "all" || card.dataset.category === category;
+      const cityOk = city === "all" || card.dataset.city === city;
 
-      const matches = nameOk && priceOk && availableOk && dateOk && categoryOk;
+      const matches = nameOk && priceOk && availableOk && dateOk && categoryOk && cityOk;
       card.classList.toggle("is-filtered-out", !matches);
       if (matches) visibleCount += 1;
     });
@@ -217,6 +223,41 @@ function initEventSearch() {
     });
   });
 
+  // Şehir seçimini uygular; kayitli=true ise tercihi tarayıcıda saklar.
+  const sehriSec = (secim, kaydet = true) => {
+    const secenekler = cityPicker?.querySelectorAll(".city-option");
+    if (!secenekler?.length) return;
+
+    // Kayıtlı şehir artık listede yoksa "Tüm Şehirler"e düş.
+    const gecerli = Array.from(secenekler).some((o) => o.dataset.city === secim);
+    city = gecerli ? secim : "all";
+
+    secenekler.forEach((o) => o.classList.toggle("is-active", o.dataset.city === city));
+    if (cityCurrent) {
+      cityCurrent.textContent = city === "all" ? "Tüm Şehirler" : city;
+    }
+    if (kaydet) {
+      try {
+        localStorage.setItem(SEHIR_ANAHTARI, city);
+      } catch {
+        /* gizli sekmede localStorage kapalı olabilir */
+      }
+    }
+  };
+
+  cityPicker?.querySelectorAll(".city-option").forEach((option) => {
+    option.addEventListener("click", () => {
+      sehriSec(option.dataset.city);
+      cityPicker.open = false;
+      applyFilter();
+    });
+  });
+
+  // Menü dışına tıklanınca kapat.
+  document.addEventListener("click", (olay) => {
+    if (cityPicker?.open && !cityPicker.contains(olay.target)) cityPicker.open = false;
+  });
+
   clearBtn?.addEventListener("click", () => {
     input.value = "";
     applyFilter();
@@ -235,8 +276,22 @@ function initEventSearch() {
     dateChips?.querySelectorAll(".chip").forEach((c) => {
       c.classList.toggle("is-active", c.dataset.range === "all");
     });
+    sehriSec("all");
     applyFilter();
   });
+
+  // Önceki ziyaretten kalan şehir tercihini geri yükle.
+  let kayitliSehir = null;
+  try {
+    kayitliSehir = localStorage.getItem(SEHIR_ANAHTARI);
+  } catch {
+    /* localStorage erişilemiyor olabilir */
+  }
+
+  if (kayitliSehir && kayitliSehir !== "all") {
+    sehriSec(kayitliSehir, false);
+    applyFilter();
+  }
 }
 
 function initVenueMap() {

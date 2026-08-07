@@ -27,10 +27,9 @@ public class EtkinlikDetayVm
     public bool Tukendi => MusaitKoltuk == 0;
     public int KalanGun => (Tarih.Date - DateTime.Now.Date).Days;
 
-    /// <summary>Mekan "Salon, Şehir" biçimindeyse şehir kısmı.</summary>
-    public string Sehir => Mekan.Contains(',') ? Mekan.Split(',').Last().Trim() : "";
+    public string Sehir => MekanBilgisi.Sehir(Mekan);
 
-    public string MekanAdi => Mekan.Contains(',') ? Mekan.Split(',')[0].Trim() : Mekan;
+    public string MekanAdi => MekanBilgisi.SalonAdi(Mekan);
 }
 
 public class FiyatSatiriVm

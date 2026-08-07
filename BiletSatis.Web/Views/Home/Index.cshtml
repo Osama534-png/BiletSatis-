@@ -47,6 +47,27 @@
     <p>En sıcak etkinlikler burada — sepete ekle, öde, ya da kuyruğa katılıp şansını dene.</p>
 </div>
 
+@if (Model.Sehirler.Any())
+{
+    <div class="city-row">
+        <details class="city-picker" id="cityPicker">
+            <summary>
+                <span class="city-pin">📍</span>
+                <span class="city-current" id="cityCurrent">Tüm Şehirler</span>
+                <span class="city-caret" aria-hidden="true">▾</span>
+            </summary>
+            <div class="city-menu" role="listbox">
+                <button type="button" class="city-option is-active" data-city="all" role="option">Tüm Şehirler</button>
+                @foreach (var sehir in Model.Sehirler)
+                {
+                    <button type="button" class="city-option" data-city="@sehir" role="option">@sehir</button>
+                }
+            </div>
+        </details>
+        <span class="city-hint">Şehir seçerek listeyi daraltabilirsin</span>
+    </div>
+}
+
 <nav class="category-nav" id="categoryNav" aria-label="Etkinlik kategorileri">
     <span class="category-indicator" id="categoryIndicator" aria-hidden="true"></span>
 
@@ -177,6 +198,7 @@
                     <div class="event-card"
                          data-name="@e.Ad.ToLowerInvariant()"
                          data-category="@e.Kategori"
+                         data-city="@e.Sehir"
                          data-date="@e.Tarih.ToString("yyyy-MM-dd")"
                          data-price="@(e.EnDusukFiyat?.ToString("0", System.Globalization.CultureInfo.InvariantCulture) ?? "0")"
                          data-available="@e.MusaitKoltukSayisi"

@@ -723,6 +723,108 @@ footer.site-footer a:hover {
   }
 }
 
+/* ---------- Şehir seçici ---------- */
+
+.city-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.city-hint {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.city-picker {
+  position: relative;
+}
+
+.city-picker summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0.55rem 1.05rem;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+}
+
+.city-picker summary::-webkit-details-marker,
+.city-picker summary::marker {
+  display: none;
+  content: "";
+}
+
+.city-picker summary:hover,
+.city-picker[open] summary {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 0.2rem rgba(255, 77, 46, 0.16);
+}
+
+.city-caret {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.22s var(--ease);
+}
+
+.city-picker[open] .city-caret {
+  transform: rotate(180deg);
+}
+
+.city-menu {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 30;
+  min-width: 13rem;
+  max-height: 17rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.35rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 34px -16px rgba(23, 20, 15, 0.5);
+  animation: fadeInUp 0.2s var(--ease) both;
+}
+
+.city-option {
+  border: none;
+  background: transparent;
+  text-align: left;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.city-option:hover {
+  background: var(--surface-alt);
+}
+
+.city-option.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
 /* ---------- Kategori menü çubuğu ---------- */
 
 .category-nav {
