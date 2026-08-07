@@ -61,8 +61,9 @@ public class KuyrukServisi : IKuyrukServisi
         if (suresiDolan > 0)
         {
             _logger.LogInformation("Süresi dolan {Sayi} kuyruk hakkı sıradakilere devredildi: EtkinlikId={EtkinlikId}", suresiDolan, etkinlikId);
-            await AllocateWaitlistBatchAsync(etkinlikId, suresiDolan, ct);
-        }
+            await AllocateWaitlistBatchAsync(etkinlikId, suresiDolan, ct);// AllocateWaitlistBatchAsync kac kisinin suresi dolduysa o kadar kisiye hak tanir
+             
+		}
 
         return suresiDolan;
     }
@@ -78,3 +79,8 @@ public class KuyrukServisi : IKuyrukServisi
         return etkilenen == 1;
     }
 }
+//Genel Mimari Özeti: Bu yapı, kuyruk sistemlerindeki en büyük problem olan
+//"Ölü Kilitlenmeleri" (Deadlocks) ve bekleyen hakları çözer
+//. Kullanıcılara süreli hak verir
+//(1. metot süreyi denetler), başarılı olanları kaydeder
+//(2. metot), başarısız olanların yerine ise sıradakileri alarak etkinliğin boş kalmasını engeller.

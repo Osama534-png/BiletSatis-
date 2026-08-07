@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Yalın — Bir Büyülü Gece afişi">
+  <defs>
+    <linearGradient id="yaBg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#3b1157"/>
+      <stop offset="0.5" stop-color="#7a1b6b"/>
+      <stop offset="1" stop-color="#1a0824"/>
+    </linearGradient>
+    <radialGradient id="yaHalo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff9ede" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ff9ede" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#yaBg)"/>
+  <circle cx="300" cy="330" r="250" fill="url(#yaHalo)"/>
+
+  <g fill="none" stroke="#ffc2ec" stroke-width="2" opacity="0.5">
+    <ellipse cx="300" cy="330" rx="200" ry="86" transform="rotate(-18 300 330)"/>
+    <ellipse cx="300" cy="330" rx="200" ry="86" transform="rotate(18 300 330)"/>
+    <ellipse cx="300" cy="330" rx="86" ry="200" opacity="0.6"/>
+  </g>
+
+  <g fill="#fff0fb">
+    <path d="M300 232 l13 40 40 13 -40 13 -13 40 -13-40 -40-13 40-13 z"/>
+    <path d="M172 402 l8 25 25 8 -25 8 -8 25 -8-25 -25-8 25-8 z" opacity="0.85"/>
+    <path d="M436 288 l7 21 21 7 -21 7 -7 21 -7-21 -21-7 21-7 z" opacity="0.8"/>
+    <path d="M396 452 l6 17 17 6 -17 6 -6 17 -6-17 -17-6 17-6 z" opacity="0.7"/>
+    <circle cx="238" cy="286" r="4" opacity="0.8"/>
+    <circle cx="368" cy="386" r="3.5" opacity="0.75"/>
+    <circle cx="286" cy="446" r="3" opacity="0.6"/>
+  </g>
+
+  <text x="52" y="118" font-family="Helvetica,Arial,sans-serif" font-size="23" font-weight="700"
+        letter-spacing="7" fill="#ffc2ec">BİR BÜYÜLÜ GECE</text>
+
+  <text x="52" y="716" font-family="Helvetica,Arial,sans-serif" font-size="112" font-weight="700"
+        fill="#fff0fb" letter-spacing="-3">YALIN</text>
+
+  <text x="52" y="756" font-family="Helvetica,Arial,sans-serif" font-size="21" font-weight="700"
+        fill="#ffc2ec" letter-spacing="2">29 AĞUSTOS · BORNOVA AÇIKHAVA</text>
+</svg>

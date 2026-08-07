@@ -28,14 +28,22 @@ else
         @foreach (var bilet in Model)
         {
             <div class="col-md-6 col-lg-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h2 class="h5 mb-1">@bilet.Etkinlik?.Ad</h2>
-                        <p class="text-muted small mb-2">Koltuk: <strong>@bilet.KoltukNo</strong> — @bilet.Fiyat.ToString("C")</p>
-                        <div class="alert alert-danger py-2 px-3 mb-3">
-                            ⏱️ <strong>@bilet.KilitBitisZamani?.ToLocalTime().ToString("HH:mm:ss")</strong> zamanına kadar geçerli
+                <div class="ticket-card reveal">
+                    <div class="ticket-band band-sepette">
+                        <div>
+                            <div class="ticket-title">@bilet.Etkinlik?.Ad</div>
                         </div>
-                        <a asp-action="OdemeStub" asp-route-biletId="@bilet.Id" class="btn btn-primary btn-sm w-100 mb-2">Ödemeye Git</a>
+                        <span class="ticket-seat" style="font-size:1.15rem">@bilet.KoltukNo</span>
+                    </div>
+                    <div class="ticket-perf"></div>
+                    <div class="ticket-body">
+                        <p class="ticket-desc">
+                            ⏱️ Rezervasyonunuz <strong>@bilet.KilitBitisZamani?.ToLocalTime().ToString("HH:mm:ss")</strong> zamanına kadar geçerli — süre dolarsa koltuk otomatik olarak tekrar satışa açılır.
+                        </p>
+                        <div class="ticket-price-row">
+                            <span class="ticket-price">@bilet.Fiyat.ToString("C")</span>
+                        </div>
+                        <a asp-action="OdemeStub" asp-route-biletId="@bilet.Id" class="btn btn-primary btn-sm w-100">💳 Ödemeye Git</a>
                         <form asp-action="IptalEt" method="post">
                             <input type="hidden" name="biletId" value="@bilet.Id" />
                             <button type="submit" class="btn btn-outline-secondary btn-sm w-100">Vazgeç</button>

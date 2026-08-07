@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="mor ve ötesi — 30. Yıl afişi">
+  <defs>
+    <linearGradient id="moBg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#4a1d7a"/>
+      <stop offset="0.5" stop-color="#2a0f47"/>
+      <stop offset="1" stop-color="#120620"/>
+    </linearGradient>
+    <linearGradient id="moNum" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8a3d"/>
+      <stop offset="1" stop-color="#ff2e6b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#moBg)"/>
+
+  <g stroke="#8b5cf6" stroke-width="2" opacity="0.35" fill="none">
+    <path d="M0 190 L600 190"/>
+    <path d="M0 244 L600 244"/>
+    <path d="M0 470 L600 470"/>
+    <path d="M0 524 L600 524"/>
+  </g>
+
+  <text x="300" y="428" text-anchor="middle" font-family="Helvetica,Arial,sans-serif"
+        font-size="260" font-weight="700" fill="url(#moNum)" letter-spacing="-12">30</text>
+  <text x="300" y="428" text-anchor="middle" font-family="Helvetica,Arial,sans-serif"
+        font-size="260" font-weight="700" fill="none" stroke="#ffd0e2" stroke-width="2"
+        letter-spacing="-12" opacity="0.35">30</text>
+
+  <text x="300" y="480" text-anchor="middle" font-family="Helvetica,Arial,sans-serif"
+        font-size="34" font-weight="700" letter-spacing="18" fill="#ffd0e2">YIL</text>
+
+  <g stroke="#ff8a3d" stroke-width="3" stroke-linecap="round" opacity="0.8">
+    <line x1="60" y1="590" x2="60" y2="632"/>
+    <line x1="84" y1="572" x2="84" y2="650"/>
+    <line x1="108" y1="600" x2="108" y2="622"/>
+    <line x1="492" y1="600" x2="492" y2="622"/>
+    <line x1="516" y1="572" x2="516" y2="650"/>
+    <line x1="540" y1="590" x2="540" y2="632"/>
+  </g>
+
+  <text x="52" y="118" font-family="Helvetica,Arial,sans-serif" font-size="24" font-weight="700"
+        letter-spacing="8" fill="#c4a5ff">30. YIL KONSERİ</text>
+
+  <text x="52" y="716" font-family="Helvetica,Arial,sans-serif" font-size="56" font-weight="700"
+        fill="#fff2f7" letter-spacing="-1">mor ve ötesi</text>
+
+  <text x="52" y="756" font-family="Helvetica,Arial,sans-serif" font-size="21" font-weight="700"
+        fill="#c4a5ff" letter-spacing="2">10 EKİM · ANTALYA AÇIKHAVA</text>
+</svg>

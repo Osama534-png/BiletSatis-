@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Açıkhava Sinema Gecesi afişi">
+  <defs>
+    <linearGradient id="siBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#123a4d"/>
+      <stop offset="0.5" stop-color="#0b2130"/>
+      <stop offset="1" stop-color="#050d14"/>
+    </linearGradient>
+    <linearGradient id="siPerdeG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf6e3"/>
+      <stop offset="1" stop-color="#cbbf9c"/>
+    </linearGradient>
+    <linearGradient id="siIsik" x1="0.5" y1="1" x2="0.5" y2="0">
+      <stop offset="0" stop-color="#ffe9a8" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#siBg)"/>
+
+  <g fill="#fff6d8" opacity="0.75">
+    <circle cx="92" cy="96" r="2.2"/>
+    <circle cx="196" cy="62" r="1.6"/>
+    <circle cx="418" cy="88" r="2.4"/>
+    <circle cx="512" cy="148" r="1.8"/>
+    <circle cx="70" cy="196" r="1.7"/>
+  </g>
+
+  <path d="M300 620 L120 300 L480 300 Z" fill="url(#siIsik)"/>
+
+  <rect x="96" y="180" width="408" height="240" rx="8" fill="url(#siPerdeG)"/>
+  <rect x="112" y="196" width="376" height="208" rx="4" fill="#0b2130" opacity="0.15"/>
+  <g fill="#0b2130" opacity="0.5">
+    <rect x="96" y="180" width="408" height="12" rx="6"/>
+    <rect x="96" y="408" width="408" height="12" rx="6"/>
+  </g>
+
+  <g fill="#123a4d" opacity="0.9">
+    <rect x="140" y="600" width="70" height="44" rx="8"/>
+    <rect x="230" y="600" width="70" height="44" rx="8"/>
+    <rect x="320" y="600" width="70" height="44" rx="8"/>
+    <rect x="410" y="600" width="70" height="44" rx="8"/>
+  </g>
+
+  <text x="52" y="118" font-family="Helvetica,Arial,sans-serif" font-size="23" font-weight="700"
+        letter-spacing="9" fill="#8fd0e8">AÇIKHAVA SİNEMA</text>
+
+  <text x="52" y="712" font-family="Helvetica,Arial,sans-serif" font-size="60" font-weight="700"
+        fill="#fdf6e3" letter-spacing="-2">SİNEMA GECESİ</text>
+
+  <text x="52" y="756" font-family="Helvetica,Arial,sans-serif" font-size="21" font-weight="700"
+        fill="#8fd0e8" letter-spacing="2">5 EYLÜL · YOĞURTÇU PARKI</text>
+</svg>

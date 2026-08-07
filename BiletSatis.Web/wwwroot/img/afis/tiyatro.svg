@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Bir Yaz Gecesi Rüyası afişi">
+  <defs>
+    <linearGradient id="tiBg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#7a1230"/>
+      <stop offset="0.55" stop-color="#43091c"/>
+      <stop offset="1" stop-color="#1a0409"/>
+    </linearGradient>
+    <linearGradient id="tiPerde" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c22a45"/>
+      <stop offset="0.5" stop-color="#8d1228"/>
+      <stop offset="1" stop-color="#c22a45"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#tiBg)"/>
+
+  <path d="M0 0 h130 q-18 200 12 400 t-22 400 H0 Z" fill="url(#tiPerde)" opacity="0.9"/>
+  <path d="M600 0 h-130 q18 200 -12 400 t22 400 H600 Z" fill="url(#tiPerde)" opacity="0.9"/>
+
+  <g fill="#f3d9a4">
+    <path d="M232 300 q68 -34 136 0 q0 96 -68 130 q-68 -34 -68 -130 z" opacity="0.95"/>
+    <circle cx="272" cy="340" r="9" fill="#43091c"/>
+    <circle cx="328" cy="340" r="9" fill="#43091c"/>
+    <path d="M268 388 q32 26 64 0" stroke="#43091c" stroke-width="7" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <g stroke="#f3d9a4" stroke-width="2.5" fill="none" opacity="0.45">
+    <circle cx="300" cy="360" r="150"/>
+  </g>
+
+  <text x="150" y="120" font-family="Helvetica,Arial,sans-serif" font-size="23" font-weight="700"
+        letter-spacing="8" fill="#f3d9a4">TİYATRO</text>
+
+  <text x="150" y="656" font-family="Helvetica,Arial,sans-serif" font-size="54" font-weight="700"
+        fill="#fff2e0" letter-spacing="-1">BİR YAZ</text>
+  <text x="150" y="708" font-family="Helvetica,Arial,sans-serif" font-size="54" font-weight="700"
+        fill="#fff2e0" letter-spacing="-1">GECESİ</text>
+  <text x="150" y="756" font-family="Helvetica,Arial,sans-serif" font-size="42" font-weight="700"
+        fill="#f3d9a4" letter-spacing="-1">RÜYASI</text>
+</svg>

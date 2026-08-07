@@ -7,13 +7,35 @@
     <div class="card-body">
         <h1 class="h3 mb-4">Yeni Etkinlik Oluştur</h1>
 
-        <form asp-action="EtkinlikEkle" method="post">
+        <form asp-action="EtkinlikEkle" method="post" enctype="multipart/form-data">
             <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
 
             <div class="mb-3">
                 <label asp-for="Ad" class="form-label"></label>
                 <input asp-for="Ad" class="form-control" />
                 <span asp-validation-for="Ad" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Mekan" class="form-label"></label>
+                <input asp-for="Mekan" class="form-control" placeholder="Örn: Harbiye Açıkhava, İstanbul" />
+                <span asp-validation-for="Mekan" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Kategori" class="form-label"></label>
+                <select asp-for="Kategori" class="form-select">
+                    @foreach (var kategori in BiletSatis.Web.Domain.KategoriMetni.Tumu)
+                    {
+                        <option value="@kategori">@BiletSatis.Web.Domain.KategoriMetni.Ad(kategori)</option>
+                    }
+                </select>
+                <span asp-validation-for="Kategori" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="AfisDosyasi" class="form-label"></label>
+                <input asp-for="AfisDosyasi" type="file" class="form-control"
+                       accept="image/jpeg,image/png,image/webp" />
+                <div class="form-text">JPG, PNG veya WEBP · en fazla 4 MB. Boş bırakılırsa varsayılan afiş kullanılır.</div>
+                <span asp-validation-for="AfisDosyasi" class="text-danger"></span>
             </div>
             <div class="mb-3">
                 <label asp-for="Tarih" class="form-label"></label>

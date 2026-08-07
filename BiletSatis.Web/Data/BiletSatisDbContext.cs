@@ -16,6 +16,19 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<Etkinlik>(e =>
+        {
+            e.Property(x => x.Mekan).HasMaxLength(200).HasDefaultValue("");
+            e.Property(x => x.AfisUrl).HasMaxLength(400).HasDefaultValue("");
+
+            e.Property(x => x.Kategori)
+                .HasConversion<string>()
+                .HasMaxLength(40)
+                .HasDefaultValue(EtkinlikKategorisi.Konser);
+
+            e.HasIndex(x => x.Kategori);
+        });
+
         modelBuilder.Entity<Bilet>(b =>
         {
             b.Property(x => x.Durum)

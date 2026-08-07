@@ -13,8 +13,9 @@ public class CartExpiryWorker : BackgroundService
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)//ExecuteAsync program calisir calismaz sonuz dongudu baslati
+                                                                               //httpden kommut beklemez
+	{
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
 
         while (await timer.WaitForNextTickAsync(stoppingToken))

@@ -9,10 +9,10 @@ namespace BiletSatis.Web.Controllers;
 [AllowAnonymous]
 public class AccountController : Controller
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly UserManager<ApplicationUser> _userManager;//kullanıcı OLUŞTURMA/yönetme
+	private readonly SignInManager<ApplicationUser> _signInManager;//giriş/çıkış YAPTIRMA cookıs
 
-    public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+	public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -31,14 +31,14 @@ public class AccountController : Controller
     {
         ViewData["ReturnUrl"] = returnUrl;
         if (!ModelState.IsValid) return View(model);
-
+        //hayit olma
         var user = new ApplicationUser { UserName = model.Email, Email = model.Email, Ad = model.Ad };
-        var sonuc = await _userManager.CreateAsync(user, model.Sifre);
+        var sonuc = await _userManager.CreateAsync(user, model.Sifre); //kullanıcıyı DB'ye yaz (şifre otomatik hash'lenir)
 
         if (sonuc.Succeeded)
         {
-            await _signInManager.SignInAsync(user, isPersistent: false);
-            return RedirectToLocal(returnUrl);
+            await _signInManager.SignInAsync(user, isPersistent: false);//tarayıcıya "giriş yapıldı" çerezi ver
+			return RedirectToLocal(returnUrl);
         }
 
         foreach (var hata in sonuc.Errors)

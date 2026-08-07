@@ -4,6 +4,7 @@ using BiletSatis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BiletSatis.Web.Data.Migrations
 {
     [DbContext(typeof(BiletSatisDbContext))]
-    partial class BiletSatisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260807121907_AddEtkinlikMekan")]
+    partial class AddEtkinlikMekan
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -141,20 +144,6 @@ namespace BiletSatis.Web.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("AfisUrl")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)")
-                        .HasDefaultValue("");
-
-                    b.Property<string>("Kategori")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(40)
-                        .HasColumnType("nvarchar(40)")
-                        .HasDefaultValue("Konser");
-
                     b.Property<string>("Mekan")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -166,8 +155,6 @@ namespace BiletSatis.Web.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Kategori");
 
                     b.ToTable("Etkinlikler");
                 });

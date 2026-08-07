@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Yaz Sonu Müzik Festivali afişi">
+  <defs>
+    <linearGradient id="feBg" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#ff9d2e"/>
+      <stop offset="0.42" stop-color="#e8365c"/>
+      <stop offset="1" stop-color="#3b1057"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#feBg)"/>
+
+  <g opacity="0.9">
+    <path d="M300 200 L470 430 H130 Z" fill="#2a0b40"/>
+    <path d="M300 200 L300 430 H130 Z" fill="#1d0730"/>
+    <rect x="286" y="150" width="6" height="60" fill="#ffe9a8"/>
+    <path d="M292 150 l46 16 -46 16 z" fill="#ffe9a8"/>
+  </g>
+
+  <g fill="none" stroke="#ffe9a8" stroke-width="3" opacity="0.55">
+    <path d="M40 500 q60 -46 120 0 t120 0 t120 0 t120 0"/>
+    <path d="M40 540 q60 -46 120 0 t120 0 t120 0 t120 0"/>
+  </g>
+
+  <g fill="#ffe9a8">
+    <circle cx="96" cy="180" r="5" opacity="0.9"/>
+    <circle cx="150" cy="128" r="3.5" opacity="0.7"/>
+    <circle cx="470" cy="150" r="4.5" opacity="0.85"/>
+    <circle cx="524" cy="212" r="3" opacity="0.6"/>
+  </g>
+
+  <text x="52" y="118" font-family="Helvetica,Arial,sans-serif" font-size="23" font-weight="700"
+        letter-spacing="9" fill="#3b1057">MÜZİK FESTİVALİ</text>
+
+  <text x="52" y="660" font-family="Helvetica,Arial,sans-serif" font-size="72" font-weight="700"
+        fill="#fff6e8" letter-spacing="-2">YAZ SONU</text>
+  <text x="52" y="730" font-family="Helvetica,Arial,sans-serif" font-size="72" font-weight="700"
+        fill="#ffe9a8" letter-spacing="-2">FESTİVAL</text>
+
+  <text x="52" y="766" font-family="Helvetica,Arial,sans-serif" font-size="20" font-weight="700"
+        fill="#fff6e8" letter-spacing="2">12 EYLÜL · KİLYOS SAHİL</text>
+</svg>

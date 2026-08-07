@@ -1,5 +1,6 @@
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Domain;
+using BiletSatis.Web.Models;
 using BiletSatis.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -27,12 +28,81 @@ public class BiletlerController : Controller
     public async Task<IActionResult> Index(int etkinlikId)
     {
         var etkinlik = await _db.Etkinlikler
+            .AsNoTracking()
             .Include(e => e.Biletler)
             .FirstOrDefaultAsync(e => e.Id == etkinlikId);
 
         if (etkinlik == null) return NotFound();
 
-        return View(etkinlik);
+        return View(KoltukHaritasiOlustur(etkinlik));
+    }
+
+    /// <summary>
+    /// Biletleri koltuk numarasının önekine göre bloklara ayırır ("A-01" → A blok).
+    /// Kategori sırası fiyata göre belirlenir: en pahalı blok 1. Kategori ve sahneye en yakın.
+    /// </summary>
+    private static KoltukHaritasiVm KoltukHaritasiOlustur(Etkinlik etkinlik)
+    {
+        var bloklar = etkinlik.Biletler
+            .GroupBy(b => BlokKodu(b.KoltukNo))
+            .Select(g => new BlokVm
+            {
+                Kod = g.Key,
+                Ad = $"{g.Key} Blok",
+                EnDusukFiyat = g.Min(b => b.Fiyat),
+                ToplamKoltuk = g.Count(),
+                MusaitKoltuk = g.Count(b => b.Durum == BiletDurumu.Satista),
+                Koltuklar = g
+                    .OrderBy(b => b.KoltukNo, StringComparer.OrdinalIgnoreCase)
+                    .Select(b => new KoltukVm
+                    {
+                        BiletId = b.Id,
+                        KoltukNo = b.KoltukNo,
+                        KisaNo = KisaKoltukNo(b.KoltukNo),
+                        Fiyat = b.Fiyat,
+                        Durum = b.Durum
+                    })
+                    .ToList()
+            })
+            .OrderBy(b => b.Kod, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var fiyatSirasi = bloklar
+            .Select(b => b.EnDusukFiyat)
+            .Distinct()
+            .OrderByDescending(f => f)
+            .ToList();
+
+        foreach (var blok in bloklar)
+        {
+            blok.Kategori = $"{fiyatSirasi.IndexOf(blok.EnDusukFiyat) + 1}. Kategori";
+            blok.OnSira = blok.EnDusukFiyat == fiyatSirasi.FirstOrDefault();
+        }
+
+        return new KoltukHaritasiVm
+        {
+            EtkinlikId = etkinlik.Id,
+            EtkinlikAdi = etkinlik.Ad,
+            Mekan = etkinlik.Mekan,
+            AfisUrl = etkinlik.AfisUrl,
+            Tarih = etkinlik.Tarih,
+            Bloklar = bloklar
+        };
+    }
+
+    private static string BlokKodu(string koltukNo)
+    {
+        var ayirac = koltukNo.IndexOf('-');
+        var kod = ayirac > 0 ? koltukNo[..ayirac] : koltukNo;
+        return kod.Trim().ToUpperInvariant();
+    }
+
+    private static string KisaKoltukNo(string koltukNo)
+    {
+        var ayirac = koltukNo.IndexOf('-');
+        return ayirac > 0 && ayirac < koltukNo.Length - 1
+            ? koltukNo[(ayirac + 1)..]
+            : koltukNo;
     }
 
     [HttpPost]

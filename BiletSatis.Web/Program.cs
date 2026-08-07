@@ -44,10 +44,10 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.LoginPath = "/Account/GirisYap";
-    options.AccessDeniedPath = "/Account/ErisimEngellendi";
-    options.ExpireTimeSpan = TimeSpan.FromDays(14);
-    options.SlidingExpiration = true;
+    options.LoginPath = "/Account/GirisYap"; // giri? yapmam?? biri korumal? sayfaya girerse buraya at
+	options.AccessDeniedPath = "/Account/ErisimEngellendi";// yetkisi olmayan biri buraya at
+	options.ExpireTimeSpan = TimeSpan.FromDays(14); // 14 gün sonra çerez geçersiz olur, tekrar giri? gerekir
+	options.SlidingExpiration = true;
 });
 
 builder.Services.AddHttpContextAccessor();

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Mabel Matiz — Yaz Turnesi afişi">
+  <defs>
+    <linearGradient id="mmBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb347"/>
+      <stop offset="0.42" stop-color="#ff6a2b"/>
+      <stop offset="1" stop-color="#5c1608"/>
+    </linearGradient>
+    <linearGradient id="mmSun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3c4"/>
+      <stop offset="1" stop-color="#ffcf5c"/>
+    </linearGradient>
+    <clipPath id="mmSunClip"><circle cx="300" cy="300" r="160"/></clipPath>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#mmBg)"/>
+
+  <circle cx="300" cy="300" r="160" fill="url(#mmSun)"/>
+  <g clip-path="url(#mmSunClip)" fill="#ff6a2b" opacity="0.85">
+    <rect x="140" y="330" width="320" height="10"/>
+    <rect x="140" y="360" width="320" height="14"/>
+    <rect x="140" y="396" width="320" height="18"/>
+    <rect x="140" y="440" width="320" height="24"/>
+  </g>
+
+  <g fill="none" stroke="#ffe9b0" stroke-width="3" opacity="0.5">
+    <path d="M0 560 Q150 520 300 560 T600 560"/>
+    <path d="M0 590 Q150 550 300 590 T600 590"/>
+    <path d="M0 620 Q150 580 300 620 T600 620"/>
+  </g>
+
+  <text x="52" y="120" font-family="Helvetica,Arial,sans-serif" font-size="26" font-weight="700"
+        letter-spacing="8" fill="#5c1608" opacity="0.85">YAZ TURNESİ</text>
+
+  <text x="52" y="690" font-family="Helvetica,Arial,sans-serif" font-size="76" font-weight="700"
+        fill="#fff8ec" letter-spacing="-2">MABEL</text>
+  <text x="52" y="756" font-family="Helvetica,Arial,sans-serif" font-size="76" font-weight="700"
+        fill="#fff8ec" letter-spacing="-2">MATİZ</text>
+
+  <rect x="52" y="712" width="0" height="0"/>
+  <text x="548" y="756" text-anchor="end" font-family="Helvetica,Arial,sans-serif" font-size="21"
+        font-weight="700" fill="#ffd88a">12 EYLÜL · HARBİYE</text>
+</svg>

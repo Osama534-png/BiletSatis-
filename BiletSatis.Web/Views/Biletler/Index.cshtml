@@ -1,12 +1,38 @@
-@model BiletSatis.Web.Domain.Etkinlik
+@model BiletSatis.Web.Models.KoltukHaritasiVm
 @using BiletSatis.Web.Domain
 @{
-    ViewData["Title"] = Model.Ad;
+    ViewData["Title"] = Model.EtkinlikAdi;
+    var onSira = Model.Bloklar.Where(b => b.OnSira).ToList();
+    var arkaSira = Model.Bloklar.Where(b => !b.OnSira).ToList();
+    var ilkSecili = Model.Bloklar.FirstOrDefault(b => b.MusaitKoltuk > 0) ?? Model.Bloklar.FirstOrDefault();
+    var kalanGun = (Model.Tarih.Date - DateTime.Now.Date).Days;
 }
 
-<div class="hero">
-    <h1>🎤 @Model.Ad</h1>
-    <p>📅 @Model.Tarih.ToString("dd.MM.yyyy HH:mm")</p>
+<div class="event-header">
+    <img class="event-header-poster"
+         src="@(string.IsNullOrWhiteSpace(Model.AfisUrl) ? "/img/afis/varsayilan.svg" : Model.AfisUrl)"
+         alt="@Model.EtkinlikAdi afişi" />
+    <div class="event-header-info">
+        <h1>@Model.EtkinlikAdi</h1>
+        <div class="event-header-meta">
+            @if (!string.IsNullOrWhiteSpace(Model.Mekan))
+            {
+                <span>📍 @Model.Mekan</span>
+            }
+            <span>📅 @Model.Tarih.ToString("dd MMMM yyyy, HH:mm")</span>
+            @if (kalanGun > 0)
+            {
+                <span class="countdown-pill">⏳ @kalanGun gün kaldı</span>
+            }
+        </div>
+        <div class="event-header-meta">
+            <span>🎟️ @Model.ToplamMusait / @Model.ToplamKoltuk koltuk müsait</span>
+            @if (Model.EnDusukFiyat.HasValue)
+            {
+                <span>💰 @Model.EnDusukFiyat.Value.ToString("N0")₺ – @Model.EnYuksekFiyat!.Value.ToString("N0")₺</span>
+            }
+        </div>
+    </div>
 </div>
 
 @if (TempData["Hata"] != null)
@@ -18,30 +44,132 @@
     <div class="alert alert-success">✅ @TempData["Bilgi"]</div>
 }
 
-<div class="row g-3">
-    @foreach (var bilet in Model.Biletler.OrderBy(b => b.KoltukNo))
-    {
-        var (badgeClass, badgeIcon) = bilet.Durum switch
-        {
-            BiletDurumu.Satista => ("badge-satista", "🟢"),
-            BiletDurumu.Sepette => ("badge-sepette", "🛒"),
-            _ => ("badge-satildi", "✅")
-        };
+@if (!Model.Bloklar.Any())
+{
+    <p class="text-muted">Bu etkinlik için henüz koltuk tanımlanmamış.</p>
+}
+else
+{
+    <div class="venue-layout">
+        <aside class="venue-side">
+            <h3 class="venue-side-title">Kategoriler</h3>
+            @foreach (var blok in Model.Bloklar.OrderByDescending(b => b.EnDusukFiyat))
+            {
+                <button type="button"
+                        class="category-row @(blok.Kod == ilkSecili?.Kod ? "is-active" : "") @(blok.Tukendi ? "is-sold-out" : "")"
+                        data-block="@blok.Kod">
+                    <span class="category-swatch @blok.DolulukSinifi"></span>
+                    <span class="category-text">
+                        <span class="category-name">@blok.Ad — @blok.Kategori</span>
+                        <span class="category-sub">@(blok.Tukendi ? "Tükendi" : $"{blok.MusaitKoltuk} koltuk müsait")</span>
+                    </span>
+                    <span class="category-price">@blok.EnDusukFiyat.ToString("N0")₺</span>
+                </button>
+            }
 
-        <div class="col-6 col-md-4 col-lg-3">
-            <div class="seat-card d-flex flex-column">
-                <div class="seat-no mb-1">@bilet.KoltukNo</div>
-                <div class="fw-semibold mb-2">@bilet.Fiyat.ToString("C")</div>
-                <span class="badge @badgeClass mb-3 align-self-start">@badgeIcon @bilet.Durum</span>
+            <div class="venue-legend">
+                <span><i class="legend-dot seat-free"></i> Müsait</span>
+                <span><i class="legend-dot seat-held"></i> Sepette</span>
+                <span><i class="legend-dot seat-sold"></i> Satıldı</span>
+            </div>
+        </aside>
 
-                @if (bilet.Durum == BiletDurumu.Satista)
+        <section class="venue-map-area">
+            <div class="stage-wrap">
+                <svg class="stage-arc" viewBox="0 0 400 46" preserveAspectRatio="none" aria-hidden="true">
+                    <path d="M8 42 Q200 -6 392 42" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                </svg>
+                <span class="stage-label">SAHNE</span>
+            </div>
+
+            <div class="venue-map" id="venueMap">
+                @if (onSira.Any())
                 {
-                    <form asp-action="SepeteEkle" method="post" class="mt-auto">
-                        <input type="hidden" name="biletId" value="@bilet.Id" />
-                        <button type="submit" class="btn btn-primary btn-sm w-100">Sepete Ekle</button>
-                    </form>
+                    <div class="block-row block-row-front">
+                        @foreach (var blok in onSira)
+                        {
+                            <button type="button"
+                                    class="venue-block is-vip @blok.DolulukSinifi @(blok.Kod == ilkSecili?.Kod ? "is-active" : "")"
+                                    data-block="@blok.Kod"
+                                    title="@blok.Ad — @blok.MusaitKoltuk müsait">
+                                <span class="block-edge">@blok.ToplamKoltuk</span>
+                                <span class="block-name">@blok.Ad</span>
+                                <span class="block-price">@blok.EnDusukFiyat.ToString("N0")₺</span>
+                            </button>
+                        }
+                    </div>
+                }
+
+                @if (arkaSira.Any())
+                {
+                    <div class="block-row">
+                        @foreach (var blok in arkaSira)
+                        {
+                            <button type="button"
+                                    class="venue-block @blok.DolulukSinifi @(blok.Kod == ilkSecili?.Kod ? "is-active" : "")"
+                                    data-block="@blok.Kod"
+                                    title="@blok.Ad — @blok.MusaitKoltuk müsait">
+                                <span class="block-edge">@blok.ToplamKoltuk</span>
+                                <span class="block-name">@blok.Ad</span>
+                                <span class="block-price">@blok.EnDusukFiyat.ToString("N0")₺</span>
+                            </button>
+                        }
+                    </div>
                 }
             </div>
-        </div>
-    }
-</div>
+
+            <div class="map-zoom">
+                <button type="button" class="zoom-btn" id="zoomOut" aria-label="Uzaklaştır">−</button>
+                <button type="button" class="zoom-btn" id="zoomIn" aria-label="Yakınlaştır">+</button>
+            </div>
+        </section>
+    </div>
+
+    <form asp-action="SepeteEkle" method="post" class="seat-panels">
+        @foreach (var blok in Model.Bloklar)
+        {
+            <div class="seat-panel @(blok.Kod == ilkSecili?.Kod ? "is-active" : "")" data-block="@blok.Kod">
+                <div class="seat-panel-head">
+                    <h3>@blok.Ad <span class="text-muted">· @blok.Kategori</span></h3>
+                    <span class="seat-panel-price">@blok.EnDusukFiyat.ToString("C")</span>
+                </div>
+
+                @if (blok.Tukendi)
+                {
+                    <p class="text-muted">Bu blokta müsait koltuk kalmadı — başka bir kategori seçebilir ya da kuyruğa katılabilirsiniz.</p>
+                }
+                else
+                {
+                    <p class="ticket-desc">Yeşil koltuklara tıklayarak doğrudan sepete ekleyebilirsiniz.</p>
+                }
+
+                <div class="seat-grid">
+                    @foreach (var koltuk in blok.Koltuklar)
+                    {
+                        var (durumSinifi, baslik) = koltuk.Durum switch
+                        {
+                            BiletDurumu.Satista => ("seat-free", $"{koltuk.KoltukNo} — {koltuk.Fiyat:C} · Sepete ekle"),
+                            BiletDurumu.Sepette => ("seat-held", $"{koltuk.KoltukNo} — başka bir kullanıcının sepetinde"),
+                            _ => ("seat-sold", $"{koltuk.KoltukNo} — satıldı")
+                        };
+
+                        if (koltuk.Durum == BiletDurumu.Satista)
+                        {
+                            <button type="submit" name="biletId" value="@koltuk.BiletId"
+                                    class="seat @durumSinifi" title="@baslik">@koltuk.KisaNo</button>
+                        }
+                        else
+                        {
+                            <span class="seat @durumSinifi" title="@baslik">@koltuk.KisaNo</span>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    </form>
+
+    <div class="queue-cta">
+        <span>Aradığın koltuk tükendi mi? Sıraya girip boşalan koltuklardan haberdar ol.</span>
+        <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@Model.EtkinlikId" class="btn btn-outline-secondary btn-sm">⏳ Kuyruğa Katıl</a>
+    </div>
+}

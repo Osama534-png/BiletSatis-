@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Sertab Erener — Senfonik afişi">
+  <defs>
+    <linearGradient id="seBg" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#5c1230"/>
+      <stop offset="0.55" stop-color="#33091c"/>
+      <stop offset="1" stop-color="#160409"/>
+    </linearGradient>
+    <linearGradient id="seGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe6a3"/>
+      <stop offset="0.5" stop-color="#e8ac2e"/>
+      <stop offset="1" stop-color="#a8720f"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="800" fill="url(#seBg)"/>
+
+  <g fill="none" stroke="url(#seGold)" stroke-width="2.5" opacity="0.75">
+    <path d="M300 170 C170 210 150 350 300 400 C450 450 430 590 300 630"/>
+    <path d="M300 170 C430 210 450 350 300 400 C150 450 170 590 300 630"/>
+    <circle cx="300" cy="400" r="196"/>
+  </g>
+
+  <g fill="url(#seGold)">
+    <circle cx="300" cy="170" r="11"/>
+    <circle cx="300" cy="630" r="11"/>
+    <circle cx="300" cy="400" r="7" opacity="0.8"/>
+  </g>
+
+  <g stroke="url(#seGold)" stroke-width="3" stroke-linecap="round" opacity="0.9">
+    <line x1="118" y1="392" x2="118" y2="440"/>
+    <line x1="146" y1="374" x2="146" y2="458"/>
+    <line x1="174" y1="404" x2="174" y2="428"/>
+    <line x1="426" y1="404" x2="426" y2="428"/>
+    <line x1="454" y1="374" x2="454" y2="458"/>
+    <line x1="482" y1="392" x2="482" y2="440"/>
+  </g>
+
+  <text x="52" y="118" font-family="Helvetica,Arial,sans-serif" font-size="24" font-weight="700"
+        letter-spacing="10" fill="#e8ac2e">SENFONİK</text>
+
+  <text x="52" y="690" font-family="Helvetica,Arial,sans-serif" font-size="74" font-weight="700"
+        fill="#fff5e6" letter-spacing="-2">SERTAB</text>
+  <text x="52" y="754" font-family="Helvetica,Arial,sans-serif" font-size="74" font-weight="700"
+        fill="#e8ac2e" letter-spacing="-2">ERENER</text>
+
+  <text x="548" y="754" text-anchor="end" font-family="Helvetica,Arial,sans-serif" font-size="21"
+        font-weight="700" fill="#f0c98a">18 EYLÜL · ANKARA</text>
+</svg>
