@@ -20,6 +20,7 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
         {
             e.Property(x => x.Mekan).HasMaxLength(200).HasDefaultValue("");
             e.Property(x => x.AfisUrl).HasMaxLength(400).HasDefaultValue("");
+            e.Property(x => x.Aciklama).HasMaxLength(2000).HasDefaultValue("");
 
             e.Property(x => x.Kategori)
                 .HasConversion<string>()

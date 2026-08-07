@@ -18,6 +18,14 @@ public class EtkinlikEkleViewModel
     [Display(Name = "Kategori")]
     public EtkinlikKategorisi Kategori { get; set; } = EtkinlikKategorisi.Konser;
 
+    [StringLength(2000)]
+    [Display(Name = "Açıklama (isteğe bağlı)")]
+    public string Aciklama { get; set; } = "";
+
+    [Range(0, 21, ErrorMessage = "Yaş sınırı 0 ile 21 arasında olmalıdır.")]
+    [Display(Name = "Yaş Sınırı (0 = sınır yok)")]
+    public int YasSiniri { get; set; }
+
     [Display(Name = "Afiş Görseli (isteğe bağlı)")]
     public IFormFile? AfisDosyasi { get; set; }
 

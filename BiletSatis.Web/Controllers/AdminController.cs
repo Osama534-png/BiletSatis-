@@ -82,6 +82,8 @@ public class AdminController : Controller
             Ad = model.Ad,
             Mekan = model.Mekan,
             Kategori = model.Kategori,
+            Aciklama = model.Aciklama,
+            YasSiniri = model.YasSiniri,
             AfisUrl = afisUrl,
             Tarih = model.Tarih
         });

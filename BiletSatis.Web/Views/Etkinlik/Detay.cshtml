@@ -1,0 +1,219 @@
+@model BiletSatis.Web.Models.EtkinlikDetayVm
+@using BiletSatis.Web.Domain
+@{
+    ViewData["Title"] = Model.Ad;
+    var afis = string.IsNullOrWhiteSpace(Model.AfisUrl) ? "/img/afis/varsayilan.svg" : Model.AfisUrl;
+}
+
+<nav class="breadcrumb-trail">
+    <a asp-controller="Home" asp-action="Index">Etkinlikler</a>
+    <span>›</span>
+    <span>@KategoriMetni.Ad(Model.Kategori)</span>
+    <span>›</span>
+    <strong>@Model.Ad</strong>
+</nav>
+
+<section class="detay-hero">
+    <img class="detay-afis" src="@afis" alt="@Model.Ad afişi" />
+
+    <div class="detay-bilgi">
+        <span class="detay-kategori">@KategoriMetni.Ad(Model.Kategori)</span>
+        <h1>@Model.Ad</h1>
+
+        <ul class="detay-meta">
+            <li>
+                <span class="meta-ikon">📅</span>
+                <span>
+                    <strong>@Model.Tarih.ToString("dd MMMM yyyy, dddd")</strong>
+                    <small>Saat @Model.Tarih.ToString("HH:mm") · Kapılar 1 saat önce açılır</small>
+                </span>
+            </li>
+            <li>
+                <span class="meta-ikon">📍</span>
+                <span>
+                    <strong>@Model.MekanAdi</strong>
+                    @if (!string.IsNullOrEmpty(Model.Sehir))
+                    {
+                        <small>@Model.Sehir</small>
+                    }
+                </span>
+            </li>
+            <li>
+                <span class="meta-ikon">🎟️</span>
+                <span>
+                    @if (Model.Tukendi)
+                    {
+                        <strong>Tükendi</strong>
+                        <small>Kuyruğa katılıp boşalan koltukları bekleyebilirsiniz</small>
+                    }
+                    else
+                    {
+                        <strong>@Model.MusaitKoltuk / @Model.ToplamKoltuk koltuk müsait</strong>
+                        @if (Model.MusaitKoltuk <= 10)
+                        {
+                            <small class="kitlik">Son @Model.MusaitKoltuk bilet!</small>
+                        }
+                    }
+                </span>
+            </li>
+        </ul>
+
+        <div class="detay-fiyat-serit">
+            <div>
+                <span class="etiket">Bilet fiyatları</span>
+                @if (Model.EnDusukFiyat.HasValue)
+                {
+                    <span class="tutar">@Model.EnDusukFiyat.Value.ToString("N0")₺ – @Model.EnYuksekFiyat!.Value.ToString("N0")₺</span>
+                }
+                else
+                {
+                    <span class="tutar">—</span>
+                }
+            </div>
+            @if (Model.KalanGun > 0)
+            {
+                <span class="geri-sayim">⏳ @Model.KalanGun gün kaldı</span>
+            }
+        </div>
+
+        <div class="detay-cta">
+            @if (Model.Tukendi)
+            {
+                <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@Model.Id"
+                   class="btn btn-primary">⏳ Kuyruğa Katıl</a>
+            }
+            else
+            {
+                <a asp-controller="Biletler" asp-action="Index" asp-route-etkinlikId="@Model.Id"
+                   class="btn btn-primary">🎟️ Bilet Al</a>
+                <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@Model.Id"
+                   class="btn btn-outline-secondary">⏳ Kuyruk</a>
+            }
+        </div>
+    </div>
+</section>
+
+<div class="detay-govde">
+    <div class="detay-sol">
+        @if (!string.IsNullOrWhiteSpace(Model.Aciklama))
+        {
+            <section class="detay-blok">
+                <h2>Etkinlik Hakkında</h2>
+                <p class="detay-aciklama">@Model.Aciklama</p>
+            </section>
+        }
+
+        <section class="detay-blok">
+            <h2>Bilmeniz Gerekenler</h2>
+            <ul class="bilgi-listesi">
+                @if (Model.YasSiniri > 0)
+                {
+                    <li><span>🔞</span> Etkinlik <strong>@Model.YasSiniri yaş ve üzeri</strong> katılımcılar içindir.</li>
+                }
+                else
+                {
+                    <li><span>👨‍👩‍👧</span> Etkinlik <strong>her yaştan</strong> katılımcıya uygundur.</li>
+                }
+                <li><span>🎫</span> Salona giriş yalnızca bilet satın almış misafirlere aittir; biletinizi girişte hazır bulundurun.</li>
+                <li><span>⏰</span> Kapılar etkinlikten 1 saat önce açılır. Geç kalan misafirler uygun bir arada içeri alınır.</li>
+                <li><span>🪑</span> Biletiniz numaralı koltuk içerir; lütfen kendi koltuğunuzda oturun.</li>
+                <li><span>📷</span> Profesyonel fotoğraf ve video ekipmanı ile girişe izin verilmemektedir.</li>
+                <li><span>🎒</span> Yiyecek, içecek ve kesici alet ile girişe izin verilmemektedir.</li>
+            </ul>
+        </section>
+
+        @if (Model.Fiyatlar.Any())
+        {
+            <section class="detay-blok">
+                <h2>Kategoriler ve Fiyatlar</h2>
+                <table class="table fiyat-tablosu">
+                    <thead>
+                        <tr>
+                            <th>Blok</th>
+                            <th>Kategori</th>
+                            <th>Durum</th>
+                            <th class="text-end">Fiyat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in Model.Fiyatlar)
+                        {
+                            <tr>
+                                <td><strong>@f.Blok</strong></td>
+                                <td>@f.Kategori</td>
+                                <td>
+                                    @if (f.MusaitKoltuk == 0)
+                                    {
+                                        <span class="badge badge-satildi">Tükendi</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-satista">@f.MusaitKoltuk müsait</span>
+                                    }
+                                </td>
+                                <td class="text-end fiyat-hucre">@f.Fiyat.ToString("N0")₺</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </section>
+        }
+    </div>
+
+    <aside class="detay-sag">
+        <div class="mekan-karti">
+            <h3>Mekan</h3>
+            <p class="mekan-ad">@Model.MekanAdi</p>
+            @if (!string.IsNullOrEmpty(Model.Sehir))
+            {
+                <p class="mekan-sehir">📍 @Model.Sehir</p>
+            }
+            <div class="mekan-ozellik">
+                <span>🚇 Toplu taşımaya yakın</span>
+                <span>♿ Engelli erişimi mevcut</span>
+                <span>🅿️ Ücretli otopark</span>
+            </div>
+        </div>
+    </aside>
+</div>
+
+@if (Model.BenzerEtkinlikler.Any())
+{
+    <section class="detay-blok">
+        <div class="section-head">
+            <h2>Benzer Etkinlikler</h2>
+        </div>
+        <div class="event-grid">
+            @foreach (var e in Model.BenzerEtkinlikler)
+            {
+                <div class="event-card" style="animation-delay:0ms">
+                    <div class="poster">
+                        <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
+                             alt="@e.Ad afişi" loading="lazy" />
+                        <span class="poster-category">@KategoriMetni.Ad(e.Kategori)</span>
+                    </div>
+                    <div class="body">
+                        <h2>@e.Ad</h2>
+                        <div class="meta">
+                            <span class="date-pill">📅 @e.Tarih.ToString("dd.MM.yyyy · HH:mm")</span>
+                        </div>
+                        <div class="price-row">
+                            @if (e.EnDusukFiyat.HasValue)
+                            {
+                                <span class="price">@e.EnDusukFiyat.Value.ToString("N0")<small>₺'den itibaren</small></span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-satildi">Tükendi</span>
+                            }
+                        </div>
+                        <div class="cta-row">
+                            <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id"
+                               class="btn btn-primary btn-sm">İncele</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+}

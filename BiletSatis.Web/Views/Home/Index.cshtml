@@ -93,7 +93,7 @@
                 {
                     var e = vitrin[i];
                     var afis = string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl;
-                    <a class="showcase-item" asp-controller="Biletler" asp-action="Index" asp-route-etkinlikId="@e.Id">
+                    <a class="showcase-item" asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id">
                         <span class="showcase-top">
                             <span class="showcase-rank">@(i + 1)</span>
                             <img class="showcase-poster" src="@afis" alt="@e.Ad afişi" loading="lazy" />
@@ -208,7 +208,7 @@
                                 }
                             </div>
                             <div class="cta-row">
-                                <a asp-controller="Biletler" asp-action="Index" asp-route-etkinlikId="@e.Id" class="btn btn-primary btn-sm">🎟️ Bilet Al</a>
+                                <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id" class="btn btn-primary btn-sm">🎟️ Bilet Al</a>
                                 <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@e.Id" class="btn btn-outline-secondary btn-sm">⏳ Kuyruk</a>
                             </div>
                         </div>

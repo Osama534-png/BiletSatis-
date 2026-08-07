@@ -13,7 +13,11 @@ public static class DbSeeder
         string AfisUrl,
         EtkinlikKategorisi Tur,
         DateTime Tarih,
-        Kategori[] Kategoriler);
+        Kategori[] Kategoriler)
+    {
+        public string Aciklama { get; init; } = "";
+        public int YasSiniri { get; init; }
+    }
 
     public static void Seed(BiletSatisDbContext context)
     {
@@ -71,6 +75,13 @@ public static class DbSeeder
                 mevcut.Mekan = taslak.Mekan;
                 guncellendi = true;
             }
+
+            if (string.IsNullOrWhiteSpace(mevcut.Aciklama) && !string.IsNullOrWhiteSpace(taslak.Aciklama))
+            {
+                mevcut.Aciklama = taslak.Aciklama;
+                mevcut.YasSiniri = taslak.YasSiniri;
+                guncellendi = true;
+            }
         }
 
         if (guncellendi) context.SaveChanges();
@@ -87,6 +98,8 @@ public static class DbSeeder
                 Mekan = taslak.Mekan,
                 AfisUrl = taslak.AfisUrl,
                 Kategori = taslak.Tur,
+                Aciklama = taslak.Aciklama,
+                YasSiniri = taslak.YasSiniri,
                 Tarih = taslak.Tarih
             };
 
@@ -129,7 +142,13 @@ public static class DbSeeder
                 new("C", 40, 2400m),
                 new("D", 48, 1500m),
                 new("E", 56, 850m)
-            ]),
+            ])
+        {
+            Aciklama = "Mabel Matiz, yaz turnesinin İstanbul durağında Harbiye'nin tarihi açıkhava sahnesine çıkıyor. " +
+                       "Sanatçı, son albümündeki parçaların yanı sıra sevilen şarkılarını yeni düzenlemeleriyle seslendirecek. " +
+                       "Gece boyunca sahne tasarımı ve ışık gösterisi eşliğinde iki saatlik bir performans sizi bekliyor.",
+            YasSiniri = 7
+        },
 
         new("Sezen Aksu — Bir Gece Vakti",
             "Volkswagen Arena, İstanbul",
@@ -142,7 +161,13 @@ public static class DbSeeder
                 new("C", 44, 2800m),
                 new("D", 52, 1800m),
                 new("E", 64, 950m)
-            ]),
+            ])
+        {
+            Aciklama = "Türk pop müziğinin en güçlü kalemlerinden Sezen Aksu, kapalı salon konseriyle Volkswagen Arena'da. " +
+                       "Kırk yılı aşkın repertuvarından seçkiler, orkestra düzenlemeleriyle yeniden yorumlanacak. " +
+                       "Sahne düzeni tüm salondan net görüş sağlayacak şekilde kurgulanmıştır.",
+            YasSiniri = 7
+        },
 
         new("Duman — Akustik Gece",
             "KüçükÇiftlik Park, İstanbul",
@@ -155,7 +180,13 @@ public static class DbSeeder
                 new("C", 42, 1500m),
                 new("D", 50, 1000m),
                 new("E", 60, 600m)
-            ]),
+            ])
+        {
+            Aciklama = "Duman, klasikleşmiş parçalarını bu kez akustik düzenlemelerle yorumluyor. " +
+                       "KüçükÇiftlik Park'ın açıkhava atmosferinde, sade bir sahne kurulumu ve akustik enstrümanlarla " +
+                       "grubun en sevilen şarkıları farklı bir tınıyla dinleyiciyle buluşacak.",
+            YasSiniri = 15
+        },
 
         new("Sertab Erener — Senfonik",
             "Oran Açıkhava Sahnesi, Ankara",
@@ -168,7 +199,13 @@ public static class DbSeeder
                 new("C", 38, 2500m),
                 new("D", 46, 1600m),
                 new("E", 54, 900m)
-            ]),
+            ])
+        {
+            Aciklama = "Sertab Erener, kariyerinin dönüm noktası olan şarkılarını senfoni orkestrası eşliğinde yorumluyor. " +
+                       "Ankara Oran Açıkhava Sahnesi'ndeki bu özel gecede, pop repertuvarı orkestral düzenlemelerle " +
+                       "yeni bir boyut kazanıyor. Konser tek bölüm halinde, arasız gerçekleşecektir.",
+            YasSiniri = 7
+        },
 
         new("Yalın — Bir Büyülü Gece",
             "Bornova Aşık Veysel Açıkhava Tiyatrosu, İzmir",
@@ -181,7 +218,13 @@ public static class DbSeeder
                 new("C", 40, 2100m),
                 new("D", 48, 1300m),
                 new("E", 58, 750m)
-            ]),
+            ])
+        {
+            Aciklama = "Yalın, İzmir'deki tek konseriyle Bornova Aşık Veysel Açıkhava Tiyatrosu'nda. " +
+                       "Sanatçının romantik repertuvarı, yaz akşamının serinliğinde açıkhava akustiğiyle buluşuyor. " +
+                       "Konser öncesi kapılar bir saat önce açılacaktır.",
+            YasSiniri = 7
+        },
 
         new("mor ve ötesi — 30. Yıl",
             "Antalya Açıkhava Tiyatrosu, Antalya",
@@ -194,7 +237,13 @@ public static class DbSeeder
                 new("C", 44, 1700m),
                 new("D", 52, 1100m),
                 new("E", 62, 500m)
-            ]),
+            ])
+        {
+            Aciklama = "mor ve ötesi, 30. yılını Antalya Açıkhava'da kutluyor. " +
+                       "Grubun ilk albümünden bugüne uzanan repertuvarı, sahne dekoru ve görsel gösteri eşliğinde " +
+                       "üç saatlik bir konserle sahneleniyor. Bu turne kapsamındaki tek Akdeniz konseridir.",
+            YasSiniri = 15
+        },
 
         new("Bir Yaz Gecesi Rüyası",
             "Zorlu PSM Turkcell Sahnesi, İstanbul",
@@ -206,7 +255,13 @@ public static class DbSeeder
                 new("B", 32, 1200m),
                 new("C", 40, 800m),
                 new("D", 48, 600m)
-            ]),
+            ])
+        {
+            Aciklama = "Shakespeare'in ölümsüz komedisi, çağdaş bir sahne yorumuyla Zorlu PSM'de. " +
+                       "Ormanda geçen bir yaz gecesinde birbirine karışan âşıklar, periler ve oyuncuların hikâyesi; " +
+                       "canlı müzik ve modern kostüm tasarımıyla sahneleniyor. Oyun iki perde, 15 dakika aralıdır.",
+            YasSiniri = 12
+        },
 
         new("Açıkhava Sinema Gecesi",
             "Yoğurtçu Parkı, İstanbul",
@@ -216,7 +271,13 @@ public static class DbSeeder
             [
                 new("A", 40, 700m),
                 new("B", 60, 500m)
-            ]),
+            ])
+        {
+            Aciklama = "Yoğurtçu Parkı'nda yıldızların altında sinema keyfi. " +
+                       "Klasikleşmiş bir filmin dijital restore edilmiş kopyası, dev perdede gösterilecek. " +
+                       "Katılımcılara minder sağlanmaktadır; dilerseniz kendi battaniyenizi getirebilirsiniz.",
+            YasSiniri = 0
+        },
 
         new("Kahkaha Kulübü — Stand Up Gecesi",
             "Jolly Joker, Ankara",
@@ -227,7 +288,13 @@ public static class DbSeeder
                 new("A", 26, 1500m),
                 new("B", 34, 1000m),
                 new("C", 44, 700m)
-            ]),
+            ])
+        {
+            Aciklama = "Beş komedyenin sahne aldığı bir stand up gecesi. " +
+                       "Her komedyen 20 dakikalık setiyle sahnede olacak; gece sonunda doğaçlama bölümü var. " +
+                       "Gösteri yetişkin mizah içerdiğinden 18 yaş altı katılımcı kabul edilmemektedir.",
+            YasSiniri = 18
+        },
 
         new("Yaz Sonu Müzik Festivali",
             "Kilyos Sahil, İstanbul",
@@ -239,7 +306,13 @@ public static class DbSeeder
                 new("B", 40, 2400m),
                 new("C", 50, 1500m),
                 new("D", 60, 900m)
-            ]),
+            ])
+        {
+            Aciklama = "Kilyos sahilinde gün boyu süren müzik festivali. " +
+                       "İki sahnede on iki farklı sanatçı; yerel gruplardan elektronik setlere uzanan bir program. " +
+                       "Alan içinde yeme-içme standları ve dinlenme bölgeleri bulunmaktadır. Bilet tüm güne geçerlidir.",
+            YasSiniri = 18
+        },
 
         new("Warehouse Techno Night",
             "Klein Phönix, İstanbul",
@@ -250,7 +323,13 @@ public static class DbSeeder
                 new("A", 28, 2200m),
                 new("B", 38, 1600m),
                 new("C", 50, 1100m)
-            ]),
+            ])
+        {
+            Aciklama = "Gece boyu süren techno seti. " +
+                       "Yerli ve yabancı DJ'lerin arka arkaya sahne aldığı program, sabaha kadar devam ediyor. " +
+                       "Mekân ses ve ışık sistemi bu gece için özel olarak kurulmuştur. Vestiyer hizmeti mevcuttur.",
+            YasSiniri = 18
+        },
 
         new("Uçan Balonlar — Çocuk Tiyatrosu",
             "CRR Konser Salonu, İstanbul",
@@ -262,5 +341,11 @@ public static class DbSeeder
                 new("B", 40, 600m),
                 new("C", 50, 500m)
             ])
+        {
+            Aciklama = "Renkli kostümleri ve kuklalarıyla çocuklar için hazırlanmış müzikli bir tiyatro oyunu. " +
+                       "Balonlarla gökyüzüne açılan bir yolculuğun hikâyesi, çocukların da sahneye katıldığı " +
+                       "interaktif bölümlerle anlatılıyor. Oyun 50 dakika sürmektedir, ara yoktur.",
+            YasSiniri = 0
+        }
     ];
 }

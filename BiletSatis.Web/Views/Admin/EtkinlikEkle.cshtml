@@ -31,6 +31,17 @@
                 <span asp-validation-for="Kategori" class="text-danger"></span>
             </div>
             <div class="mb-3">
+                <label asp-for="Aciklama" class="form-label"></label>
+                <textarea asp-for="Aciklama" class="form-control" rows="4"
+                          placeholder="Etkinlik detay sayfasında görünecek tanıtım metni"></textarea>
+                <span asp-validation-for="Aciklama" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="YasSiniri" class="form-label"></label>
+                <input asp-for="YasSiniri" type="number" min="0" max="21" class="form-control" />
+                <span asp-validation-for="YasSiniri" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
                 <label asp-for="AfisDosyasi" class="form-label"></label>
                 <input asp-for="AfisDosyasi" type="file" class="form-control"
                        accept="image/jpeg,image/png,image/webp" />
