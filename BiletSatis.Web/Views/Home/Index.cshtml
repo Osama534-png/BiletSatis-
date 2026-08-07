@@ -145,6 +145,16 @@
         </div>
 
         <div class="filter-group">
+            <h3>Sırala</h3>
+            <select id="sortSelect" class="form-select form-select-sm">
+                <option value="date">Yaklaşan tarih</option>
+                <option value="price-asc">Fiyat: düşükten yükseğe</option>
+                <option value="price-desc">Fiyat: yüksekten düşüğe</option>
+                <option value="name">İsim: A–Z</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
             <h3>Tarih</h3>
             <div class="chip-row" id="dateChips">
                 <button type="button" class="chip is-active" data-range="all">Tümü</button>
@@ -208,6 +218,7 @@
                                  alt="@e.Ad afişi" loading="lazy" />
                             <span class="poster-category">@KategoriMetni.Ad(e.Kategori)</span>
                             <span class="poster-index">#@((i + 1).ToString("00"))</span>
+                            <span class="poster-countdown @(e.YaklasanEtkinlik ? "is-yakin" : "")">⏳ @e.GeriSayimMetni</span>
                         </div>
                         <div class="body">
                             <h2>@e.Ad</h2>
@@ -217,7 +228,18 @@
                                 {
                                     <span class="venue-line">📍 @e.Mekan</span>
                                 }
-                                <span>🎟️ @e.MusaitKoltukSayisi koltuk müsait</span>
+                                @if (e.MusaitKoltukSayisi == 0)
+                                {
+                                    <span class="stok-uyari tukendi">🚫 Tükendi</span>
+                                }
+                                else if (e.SonBiletler)
+                                {
+                                    <span class="stok-uyari">🔥 Son @e.MusaitKoltukSayisi bilet!</span>
+                                }
+                                else
+                                {
+                                    <span>🎟️ @e.MusaitKoltukSayisi koltuk müsait</span>
+                                }
                             </div>
                             <div class="price-row">
                                 @if (e.EnDusukFiyat.HasValue)

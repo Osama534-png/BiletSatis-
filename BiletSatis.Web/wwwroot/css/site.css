@@ -443,6 +443,44 @@ a {
   overflow: hidden;
 }
 
+/* Afişin altına oturan geri sayım rozeti */
+.event-card .poster-countdown {
+  position: absolute;
+  bottom: 0.7rem;
+  left: 0.85rem;
+  z-index: 2;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(23, 20, 15, 0.62);
+  backdrop-filter: blur(3px);
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--radius-pill);
+}
+
+.event-card .poster-countdown.is-yakin {
+  background: rgba(255, 77, 46, 0.92);
+}
+
+/* Son koltuk / tükendi uyarısı */
+.stok-uyari {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--warning-bg);
+  color: #93600f;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--radius-pill);
+}
+
+.stok-uyari.tukendi {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
 .event-card .price-row {
   margin-top: auto;
   display: flex;

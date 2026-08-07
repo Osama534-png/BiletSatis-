@@ -155,6 +155,7 @@ function initEventSearch() {
   const priceRange = document.getElementById("priceRange");
   const priceValue = document.getElementById("priceValue");
   const onlyAvailable = document.getElementById("onlyAvailable");
+  const sortSelect = document.getElementById("sortSelect");
   const resetBtn = document.getElementById("filterReset");
   const cityPicker = document.getElementById("cityPicker");
   const cityCurrent = document.getElementById("cityCurrent");
@@ -173,6 +174,34 @@ function initEventSearch() {
     limit.setHours(23, 59, 59, 999);
     limit.setDate(limit.getDate() + (dateRange === "week" ? 7 : 30));
     return limit;
+  };
+
+  // Kartları seçilen ölçüte göre yeniden dizer.
+  // Fiyatı olmayan (tükenmiş) etkinlikler her iki yönde de sona atılır.
+  const applySort = () => {
+    if (!sortSelect) return;
+    const olcut = sortSelect.value;
+
+    const siralanmis = [...cards].sort((a, b) => {
+      const fiyatA = Number(a.dataset.price || 0);
+      const fiyatB = Number(b.dataset.price || 0);
+
+      switch (olcut) {
+        case "price-asc":
+        case "price-desc": {
+          if (fiyatA === 0 && fiyatB === 0) return 0;
+          if (fiyatA === 0) return 1;
+          if (fiyatB === 0) return -1;
+          return olcut === "price-asc" ? fiyatA - fiyatB : fiyatB - fiyatA;
+        }
+        case "name":
+          return (a.dataset.name || "").localeCompare(b.dataset.name || "", "tr");
+        default:
+          return new Date(a.dataset.date) - new Date(b.dataset.date);
+      }
+    });
+
+    siralanmis.forEach((card) => rail.appendChild(card));
   };
 
   const applyFilter = () => {
@@ -204,6 +233,7 @@ function initEventSearch() {
   input.addEventListener("input", applyFilter);
   priceRange?.addEventListener("input", applyFilter);
   onlyAvailable?.addEventListener("change", applyFilter);
+  sortSelect?.addEventListener("change", applySort);
 
   dateChips?.querySelectorAll(".chip").forEach((chip) => {
     chip.addEventListener("click", () => {
@@ -277,6 +307,8 @@ function initEventSearch() {
       c.classList.toggle("is-active", c.dataset.range === "all");
     });
     sehriSec("all");
+    if (sortSelect) sortSelect.value = "date";
+    applySort();
     applyFilter();
   });
 
