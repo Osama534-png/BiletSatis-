@@ -10,6 +10,15 @@ namespace BiletSatis.Web.Controllers;
 
 public class BiletlerController : Controller
 {
+    /// <summary>Tek seferde seçilebilecek en fazla koltuk sayısı.</summary>
+    public const int MaxKoltuk = 6;
+
+    /// <summary>
+    /// Ödeme sırasında kilidin uzatıldığı süre. Kullanıcı Stripe sayfasındayken
+    /// 5 dakikalık normal kilit dolarsa koltuk başkasına satılabilirdi.
+    /// </summary>
+    private const int OdemeKilidiDakika = 15;
+
     private readonly BiletSatisDbContext _db;
     private readonly IBiletRezervasyonServisi _rezervasyon;
     private readonly IKuyrukServisi _kuyruk;
@@ -107,21 +116,48 @@ public class BiletlerController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SepeteEkle(int biletId)
+    public async Task<IActionResult> SepeteEkle(int etkinlikId, int[] biletIds)
     {
-        var bilet = await _db.Biletler.AsNoTracking().FirstOrDefaultAsync(b => b.Id == biletId);
-        if (bilet == null) return NotFound();
+        var idler = (biletIds ?? Array.Empty<int>()).Distinct().ToArray();
 
-        var kullaniciId = _currentUser.GetKullaniciId();
-        var sonuc = await _rezervasyon.TryAddToCartAsync(biletId, kullaniciId);
-
-        if (sonuc == SepeteEklemeSonucu.Basarili)
+        if (idler.Length == 0)
         {
-            return RedirectToAction(nameof(OdemeStub), new { biletId });
+            TempData["Hata"] = "Önce salon haritasından koltuk seçin.";
+            return RedirectToAction(nameof(Index), new { etkinlikId });
         }
 
-        TempData["Hata"] = "Bu bilet az önce başka bir kullanıcı tarafından sepete eklendi.";
-        return RedirectToAction(nameof(Index), new { etkinlikId = bilet.EtkinlikId });
+        if (idler.Length > MaxKoltuk)
+        {
+            TempData["Hata"] = $"Tek seferde en fazla {MaxKoltuk} koltuk seçebilirsiniz.";
+            return RedirectToAction(nameof(Index), new { etkinlikId });
+        }
+
+        // Formdan gelen numaralar istemciden geliyor: hepsinin gerçekten bu etkinliğe
+        // ait olduğunu doğrulamadan rezervasyon denemesi yapmıyoruz.
+        var gecerliSayisi = await _db.Biletler
+            .AsNoTracking()
+            .CountAsync(b => idler.Contains(b.Id) && b.EtkinlikId == etkinlikId);
+
+        if (gecerliSayisi != idler.Length)
+        {
+            TempData["Hata"] = "Seçim geçersiz — lütfen koltukları yeniden seçin.";
+            return RedirectToAction(nameof(Index), new { etkinlikId });
+        }
+
+        var kullaniciId = _currentUser.GetKullaniciId();
+        var sonuc = await _rezervasyon.TryAddManyToCartAsync(idler, kullaniciId);
+
+        if (sonuc.Basarili)
+        {
+            return RedirectToAction(nameof(Sepetim));
+        }
+
+        TempData["Hata"] = sonuc.AlinamayanKoltuklar.Count > 0
+            ? $"{string.Join(", ", sonuc.AlinamayanKoltuklar)} koltuğu az önce başkası tarafından alındı. " +
+              "Seçiminizin tamamı iptal edildi — diğer koltuklar hâlâ müsait, yeniden seçebilirsiniz."
+            : "Seçtiğiniz koltuklar alınamadı, lütfen tekrar deneyin.";
+
+        return RedirectToAction(nameof(Index), new { etkinlikId });
     }
 
     public async Task<IActionResult> Sepetim()
@@ -152,61 +188,55 @@ public class BiletlerController : Controller
         return View(biletler);
     }
 
-    public async Task<IActionResult> OdemeStub(int biletId)
-    {
-        var bilet = await _db.Biletler.AsNoTracking().FirstOrDefaultAsync(b => b.Id == biletId);
-        if (bilet == null) return NotFound();
-
-        var kullaniciId = _currentUser.GetKullaniciId();
-        if (bilet.Durum != BiletDurumu.Sepette || bilet.RezerveEdenKullaniciId != kullaniciId)
-        {
-            TempData["Hata"] = "Bu bilet üzerinde bir rezervasyonunuz yok.";
-            return RedirectToAction(nameof(Index), new { etkinlikId = bilet.EtkinlikId });
-        }
-
-        return View(bilet);
-    }
-
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> OdemeBaslat(int biletId)
+    public async Task<IActionResult> SepetiOde()
     {
-        var bilet = await _db.Biletler.AsNoTracking().Include(b => b.Etkinlik).FirstOrDefaultAsync(b => b.Id == biletId);
-        if (bilet == null) return NotFound();
-
         var kullaniciId = _currentUser.GetKullaniciId();
-        if (bilet.Durum != BiletDurumu.Sepette || bilet.RezerveEdenKullaniciId != kullaniciId)
+
+        var biletler = await _db.Biletler
+            .AsNoTracking()
+            .Include(b => b.Etkinlik)
+            .Where(b => b.RezerveEdenKullaniciId == kullaniciId && b.Durum == BiletDurumu.Sepette)
+            .OrderBy(b => b.KoltukNo)
+            .ToListAsync();
+
+        if (biletler.Count == 0)
         {
-            TempData["Hata"] = "Bu bilet üzerinde bir rezervasyonunuz yok.";
-            return RedirectToAction(nameof(Index), new { etkinlikId = bilet.EtkinlikId });
+            TempData["Hata"] = "Sepetinizde ödeme bekleyen bilet yok.";
+            return RedirectToAction(nameof(Sepetim));
         }
+
+        var idler = biletler.Select(b => b.Id).ToArray();
+
+        // Stripe sayfasında geçirilen süre normal kilit süresinden uzun olabilir.
+        // Kilidi uzatmazsak kullanıcı kartını girerken koltuk başkasına satılabilir
+        // ve parası alınmış olmasına rağmen bilet elinden gitmiş olurdu.
+        await _rezervasyon.ExtendCartHoldsAsync(idler, kullaniciId, OdemeKilidiDakika);
 
         var domain = $"{Request.Scheme}://{Request.Host}";
         var options = new SessionCreateOptions
         {
             PaymentMethodTypes = new List<string> { "card" },
-            LineItems = new List<SessionLineItemOptions>
+            LineItems = biletler.Select(bilet => new SessionLineItemOptions
             {
-                new SessionLineItemOptions
+                PriceData = new SessionLineItemPriceDataOptions
                 {
-                    PriceData = new SessionLineItemPriceDataOptions
+                    Currency = "try",
+                    UnitAmount = (long)(bilet.Fiyat * 100),
+                    ProductData = new SessionLineItemPriceDataProductDataOptions
                     {
-                        Currency = "try",
-                        UnitAmount = (long)(bilet.Fiyat * 100),
-                        ProductData = new SessionLineItemPriceDataProductDataOptions
-                        {
-                            Name = $"{bilet.Etkinlik?.Ad} — Koltuk {bilet.KoltukNo}",
-                        },
+                        Name = $"{bilet.Etkinlik?.Ad} — Koltuk {bilet.KoltukNo}",
                     },
-                    Quantity = 1,
                 },
-            },
+                Quantity = 1,
+            }).ToList(),
             Mode = "payment",
-            SuccessUrl = $"{domain}/Biletler/OdemeBasarili?session_id={{CHECKOUT_SESSION_ID}}&biletId={biletId}",
-            CancelUrl = $"{domain}/Biletler/OdemeStub?biletId={biletId}",
+            SuccessUrl = $"{domain}/Biletler/OdemeBasarili?session_id={{CHECKOUT_SESSION_ID}}",
+            CancelUrl = $"{domain}/Biletler/Sepetim",
             Metadata = new Dictionary<string, string>
             {
-                { "BiletId", biletId.ToString() },
+                { "BiletIdleri", string.Join(',', idler) },
                 { "KullaniciId", kullaniciId },
             },
         };
@@ -219,18 +249,15 @@ public class BiletlerController : Controller
         }
         catch (Stripe.StripeException ex)
         {
-            _logger.LogError(ex, "Stripe ödeme oturumu oluşturulamadı: BiletId={BiletId}", biletId);
+            _logger.LogError(ex, "Stripe ödeme oturumu oluşturulamadı: BiletSayisi={BiletSayisi}", biletler.Count);
             TempData["Hata"] = "Ödeme sayfası açılamadı, lütfen tekrar deneyin.";
-            return RedirectToAction(nameof(OdemeStub), new { biletId });
+            return RedirectToAction(nameof(Sepetim));
         }
     }
 
     [HttpGet]
-    public async Task<IActionResult> OdemeBasarili(string session_id, int biletId)
+    public async Task<IActionResult> OdemeBasarili(string session_id)
     {
-        var bilet = await _db.Biletler.AsNoTracking().FirstOrDefaultAsync(b => b.Id == biletId);
-        if (bilet == null) return NotFound();
-
         Stripe.Checkout.Session session;
         try
         {
@@ -239,29 +266,75 @@ public class BiletlerController : Controller
         }
         catch (Stripe.StripeException ex)
         {
-            _logger.LogError(ex, "Stripe session doğrulanamadı: SessionId={SessionId} BiletId={BiletId}", session_id, biletId);
+            _logger.LogError(ex, "Stripe session doğrulanamadı: SessionId={SessionId}", session_id);
             TempData["Hata"] = "Ödeme doğrulanamadı.";
-            return RedirectToAction(nameof(OdemeStub), new { biletId });
+            return RedirectToAction(nameof(Sepetim));
         }
 
         var kullaniciId = _currentUser.GetKullaniciId();
 
-        var metadataUyusuyor = session.Metadata.TryGetValue("BiletId", out var metaBiletId) && metaBiletId == biletId.ToString()
-            && session.Metadata.TryGetValue("KullaniciId", out var metaKullaniciId) && metaKullaniciId == kullaniciId;
+        // Hangi biletlerin ödendiğini istemciden değil, Stripe'ın bize geri verdiği
+        // metadata'dan okuyoruz — adres çubuğundaki numara değiştirilerek başka bir
+        // bilet "ödenmiş" gösterilemesin.
+        var idler = session.Metadata.TryGetValue("BiletIdleri", out var metaIdler)
+            ? metaIdler.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray()
+            : Array.Empty<int>();
 
-        if (session.PaymentStatus != "paid" || !metadataUyusuyor)
+        var sahibiUyusuyor = session.Metadata.TryGetValue("KullaniciId", out var metaKullaniciId)
+            && metaKullaniciId == kullaniciId;
+
+        if (session.PaymentStatus != "paid" || !sahibiUyusuyor || idler.Length == 0)
         {
             TempData["Hata"] = "Ödeme tamamlanamadı.";
-            return RedirectToAction(nameof(OdemeStub), new { biletId });
+            return RedirectToAction(nameof(Sepetim));
         }
 
-        var basarili = await _rezervasyon.CompletePaymentAsync(biletId, kullaniciId);
+        var tamamlanan = await _rezervasyon.CompletePaymentManyAsync(idler, kullaniciId);
 
-        if (basarili)
+        if (tamamlanan > 0)
+        {
+            await KuyrukHaklariniKapatAsync(idler, kullaniciId);
+        }
+
+        if (tamamlanan == idler.Length)
+        {
+            TempData["Bilgi"] = tamamlanan == 1
+                ? "Ödeme tamamlandı, biletiniz size ait."
+                : $"Ödeme tamamlandı, {tamamlanan} biletiniz size ait.";
+        }
+        else
+        {
+            // Para alındı ama biletlerin bir kısmı işaretlenemedi. Otomatik iade akışı
+            // henüz yok; bu yüzden en azından iz bırakıyoruz ve kullanıcıyı uyarıyoruz.
+            _logger.LogError(
+                "Ödeme sonrası eksik bilet: KullaniciId={KullaniciId} SessionId={SessionId} İstenen={Istenen} Tamamlanan={Tamamlanan}",
+                kullaniciId, session_id, idler.Length, tamamlanan);
+
+            TempData["Hata"] = $"Ödemeniz alındı ancak {idler.Length - tamamlanan} koltuk için rezervasyon süresi dolmuş. " +
+                               "Lütfen bizimle iletişime geçin.";
+        }
+
+        return RedirectToAction(nameof(Biletlerim));
+    }
+
+    /// <summary>
+    /// Satın alma tamamlandığında, bu biletlerin etkinlikleri için kullanıcıya tanınmış
+    /// kuyruk haklarını "kullanıldı" olarak kapatır.
+    /// </summary>
+    private async Task KuyrukHaklariniKapatAsync(int[] biletIdleri, string kullaniciId)
+    {
+        var etkinlikIdleri = await _db.Biletler
+            .AsNoTracking()
+            .Where(b => biletIdleri.Contains(b.Id))
+            .Select(b => b.EtkinlikId)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var etkinlikId in etkinlikIdleri)
         {
             var haktanindi = await _db.RezervasyonKuyrugu
                 .AsNoTracking()
-                .Where(k => k.EtkinlikId == bilet.EtkinlikId && k.KullaniciId == kullaniciId && k.Durum == KuyrukDurumu.HakTanindi)
+                .Where(k => k.EtkinlikId == etkinlikId && k.KullaniciId == kullaniciId && k.Durum == KuyrukDurumu.HakTanindi)
                 .OrderByDescending(k => k.SiraNo)
                 .FirstOrDefaultAsync();
 
@@ -270,24 +343,15 @@ public class BiletlerController : Controller
                 await _kuyruk.CompleteQueueEntryAsync(haktanindi.SiraNo, kullaniciId);
             }
         }
-
-        TempData[basarili ? "Bilgi" : "Hata"] = basarili
-            ? "Ödeme tamamlandı, biletiniz size ait."
-            : "Ödeme tamamlanamadı — rezervasyon süresi dolmuş olabilir.";
-
-        return RedirectToAction(nameof(Index), new { etkinlikId = bilet.EtkinlikId });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> IptalEt(int biletId)
     {
-        var bilet = await _db.Biletler.AsNoTracking().FirstOrDefaultAsync(b => b.Id == biletId);
-        if (bilet == null) return NotFound();
-
         var kullaniciId = _currentUser.GetKullaniciId();
         await _rezervasyon.CancelReservationAsync(biletId, kullaniciId);
 
-        return RedirectToAction(nameof(Index), new { etkinlikId = bilet.EtkinlikId });
+        return RedirectToAction(nameof(Sepetim));
     }
 }

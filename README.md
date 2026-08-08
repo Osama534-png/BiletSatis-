@@ -13,7 +13,8 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Gerçek ödeme entegrasyonu** — Stripe Checkout ile PCI-uyumlu ödeme akışı; kart bilgisi hiçbir zaman kendi sunucumuza gelmez.
 - **Yapılandırılmış loglama** — Serilog ile her kritik karar noktası (sepete ekleme sonucu, ödeme sonucu, kuyruk terfi, arka plan servis hataları) structured log olarak kaydedilir.
 - **Otomatik test kapsamı** — hem gerçek SQL Server'a karşı çalışan xUnit entegrasyon testleri hem de k6 ile gerçek eşzamanlı yük testleri.
-- **İnteraktif salon haritası** — koltuk numarası önekinden (`A-01` → A blok) türetilen blok haritası, sahne yayı, doluluğa göre renklendirme ve koltuğa tıklayarak doğrudan sepete ekleme.
+- **İnteraktif salon haritası** — koltuk numarası önekinden (`A-01` → A blok) türetilen blok haritası, sahne yayı, doluluğa göre renklendirme.
+- **Çoklu koltuk seçimi** — haritadan tek seferde 6 koltuğa kadar seçilir, seçim çubuğu toplamı canlı gösterir ve tamamı tek istekte rezerve edilir. Koltuklardan biri bile araya girilirse hiçbiri alınmaz (bkz. Mimari Kararlar). Sepetin tamamı tek bir Stripe oturumunda, çok kalemli olarak ödenir.
 - **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, canlı arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü; tümü sayfa yenilemeden çalışır ve tercihler tarayıcıda saklanır.
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
 - **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
@@ -33,6 +34,32 @@ WHERE Id = @BiletId AND Durum = 'Satışta'
 ```
 
 Bu tek sorgu hem okuma hem yazmayı atomik yapar. Etkilenen satır sayısı `1` ise başarılı, `0` ise bilet zaten başkası tarafından alınmış demektir — ayrıca bir exception yakalamaya ya da satır kilitlemeye gerek yoktur.
+
+### Çoklu koltukta neden tek `UPDATE` yetmiyor?
+
+Tek koltukta etkilenen satır sayısı ya `1` ya `0` olduğu için sonucu doğrudan okuyabiliyorduk. Birden çok koltukta aynı sorgu **kısmen** başarılı olabilir: dört koltuk istenir, üçü alınır. Bu kabul edilemez — yan yana oturmak isteyen kullanıcı dağınık üç koltukla kalır ve dördüncüsü için para ödemiş olmaz.
+
+Çözüm, sorguyu bir işlemin (transaction) içine almak:
+
+```sql
+BEGIN TRANSACTION
+UPDATE Biletler SET Durum = 'Sepette', ...
+WHERE Durum = 'Satışta'
+  AND Id IN (SELECT CAST(value AS INT) FROM STRING_SPLIT(@idler, ','))
+-- etkilenen satır sayısı istenen koltuk sayısına eşit değilse ROLLBACK
+```
+
+İşlem açıkken güncellenen satırlar kilitli kalır; araya giren ikinci kullanıcı ancak biz karar verdikten sonra ilerleyebilir. Etkilenen satır sayısı istenen sayıya eşitse `COMMIT`, değilse `ROLLBACK` — yani kullanıcı ya istediği koltukların hepsini alır ya hiçbirini.
+
+Id listesi tek bir metin parametresi olarak gönderilip SQL tarafında `STRING_SPLIT` ile tabloya çevrilir. Böylece koltuk sayısına göre değişen bir SQL metni üretmeye gerek kalmaz, sorgu tamamen parametreli kalır.
+
+Geri alma sonrası "hangi koltuk elden gitti" sorgusu bilerek `ROLLBACK`'ten **sonra** çalışır; önce çalışsaydı kendi yazdığımız satırları "sepette" görürdük.
+
+### Ödeme sırasında kilit neden uzatılıyor?
+
+Normal sepet kilidi 5 dakika. Kullanıcı Stripe'ın ödeme sayfasında kart bilgilerini girerken bu süre dolarsa `CartExpiryWorker` koltuğu tekrar satışa açar; kullanıcı ödemeyi tamamladığında koltuk başkasına satılmış olabilir — parası alınmış, bileti yok. Bu yüzden Stripe oturumu oluşturulmadan hemen önce sepetteki biletlerin kilidi 15 dakikaya uzatılır.
+
+Yine de bir açık kalıyor: ödeme 15 dakikadan uzun sürerse. Bu durumda para alınır ama biletler işaretlenemez; kod bunu `LogError` ile kaydeder ve kullanıcıyı uyarır. Otomatik iade akışı henüz yok.
 
 ### Neden `RowVersion` (optimistic concurrency) kullanılmadı?
 
@@ -235,7 +262,7 @@ Kapsanan alanlar:
 
 | Dosya | Ne test ediliyor |
 |---|---|
-| `BiletRezervasyonServisiTests` | Eşzamanlı sepete ekleme, kilit süresi, ödeme tamamlama |
+| `BiletRezervasyonServisiTests` | Eşzamanlı sepete ekleme, kilit süresi, ödeme tamamlama, çoklu koltukta "hepsi ya da hiçbiri", kesişen koltuk kümeleri, kilit uzatma |
 | `KuyrukServisiTests` | Sıra numarası benzersizliği, FIFO hak tanıma, süre dolumu |
 | `AdminEtkinlikSilmeTests` | Satılmış bilet koruması, bilet ve kuyruk kayıtlarının temizlenmesi |
 | `MekanBilgisiTests` | Şehir/salon ayrıştırma uç durumları |
@@ -259,7 +286,7 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 ## Bilinen Kapsam Dışı Konular
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
-- Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut).
+- Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut). Bu yüzden ödeme 15 dakikalık uzatılmış kilidi de aşarsa para alınmış olmasına rağmen bilet verilemez; durum loglanır ve kullanıcı uyarılır, iade elle yapılır.
 - Kayıt onayı ve şifre sıfırlama e-postaları yok (kuyruk ve satın alma bildirimleri uygulandı).
 - Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.
 - Site içinde kamera açan QR okuyucu yok; görevli telefonun kendi kamera uygulamasını kullanır.

@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initScrollReveal();
   initEventSearch();
   initVenueMap();
+  initSeatSelection();
   initShowcaseRail();
   initCategoryNav();
   initViewToggle();
@@ -395,5 +396,77 @@ function initVenueMap() {
   document.getElementById("zoomOut")?.addEventListener("click", () => {
     zoom = Math.max(zoom - 0.15, 0.7);
     applyZoom();
+  });
+}
+
+// Salon haritasında çoklu koltuk seçimi. Seçilen koltuklar forma gizli input olarak
+// yazılır; sunucu tarafında hepsi tek bir rezervasyon isteği olarak değerlendirilir.
+function initSeatSelection() {
+  const form = document.getElementById("seatForm");
+  if (!form) return;
+
+  const bar = document.getElementById("selectionBar");
+  const sayacEl = document.getElementById("selectionCount");
+  const koltuklarEl = document.getElementById("selectionSeats");
+  const toplamEl = document.getElementById("selectionTotal");
+  const maxKoltuk = parseInt(form.dataset.maxKoltuk, 10) || 6;
+
+  const secilenler = new Map();
+
+  const paraFormat = new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  });
+
+  const yenile = () => {
+    const adet = secilenler.size;
+    bar.hidden = adet === 0;
+    if (adet === 0) return;
+
+    const toplam = [...secilenler.values()].reduce((t, k) => t + k.fiyat, 0);
+    const koltukNolar = [...secilenler.values()].map((k) => k.koltukNo).sort();
+
+    sayacEl.textContent = `${adet} koltuk seçildi`;
+    koltuklarEl.textContent = koltukNolar.join(" · ");
+    toplamEl.textContent = paraFormat.format(toplam);
+  };
+
+  form.querySelectorAll(".seat.seat-free").forEach((koltuk) => {
+    koltuk.addEventListener("click", () => {
+      const id = koltuk.dataset.biletId;
+
+      if (secilenler.has(id)) {
+        secilenler.delete(id);
+        koltuk.classList.remove("is-selected");
+        koltuk.setAttribute("aria-pressed", "false");
+        form.querySelector(`input[data-bilet-id="${id}"]`)?.remove();
+        yenile();
+        return;
+      }
+
+      if (secilenler.size >= maxKoltuk) {
+        koltuk.classList.add("seat-shake");
+        setTimeout(() => koltuk.classList.remove("seat-shake"), 400);
+        sayacEl.textContent = `En fazla ${maxKoltuk} koltuk seçebilirsiniz`;
+        return;
+      }
+
+      secilenler.set(id, {
+        koltukNo: koltuk.dataset.koltukNo,
+        fiyat: parseFloat(koltuk.dataset.fiyat) || 0,
+      });
+      koltuk.classList.add("is-selected");
+      koltuk.setAttribute("aria-pressed", "true");
+
+      const gizli = document.createElement("input");
+      gizli.type = "hidden";
+      gizli.name = "biletIds";
+      gizli.value = id;
+      gizli.dataset.biletId = id;
+      form.appendChild(gizli);
+
+      yenile();
+    });
   });
 }

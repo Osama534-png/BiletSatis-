@@ -24,6 +24,9 @@
 }
 else
 {
+    var toplam = Model.Sum(b => b.Fiyat);
+    var ilkBitis = Model.Min(b => b.KilitBitisZamani);
+
     <div class="row g-3">
         @foreach (var bilet in Model)
         {
@@ -37,13 +40,9 @@ else
                     </div>
                     <div class="ticket-perf"></div>
                     <div class="ticket-body">
-                        <p class="ticket-desc">
-                            ⏱️ Rezervasyonunuz <strong>@bilet.KilitBitisZamani?.ToLocalTime().ToString("HH:mm:ss")</strong> zamanına kadar geçerli — süre dolarsa koltuk otomatik olarak tekrar satışa açılır.
-                        </p>
                         <div class="ticket-price-row">
                             <span class="ticket-price">@bilet.Fiyat.ToString("C")</span>
                         </div>
-                        <a asp-action="OdemeStub" asp-route-biletId="@bilet.Id" class="btn btn-primary btn-sm w-100">💳 Ödemeye Git</a>
                         <form asp-action="IptalEt" method="post">
                             <input type="hidden" name="biletId" value="@bilet.Id" />
                             <button type="submit" class="btn btn-outline-secondary btn-sm w-100">Vazgeç</button>
@@ -53,4 +52,23 @@ else
             </div>
         }
     </div>
+
+    <div class="selection-bar mt-3">
+        <div class="selection-info">
+            <span class="selection-count">@Model.Count koltuk</span>
+            <span class="selection-seats">@string.Join(" · ", Model.Select(b => b.KoltukNo))</span>
+        </div>
+        <div class="selection-total">
+            <span class="selection-total-label">Toplam</span>
+            <span class="selection-total-value">@toplam.ToString("C")</span>
+        </div>
+        <form asp-action="SepetiOde" method="post">
+            <button type="submit" class="btn btn-primary">💳 Stripe ile Öde</button>
+        </form>
+    </div>
+
+    <p class="ticket-desc mt-2">
+        ⏱️ Rezervasyonunuz <strong>@ilkBitis?.ToLocalTime().ToString("HH:mm:ss")</strong> zamanına kadar geçerli —
+        süre dolarsa koltuklar otomatik olarak tekrar satışa açılır. Ödemeye geçtiğinizde süre uzatılır.
+    </p>
 }

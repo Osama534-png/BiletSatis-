@@ -69,6 +69,7 @@ else
 
             <div class="venue-legend">
                 <span><i class="legend-dot seat-free"></i> Müsait</span>
+                <span><i class="legend-dot is-selected"></i> Seçtiğim</span>
                 <span><i class="legend-dot seat-held"></i> Sepette</span>
                 <span><i class="legend-dot seat-sold"></i> Satıldı</span>
             </div>
@@ -125,7 +126,10 @@ else
         </section>
     </div>
 
-    <form asp-action="SepeteEkle" method="post" class="seat-panels">
+    <form asp-action="SepeteEkle" method="post" class="seat-panels" id="seatForm"
+          data-max-koltuk="@BiletSatis.Web.Controllers.BiletlerController.MaxKoltuk">
+        <input type="hidden" name="etkinlikId" value="@Model.EtkinlikId" />
+
         @foreach (var blok in Model.Bloklar)
         {
             <div class="seat-panel @(blok.Kod == ilkSecili?.Kod ? "is-active" : "")" data-block="@blok.Kod">
@@ -140,7 +144,10 @@ else
                 }
                 else
                 {
-                    <p class="ticket-desc">Yeşil koltuklara tıklayarak doğrudan sepete ekleyebilirsiniz.</p>
+                    <p class="ticket-desc">
+                        Yeşil koltuklara tıklayarak seçin — tek seferde en fazla
+                        @BiletSatis.Web.Controllers.BiletlerController.MaxKoltuk koltuk alabilirsiniz.
+                    </p>
                 }
 
                 <div class="seat-grid">
@@ -148,15 +155,18 @@ else
                     {
                         var (durumSinifi, baslik) = koltuk.Durum switch
                         {
-                            BiletDurumu.Satista => ("seat-free", $"{koltuk.KoltukNo} — {koltuk.Fiyat:C} · Sepete ekle"),
+                            BiletDurumu.Satista => ("seat-free", $"{koltuk.KoltukNo} — {koltuk.Fiyat:C} · Seç"),
                             BiletDurumu.Sepette => ("seat-held", $"{koltuk.KoltukNo} — başka bir kullanıcının sepetinde"),
                             _ => ("seat-sold", $"{koltuk.KoltukNo} — satıldı")
                         };
 
                         if (koltuk.Durum == BiletDurumu.Satista)
                         {
-                            <button type="submit" name="biletId" value="@koltuk.BiletId"
-                                    class="seat @durumSinifi" title="@baslik">@koltuk.KisaNo</button>
+                            <button type="button" class="seat @durumSinifi" title="@baslik"
+                                    aria-pressed="false"
+                                    data-bilet-id="@koltuk.BiletId"
+                                    data-koltuk-no="@koltuk.KoltukNo"
+                                    data-fiyat="@koltuk.Fiyat.ToString(System.Globalization.CultureInfo.InvariantCulture)">@koltuk.KisaNo</button>
                         }
                         else
                         {
@@ -166,6 +176,18 @@ else
                 </div>
             </div>
         }
+
+        <div class="selection-bar" id="selectionBar" hidden>
+            <div class="selection-info">
+                <span class="selection-count" id="selectionCount">0 koltuk seçildi</span>
+                <span class="selection-seats" id="selectionSeats"></span>
+            </div>
+            <div class="selection-total">
+                <span class="selection-total-label">Toplam</span>
+                <span class="selection-total-value" id="selectionTotal">0₺</span>
+            </div>
+            <button type="submit" class="btn btn-primary">🛒 Sepete Ekle</button>
+        </div>
     </form>
 
     <div class="queue-cta">
