@@ -185,7 +185,11 @@ dotnet user-secrets set "Eposta:KullaniciAdi" "hesabiniz@gmail.com"
 dotnet user-secrets set "Eposta:Sifre" "uygulama-sifreniz"
 ```
 
-`appsettings.json` içindeki `Eposta:SiteAdresi` değerini de sitenin gerçek adresiyle güncelleyin — e-postadaki "Biletini seç" bağlantısı bu adresi kullanır, göreli adres e-posta istemcilerinde çalışmaz.
+`appsettings.json` içindeki `Eposta:SiteAdresi` değerini de sitenin gerçek adresiyle güncelleyin — e-postadaki bağlantılar bu adresi kullanır, göreli adres e-posta istemcilerinde çalışmaz.
+
+> **Gmail kullanacaksanız:** Uygulama şifresi almadan **önce** iki adımlı doğrulamayı açın. 2FA kapalıyken üretilen şifreleri Google kabul etmez ve `535 Username and Password not accepted` hatası alırsınız. Şifreyi `abcd efgh ijkl mnop` biçiminde boşluklu yapıştırabilirsiniz; kod boşlukları temizler.
+
+Gmail dışında herhangi bir SMTP sağlayıcısı da çalışır (Brevo, Mailtrap, kurumsal sunucu). Yalnızca `Eposta:SmtpSunucu`, `KullaniciAdi` ve `Sifre` değerlerini değiştirmek yeterlidir; kodda değişiklik gerekmez.
 
 ## Test
 

@@ -51,7 +51,10 @@ public class SmtpEpostaGonderici : IEpostaGonderici
 
         if (!string.IsNullOrWhiteSpace(_ayarlar.KullaniciAdi))
         {
-            await istemci.AuthenticateAsync(_ayarlar.KullaniciAdi, _ayarlar.Sifre, ct);
+            // Google uygulama şifresini "abcd efgh ijkl mnop" biçiminde gösterir,
+            // ancak SMTP boşluksuz bekler. Kopyala-yapıştır hatasını burada gideriyoruz.
+            var sifre = _ayarlar.Sifre.Replace(" ", "");
+            await istemci.AuthenticateAsync(_ayarlar.KullaniciAdi, sifre, ct);
         }
 
         await istemci.SendAsync(mesaj, ct);
