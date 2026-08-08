@@ -68,6 +68,9 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
                 .HasMaxLength(20);
 
             r.HasIndex(x => new { x.EtkinlikId, x.Durum, x.SiraNo });
+
+            // Bildirim görevi "hakkı tanınmış ama bildirilmemiş" kayıtları tarar.
+            r.HasIndex(x => new { x.Durum, x.BildirimGonderildi });
         });
     }
 }

@@ -17,6 +17,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, canlı arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü; tümü sayfa yenilemeden çalışır ve tercihler tarayıcıda saklanır.
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
 - **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
+- **Kuyruk e-posta bildirimi** — sırası gelen kullanıcıya "sıran geldi" e-postası gönderilir. Gönderim, hak tanıma işleminden ayrı bir arka plan görevinde yapılır; hata olursa bildirim kaybolmaz, tekrar denenir.
 
 ## Mimari Kararlar
 
@@ -45,6 +46,12 @@ Optimistic concurrency, EF Core'un normal oku-değiştir-kaydet akışında (`Sa
 Yönetim panelinden etkinlik silinebilir, ancak **satılmış bileti olan etkinlikler silinemez**. Satılmış bilet gerçek bir satın alma kaydıdır; etkinlik silinirse `Biletler` tablosundaki satırlar cascade ile gider ve kullanıcıların bilet geçmişi yok olur. Kontrol yalnızca arayüzde butonu gizlemekle yapılmaz, `EtkinlikSil` action'ının içindedir.
 
 Silinebilir etkinliklerde biletler foreign key üzerinden cascade ile silinir; `RezervasyonKuyrugu`'nun `Etkinlik`'e foreign key'i **olmadığı** için o kayıtlar ayrıca temizlenir — aksi halde öksüz satır kalırdı.
+
+### Bildirim e-postası neden hak tanıma anında gönderilmiyor?
+
+Hak tanıma tek bir atomik `UPDATE` sorgusudur. E-postayı bu işlemin içinde göndermek üç sorun doğururdu: SMTP sunucusunun yanıt süresi kuyruk işlemini yavaşlatır, e-posta hata verirse hak tanımayı geri almak gerekir, uygulama yeniden başlarsa gönderilmemiş bildirimler kaybolur.
+
+Bunun yerine `RezervasyonKuyrugu` tablosuna `BildirimGonderildi` bayrağı eklendi. `BildirimWorker` 20 saniyede bir "hakkı tanınmış ama bildirilmemiş" kayıtları tarar, e-postayı gönderir ve bayrağı işaretler. Gönderim başarısız olursa bayrak `false` kalır ve bir sonraki turda tekrar denenir — aynı kişiye iki kez gönderilmesi de bayrak sayesinde engellenir.
 
 ### Koltuk blokları nereden geliyor?
 
@@ -155,6 +162,21 @@ dotnet user-secrets set "Stripe:SecretKey" "sk_test_..."
 
 Test kartı: `4242 4242 4242 4242`, herhangi bir gelecek son kullanma tarihi, herhangi 3 haneli CVC.
 
+### E-posta bildirimi yapılandırması
+
+Proje **SMTP hesabı olmadan da çalışır**. `Eposta:SmtpSunucu` boşsa e-postalar gönderilmez, `logs/eposta/` klasörüne `.html` dosyası olarak yazılır — bildirimlerin içeriği tarayıcıda açılıp kontrol edilebilir.
+
+Gerçek gönderim için SMTP bilgilerini girin (şifre `appsettings.json`'a **yazılmaz**, user-secrets'ta saklanır):
+
+```bash
+cd BiletSatis.Web
+dotnet user-secrets set "Eposta:SmtpSunucu" "smtp.gmail.com"
+dotnet user-secrets set "Eposta:KullaniciAdi" "hesabiniz@gmail.com"
+dotnet user-secrets set "Eposta:Sifre" "uygulama-sifreniz"
+```
+
+`appsettings.json` içindeki `Eposta:SiteAdresi` değerini de sitenin gerçek adresiyle güncelleyin — e-postadaki "Biletini seç" bağlantısı bu adresi kullanır, göreli adres e-posta istemcilerinde çalışmaz.
+
 ## Test
 
 ### Entegrasyon testleri (xUnit)
@@ -178,6 +200,7 @@ Kapsanan alanlar:
 | `EtkinlikKartVmTests` | Geri sayım metni, kıtlık uyarısı eşikleri |
 | `AdminOzetTests` | Gelir/doluluk hesapları, sıfıra bölme durumu |
 | `ProfilVmTests` | Avatar baş harfleri |
+| `KuyrukBildirimServisiTests` | Bildirim gönderimi, tekrar gönderim engeli, hata sonrası yeniden deneme |
 
 ### Yük testleri (k6)
 
@@ -192,6 +215,6 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut).
-- E-posta gönderimi yok — kayıt onayı, şifre sıfırlama ve kuyruk bildirimi uygulanmadı.
+- Kayıt onayı ve şifre sıfırlama e-postaları yok (yalnızca kuyruk bildirimi uygulandı).
 - Arayüzdeki filtreler (arama, kategori, şehir, fiyat, sıralama) istemci tarafında çalışır. Tüm etkinlikler tek sayfada render edildiği için etkinlik sayısı büyüdüğünde sunucu tarafı filtreleme ve sayfalama gerekir.
 - Şehir bilgisi ayrı bir sütun değil, `Mekan` alanından ayrıştırılır (bkz. Mimari Kararlar).

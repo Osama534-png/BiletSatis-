@@ -1,6 +1,7 @@
 using BiletSatis.Web.BackgroundServices;
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Services;
+using BiletSatis.Web.Services.Eposta;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Authorization;
@@ -57,6 +58,23 @@ builder.Services.AddScoped<IBiletRezervasyonServisi, BiletRezervasyonServisi>();
 builder.Services.AddScoped<IKuyrukServisi, KuyrukServisi>();
 builder.Services.AddHostedService<CartExpiryWorker>();
 builder.Services.AddHostedService<WaitlistWorker>();
+
+builder.Services.Configure<EpostaAyarlari>(builder.Configuration.GetSection(EpostaAyarlari.BolumAdi));
+
+// SMTP sunucusu tanımlıysa gerçek gönderim, değilse e-postaları diske yazan
+// geliştirme uygulaması kullanılır. Böylece proje SMTP hesabı olmadan da çalışır.
+var epostaAyarlari = builder.Configuration.GetSection(EpostaAyarlari.BolumAdi).Get<EpostaAyarlari>() ?? new EpostaAyarlari();
+if (epostaAyarlari.SmtpYapilandirilmisMi)
+{
+    builder.Services.AddScoped<IEpostaGonderici, SmtpEpostaGonderici>();
+}
+else
+{
+    builder.Services.AddScoped<IEpostaGonderici, DosyayaYazanEpostaGonderici>();
+}
+
+builder.Services.AddScoped<IKuyrukBildirimServisi, KuyrukBildirimServisi>();
+builder.Services.AddHostedService<BildirimWorker>();
 
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 

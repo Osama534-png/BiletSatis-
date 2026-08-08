@@ -39,7 +39,9 @@ public class KuyrukServisi : IKuyrukServisi
                 WHERE EtkinlikId = {etkinlikId} AND Durum = {KuyrukDurumMetni.Beklemede}
                 ORDER BY SiraNo
             )
-            UPDATE cte SET Durum = {KuyrukDurumMetni.HakTanindi}, HakBitisZamani = DATEADD(MINUTE, 5, GETUTCDATE())
+            UPDATE cte SET Durum = {KuyrukDurumMetni.HakTanindi},
+                           HakBitisZamani = DATEADD(MINUTE, 5, GETUTCDATE()),
+                           BildirimGonderildi = 0
             """, ct);
 
         if (etkilenen > 0)
