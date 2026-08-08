@@ -18,7 +18,12 @@ public class KuyrukBildirimServisiTests
         public List<(string Alici, string Konu, string Govde)> Gonderilenler { get; } = [];
         public bool HataVer { get; set; }
 
-        public Task GonderAsync(string aliciAdresi, string konu, string htmlGovde, CancellationToken ct = default)
+        public Task GonderAsync(
+            string aliciAdresi,
+            string konu,
+            string htmlGovde,
+            IReadOnlyList<GomuluGorsel>? gorseller = null,
+            CancellationToken ct = default)
         {
             if (HataVer) throw new InvalidOperationException("SMTP sunucusuna ulaşılamadı");
 

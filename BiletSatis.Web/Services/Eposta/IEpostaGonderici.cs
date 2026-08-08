@@ -6,5 +6,13 @@ public interface IEpostaGonderici
     /// Tek bir e-posta gönderir. Gönderim başarısızsa istisna fırlatır;
     /// çağıran taraf yeniden deneme kararını kendisi verir.
     /// </summary>
-    Task GonderAsync(string aliciAdresi, string konu, string htmlGovde, CancellationToken ct = default);
+    /// <param name="gorseller">
+    /// Gövdeye gömülecek görseller. HTML içinde "cid:{ContentId}" ile referans verilir.
+    /// </param>
+    Task GonderAsync(
+        string aliciAdresi,
+        string konu,
+        string htmlGovde,
+        IReadOnlyList<GomuluGorsel>? gorseller = null,
+        CancellationToken ct = default);
 }

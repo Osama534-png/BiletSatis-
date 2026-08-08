@@ -17,7 +17,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, canlı arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü; tümü sayfa yenilemeden çalışır ve tercihler tarayıcıda saklanır.
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
 - **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
-- **Kuyruk e-posta bildirimi** — sırası gelen kullanıcıya "sıran geldi" e-postası gönderilir. Gönderim, hak tanıma işleminden ayrı bir arka plan görevinde yapılır; hata olursa bildirim kaybolmaz, tekrar denenir.
+- **E-posta bildirimleri** — kuyrukta sırası gelene "sıran geldi", bilet satın alana QR kodlu "biletin hazır" e-postası gönderilir. Gönderim, kuyruk ve ödeme işlemlerinden ayrı bir arka plan görevinde yapılır; hata olursa bildirim kaybolmaz, tekrar denenir.
 
 ## Mimari Kararlar
 
@@ -52,6 +52,16 @@ Silinebilir etkinliklerde biletler foreign key üzerinden cascade ile silinir; `
 Hak tanıma tek bir atomik `UPDATE` sorgusudur. E-postayı bu işlemin içinde göndermek üç sorun doğururdu: SMTP sunucusunun yanıt süresi kuyruk işlemini yavaşlatır, e-posta hata verirse hak tanımayı geri almak gerekir, uygulama yeniden başlarsa gönderilmemiş bildirimler kaybolur.
 
 Bunun yerine `RezervasyonKuyrugu` tablosuna `BildirimGonderildi` bayrağı eklendi. `BildirimWorker` 20 saniyede bir "hakkı tanınmış ama bildirilmemiş" kayıtları tarar, e-postayı gönderir ve bayrağı işaretler. Gönderim başarısız olursa bayrak `false` kalır ve bir sonraki turda tekrar denenir — aynı kişiye iki kez gönderilmesi de bayrak sayesinde engellenir.
+
+Aynı desen satın alma bildirimi için de kullanılır: `Biletler` tablosundaki `BildirimGonderildi`, ödeme tamamlandığında sıfırlanır ve worker "satılmış ama bildirilmemiş" biletleri tarar. Bayrak her ödeme tamamlanışında sıfırlandığı için, iptal edilip tekrar satılan bilette yeni alıcıya da bildirim gider.
+
+Bu özellik eklendiğinde veritabanında zaten satılmış biletler vardı; migration bunları "bildirilmiş" olarak işaretler, aksi halde özellik açılır açılmaz tüm geçmiş satışlara toplu e-posta giderdi.
+
+### QR kodu e-postaya nasıl gömülüyor?
+
+Gmail gibi istemciler `data:` URI'li görselleri engeller. Bu yüzden QR kodu MailKit'in `LinkedResources` özelliğiyle e-postaya iliştirilir ve HTML içinde `cid:biletqr` ile referans verilir. Geliştirme modunda (SMTP yokken) dosyaya yazan gönderici, önizleme tarayıcıda açılacağı için `cid:` referanslarını `data:` URI'ye çevirir.
+
+QR kodu `BILETSATIS-{etkinlikId}-{biletId}-{koltukNo}` biçiminde bir bilet referansı taşır. Girişte bu kodu okuyup doğrulayan bir uç nokta henüz yok — kapı kontrolü için sonraki adım budur.
 
 ### Koltuk blokları nereden geliyor?
 
@@ -201,6 +211,7 @@ Kapsanan alanlar:
 | `AdminOzetTests` | Gelir/doluluk hesapları, sıfıra bölme durumu |
 | `ProfilVmTests` | Avatar baş harfleri |
 | `KuyrukBildirimServisiTests` | Bildirim gönderimi, tekrar gönderim engeli, hata sonrası yeniden deneme |
+| `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
 
 ### Yük testleri (k6)
 
@@ -215,6 +226,7 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut).
-- Kayıt onayı ve şifre sıfırlama e-postaları yok (yalnızca kuyruk bildirimi uygulandı).
+- Kayıt onayı ve şifre sıfırlama e-postaları yok (kuyruk ve satın alma bildirimleri uygulandı).
+- QR kodunu okuyup bileti doğrulayan kapı kontrolü uç noktası yok; kod yalnızca bilet referansı taşır.
 - Arayüzdeki filtreler (arama, kategori, şehir, fiyat, sıralama) istemci tarafında çalışır. Tüm etkinlikler tek sayfada render edildiği için etkinlik sayısı büyüdüğünde sunucu tarafı filtreleme ve sayfalama gerekir.
 - Şehir bilgisi ayrı bir sütun değil, `Mekan` alanından ayrıştırılır (bkz. Mimari Kararlar).

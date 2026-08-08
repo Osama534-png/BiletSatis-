@@ -3,9 +3,11 @@ using BiletSatis.Web.Services.Eposta;
 namespace BiletSatis.Web.BackgroundServices;
 
 /// <summary>
-/// Hakkı tanınmış kullanıcılara "sıran geldi" e-postasını gönderir.
-/// Gönderim, hak tanıma işleminden ayrı tutulur: atomik SQL güncellemesi
-/// e-posta sunucusunu beklemez ve gönderim hatası hak tanımayı geri almaz.
+/// Bekleyen e-posta bildirimlerini gönderir: kuyrukta sırası gelenlere
+/// "sıran geldi", bilet satın alanlara "biletin hazır".
+/// Gönderim, kuyruk ve ödeme işlemlerinden ayrı tutulur: atomik SQL
+/// güncellemeleri e-posta sunucusunu beklemez ve gönderim hatası
+/// hak tanımayı ya da ödemeyi geri almaz.
 /// </summary>
 public class BildirimWorker : BackgroundService
 {
@@ -27,8 +29,12 @@ public class BildirimWorker : BackgroundService
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                var bildirim = scope.ServiceProvider.GetRequiredService<IKuyrukBildirimServisi>();
-                await bildirim.BekleyenBildirimleriGonderAsync(stoppingToken);
+
+                var kuyrukBildirimi = scope.ServiceProvider.GetRequiredService<IKuyrukBildirimServisi>();
+                await kuyrukBildirimi.BekleyenBildirimleriGonderAsync(stoppingToken);
+
+                var biletBildirimi = scope.ServiceProvider.GetRequiredService<IBiletBildirimServisi>();
+                await biletBildirimi.BekleyenBildirimleriGonderAsync(stoppingToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

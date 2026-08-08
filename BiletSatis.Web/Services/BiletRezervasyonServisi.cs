@@ -52,7 +52,8 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
         var etkilenen = await _db.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE Biletler
             SET Durum = {BiletDurumMetni.Satildi},
-                KilitBitisZamani = NULL
+                KilitBitisZamani = NULL,
+                BildirimGonderildi = 0
             WHERE Id = {biletId} AND Durum = {BiletDurumMetni.Sepette} AND RezerveEdenKullaniciId = {kullaniciId}
             """, ct);
 

@@ -73,7 +73,9 @@ else
     builder.Services.AddScoped<IEpostaGonderici, DosyayaYazanEpostaGonderici>();
 }
 
+builder.Services.AddSingleton<IQrKodUretici, QrKodUretici>();
 builder.Services.AddScoped<IKuyrukBildirimServisi, KuyrukBildirimServisi>();
+builder.Services.AddScoped<IBiletBildirimServisi, BiletBildirimServisi>();
 builder.Services.AddHostedService<BildirimWorker>();
 
 Stripe.StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];

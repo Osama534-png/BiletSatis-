@@ -21,12 +21,25 @@ public class DosyayaYazanEpostaGonderici : IEpostaGonderici
         _logger = logger;
     }
 
-    public async Task GonderAsync(string aliciAdresi, string konu, string htmlGovde, CancellationToken ct = default)
+    public async Task GonderAsync(
+        string aliciAdresi,
+        string konu,
+        string htmlGovde,
+        IReadOnlyList<GomuluGorsel>? gorseller = null,
+        CancellationToken ct = default)
     {
         Directory.CreateDirectory(_klasor);
 
         var dosyaAdi = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.html";
         var tamYol = Path.Combine(_klasor, dosyaAdi);
+
+        // Dosya tarayıcıda açılacağı için cid: referansları data: URI'ye çevrilir.
+        var onizlemeGovdesi = htmlGovde;
+        foreach (var gorsel in gorseller ?? [])
+        {
+            var dataUri = $"data:{gorsel.MimeTuru};base64,{Convert.ToBase64String(gorsel.Icerik)}";
+            onizlemeGovdesi = onizlemeGovdesi.Replace($"cid:{gorsel.ContentId}", dataUri);
+        }
 
         var icerik = $"""
             <!doctype html>
@@ -34,7 +47,7 @@ public class DosyayaYazanEpostaGonderici : IEpostaGonderici
             <p><strong>Alıcı:</strong> {aliciAdresi}</p>
             <p><strong>Konu:</strong> {konu}</p>
             <hr>
-            {htmlGovde}
+            {onizlemeGovdesi}
             """;
 
         await File.WriteAllTextAsync(tamYol, icerik, ct);

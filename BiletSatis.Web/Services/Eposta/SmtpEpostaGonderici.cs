@@ -16,13 +16,30 @@ public class SmtpEpostaGonderici : IEpostaGonderici
         _logger = logger;
     }
 
-    public async Task GonderAsync(string aliciAdresi, string konu, string htmlGovde, CancellationToken ct = default)
+    public async Task GonderAsync(
+        string aliciAdresi,
+        string konu,
+        string htmlGovde,
+        IReadOnlyList<GomuluGorsel>? gorseller = null,
+        CancellationToken ct = default)
     {
         var mesaj = new MimeMessage();
         mesaj.From.Add(new MailboxAddress(_ayarlar.GondericiAdi, _ayarlar.GondericiAdresi));
         mesaj.To.Add(MailboxAddress.Parse(aliciAdresi));
         mesaj.Subject = konu;
-        mesaj.Body = new BodyBuilder { HtmlBody = htmlGovde }.ToMessageBody();
+
+        var govdeKurucu = new BodyBuilder { HtmlBody = htmlGovde };
+
+        foreach (var gorsel in gorseller ?? [])
+        {
+            var kaynak = govdeKurucu.LinkedResources.Add(
+                gorsel.DosyaAdi,
+                gorsel.Icerik,
+                ContentType.Parse(gorsel.MimeTuru));
+            kaynak.ContentId = gorsel.ContentId;
+        }
+
+        mesaj.Body = govdeKurucu.ToMessageBody();
 
         using var istemci = new SmtpClient();
 

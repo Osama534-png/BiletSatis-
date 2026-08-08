@@ -86,7 +86,7 @@ public class KuyrukBildirimServisi : IKuyrukBildirimServisi
 
             try
             {
-                await _gonderici.GonderAsync(kullanici.Email, konu, govde, ct);
+                await _gonderici.GonderAsync(kullanici.Email, konu, govde, gorseller: null, ct);
                 kayit.BildirimGonderildi = true;
                 gonderilen++;
             }

@@ -45,6 +45,9 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
             b.Property(x => x.Fiyat).HasColumnType("decimal(10,2)");
             b.HasIndex(x => new { x.Durum, x.KilitBitisZamani });
 
+            // Bildirim görevi "satılmış ama bildirilmemiş" biletleri tarar.
+            b.HasIndex(x => new { x.Durum, x.BildirimGonderildi });
+
             b.HasOne(x => x.Etkinlik)
                 .WithMany(x => x.Biletler)
                 .HasForeignKey(x => x.EtkinlikId);
