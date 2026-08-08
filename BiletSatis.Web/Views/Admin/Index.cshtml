@@ -1,4 +1,5 @@
-@model List<BiletSatis.Web.Models.AdminEtkinlikOzeti>
+@model BiletSatis.Web.Models.AdminPanelVm
+@using BiletSatis.Web.Domain
 @{
     ViewData["Title"] = "Admin";
 }
@@ -6,7 +7,7 @@
 <div class="hero d-flex justify-content-between align-items-center flex-wrap gap-3">
     <div>
         <h1>⚙️ Yönetim Paneli</h1>
-        <p>Etkinlik durumlarını izle, kuyruktaki kullanıcılara satış hakkı tanı.</p>
+        <p>Etkinlikleri yönet, satışları izle, kuyruktakilere hak tanı.</p>
     </div>
     <a asp-action="EtkinlikEkle" class="btn btn-outline-secondary bg-white">+ Yeni Etkinlik</a>
 </div>
@@ -20,16 +21,81 @@
     <div class="alert alert-danger mb-4">⚠️ @TempData["Hata"]</div>
 }
 
-@if (!Model.Any())
+<div class="admin-ozet">
+    <div class="stat-tile">
+        <div class="stat-icon">💰</div>
+        <div class="stat-value">@Model.ToplamGelir.ToString("N0")₺</div>
+        <div class="stat-label">Toplam Gelir</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-icon">🎫</div>
+        <div class="stat-value">@Model.ToplamSatilan</div>
+        <div class="stat-label">Satılan Bilet</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-icon">🟢</div>
+        <div class="stat-value">@Model.ToplamSatista</div>
+        <div class="stat-label">Satıştaki Bilet</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value">%@Model.DolulukYuzdesi</div>
+        <div class="stat-label">Doluluk</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-value">@Model.ToplamKuyrukta</div>
+        <div class="stat-label">Kuyrukta</div>
+    </div>
+</div>
+
+@if (!Model.Etkinlikler.Any())
 {
     <p class="text-muted">Henüz etkinlik yok. Yukarıdan yeni bir etkinlik oluşturun.</p>
 }
 
-@foreach (var e in Model)
+@foreach (var e in Model.Etkinlikler)
 {
     <div class="card mb-4">
         <div class="card-body">
-            <h2 class="h4 mb-3">🎤 @e.Ad</h2>
+            <div class="admin-etkinlik-baslik">
+                <div>
+                    <h2 class="h4 mb-1">@e.Ad</h2>
+                    <p class="text-muted small mb-0">
+                        @KategoriMetni.Ad(e.Kategori) · @e.Tarih.ToString("dd.MM.yyyy HH:mm")
+                        @if (!string.IsNullOrWhiteSpace(e.Mekan))
+                        {
+                            <text> · @e.Mekan</text>
+                        }
+                    </p>
+                </div>
+                <div class="admin-etkinlik-islem">
+                    <a asp-action="EtkinlikDuzenle" asp-route-id="@e.EtkinlikId" class="btn btn-outline-secondary btn-sm">✏️ Düzenle</a>
+                    @if (e.Silinebilir)
+                    {
+                        <form asp-action="EtkinlikSil" method="post"
+                              onsubmit="return confirm('@e.Ad etkinliği ve tüm biletleri silinecek. Emin misiniz?');">
+                            <input type="hidden" name="etkinlikId" value="@e.EtkinlikId" />
+                            <button type="submit" class="btn btn-outline-danger btn-sm">🗑️ Sil</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="silme-kilidi" title="Satılmış bilet bulunan etkinlikler silinemez">🔒 Silinemez</span>
+                    }
+                </div>
+            </div>
+
+            <div class="admin-gelir-serit">
+                <div>
+                    <span class="etiket">Gelir</span>
+                    <span class="tutar">@e.Gelir.ToString("N0")₺</span>
+                </div>
+                <div class="doluluk-cubugu" title="@e.SatildiSayisi / @e.ToplamKoltuk koltuk satıldı">
+                    <div class="doluluk-dolu" style="width:@e.DolulukYuzdesi%"></div>
+                </div>
+                <span class="doluluk-yazi">%@e.DolulukYuzdesi doluluk</span>
+            </div>
 
             <div class="row g-3 mb-4">
                 <div class="col-6 col-md-3">

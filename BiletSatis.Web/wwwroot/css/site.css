@@ -1671,6 +1671,128 @@ footer.site-footer a:hover {
 }
 
 /* =========================================================
+   Yönetim paneli
+   ========================================================= */
+
+.admin-ozet {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 2rem;
+}
+
+.admin-etkinlik-baslik {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-bottom: 1.1rem;
+}
+
+.admin-etkinlik-islem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.admin-etkinlik-islem form {
+  margin: 0;
+}
+
+.btn-outline-danger {
+  border: 1.5px solid var(--danger-bg);
+  background: var(--surface);
+  color: var(--danger);
+}
+
+.btn-outline-danger:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: #9c2c17;
+}
+
+.silme-kilidi {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--neutral-bg);
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.admin-gelir-serit {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: var(--surface-alt);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-gelir-serit .etiket {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.admin-gelir-serit .tutar {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
+.doluluk-cubugu {
+  flex: 1 1 8rem;
+  height: 0.55rem;
+  background: var(--neutral-bg);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.doluluk-dolu {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  border-radius: var(--radius-pill);
+  transition: width 0.4s var(--ease);
+}
+
+.doluluk-yazi {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.afis-onizleme {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.afis-onizleme img {
+  width: 5rem;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.afis-onizleme > div {
+  flex: 1;
+  min-width: 0;
+}
+
+/* =========================================================
    Profil sayfası
    ========================================================= */
 

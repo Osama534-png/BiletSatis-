@@ -31,19 +31,112 @@ public class AdminController : Controller
     public async Task<IActionResult> Index()
     {
         var etkinlikler = await _db.Etkinlikler
+            .OrderBy(e => e.Tarih)
             .Select(e => new AdminEtkinlikOzeti
             {
                 EtkinlikId = e.Id,
                 Ad = e.Ad,
+                Mekan = e.Mekan,
+                Kategori = e.Kategori,
+                Tarih = e.Tarih,
                 SatistaSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Satista),
                 SepetteSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Sepette),
                 SatildiSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Satildi),
+                Gelir = e.Biletler.Where(b => b.Durum == BiletDurumu.Satildi).Sum(b => (decimal?)b.Fiyat) ?? 0m,
                 KuyrukBeklemede = _db.RezervasyonKuyrugu.Count(k => k.EtkinlikId == e.Id && k.Durum == KuyrukDurumu.Beklemede),
                 KuyrukHakTanindi = _db.RezervasyonKuyrugu.Count(k => k.EtkinlikId == e.Id && k.Durum == KuyrukDurumu.HakTanindi)
             })
             .ToListAsync();
 
-        return View(etkinlikler);
+        return View(new AdminPanelVm { Etkinlikler = etkinlikler });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EtkinlikDuzenle(int id)
+    {
+        var etkinlik = await _db.Etkinlikler.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id);
+        if (etkinlik == null) return NotFound();
+
+        return View(new EtkinlikDuzenleViewModel
+        {
+            Id = etkinlik.Id,
+            Ad = etkinlik.Ad,
+            Mekan = etkinlik.Mekan,
+            Kategori = etkinlik.Kategori,
+            Aciklama = etkinlik.Aciklama,
+            YasSiniri = etkinlik.YasSiniri,
+            Tarih = etkinlik.Tarih,
+            MevcutAfisUrl = etkinlik.AfisUrl
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> EtkinlikDuzenle(EtkinlikDuzenleViewModel model)
+    {
+        var etkinlik = await _db.Etkinlikler.FirstOrDefaultAsync(e => e.Id == model.Id);
+        if (etkinlik == null) return NotFound();
+
+        model.MevcutAfisUrl = etkinlik.AfisUrl;
+        if (!ModelState.IsValid) return View(model);
+
+        // Yeni dosya yüklenmediyse mevcut afiş korunur.
+        if (model.AfisDosyasi is { Length: > 0 })
+        {
+            var (url, hata) = await AfisKaydetAsync(model.AfisDosyasi);
+            if (hata != null)
+            {
+                ModelState.AddModelError(nameof(model.AfisDosyasi), hata);
+                return View(model);
+            }
+            etkinlik.AfisUrl = url!;
+        }
+
+        etkinlik.Ad = model.Ad;
+        etkinlik.Mekan = model.Mekan;
+        etkinlik.Kategori = model.Kategori;
+        etkinlik.Aciklama = model.Aciklama;
+        etkinlik.YasSiniri = model.YasSiniri;
+        etkinlik.Tarih = model.Tarih;
+
+        await _db.SaveChangesAsync();
+
+        TempData["Bilgi"] = $"'{etkinlik.Ad}' etkinliği güncellendi.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EtkinlikSil(int etkinlikId)
+    {
+        var etkinlik = await _db.Etkinlikler
+            .Include(e => e.Biletler)
+            .FirstOrDefaultAsync(e => e.Id == etkinlikId);
+
+        if (etkinlik == null) return NotFound();
+
+        // Satılmış bilet gerçek bir satın alma kaydıdır; tek tıkla silinmemeli.
+        var satilan = etkinlik.Biletler.Count(b => b.Durum == BiletDurumu.Satildi);
+        if (satilan > 0)
+        {
+            TempData["Hata"] = $"'{etkinlik.Ad}' silinemez: {satilan} adet satılmış bilet var. " +
+                               "Satış kaydı bulunan etkinlikler silinemez.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        // Kuyruk kayıtlarının etkinliğe foreign key'i yok; cascade ile silinmezler.
+        var kuyrukKayitlari = await _db.RezervasyonKuyrugu
+            .Where(k => k.EtkinlikId == etkinlikId)
+            .ToListAsync();
+        _db.RezervasyonKuyrugu.RemoveRange(kuyrukKayitlari);
+
+        // Biletler foreign key üzerinden cascade ile silinir.
+        _db.Etkinlikler.Remove(etkinlik);
+        await _db.SaveChangesAsync();
+
+        TempData["Bilgi"] = $"'{etkinlik.Ad}' etkinliği silindi.";
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]

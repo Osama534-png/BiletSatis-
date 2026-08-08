@@ -1,0 +1,79 @@
+@model BiletSatis.Web.Models.EtkinlikDuzenleViewModel
+@using BiletSatis.Web.Domain
+@{
+    ViewData["Title"] = "Etkinliği Düzenle";
+    var afis = string.IsNullOrWhiteSpace(Model.MevcutAfisUrl) ? "/img/afis/varsayilan.svg" : Model.MevcutAfisUrl;
+}
+
+<div class="card auth-card" style="max-width: 640px;">
+    <div class="card-body">
+        <h1 class="h3 mb-4">Etkinliği Düzenle</h1>
+
+        <form asp-action="EtkinlikDuzenle" method="post" enctype="multipart/form-data">
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="MevcutAfisUrl" />
+
+            <div class="mb-3">
+                <label asp-for="Ad" class="form-label"></label>
+                <input asp-for="Ad" class="form-control" />
+                <span asp-validation-for="Ad" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Mekan" class="form-label"></label>
+                <input asp-for="Mekan" class="form-control" placeholder="Örn: Harbiye Açıkhava, İstanbul" />
+                <div class="form-text">Virgülden önce salon adı, sonra şehir yazın.</div>
+                <span asp-validation-for="Mekan" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Kategori" class="form-label"></label>
+                <select asp-for="Kategori" class="form-select">
+                    @foreach (var kategori in KategoriMetni.Tumu)
+                    {
+                        <option value="@kategori">@KategoriMetni.Ad(kategori)</option>
+                    }
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Tarih" class="form-label"></label>
+                <input asp-for="Tarih" class="form-control" />
+                <span asp-validation-for="Tarih" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Aciklama" class="form-label"></label>
+                <textarea asp-for="Aciklama" class="form-control" rows="4"></textarea>
+                <span asp-validation-for="Aciklama" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="YasSiniri" class="form-label"></label>
+                <input asp-for="YasSiniri" type="number" min="0" max="21" class="form-control" />
+                <span asp-validation-for="YasSiniri" class="text-danger"></span>
+            </div>
+
+            <div class="mb-4">
+                <label asp-for="AfisDosyasi" class="form-label"></label>
+                <div class="afis-onizleme">
+                    <img src="@afis" alt="Mevcut afiş" />
+                    <div>
+                        <input asp-for="AfisDosyasi" type="file" class="form-control"
+                               accept="image/jpeg,image/png,image/webp" />
+                        <div class="form-text">Boş bırakırsanız mevcut afiş korunur. JPG, PNG veya WEBP · en fazla 4 MB.</div>
+                        <span asp-validation-for="AfisDosyasi" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 mb-2">Değişiklikleri Kaydet</button>
+            <a asp-action="Index" class="btn btn-outline-secondary w-100">Vazgeç</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}
