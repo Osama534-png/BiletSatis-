@@ -28,15 +28,10 @@ public class KuyrukController : Controller
 
         var kullaniciId = _currentUser.GetKullaniciId();
 
-        var mevcutKayit = await _db.RezervasyonKuyrugu
-            .Where(k => k.EtkinlikId == etkinlikId && k.KullaniciId == kullaniciId)
-            .OrderByDescending(k => k.SiraNo)
-            .FirstOrDefaultAsync();
-
-        if (mevcutKayit == null || mevcutKayit.Durum == KuyrukDurumu.SuresiDoldu)
-        {
-            await _kuyruk.EnqueueWaitlistAsync(etkinlikId, kullaniciId);
-        }
+        // "Zaten sırada mı" kontrolü servisin içinde, ekleme ile aynı SQL deyiminde
+        // yapılıyor. Burada önce sorup sonra eklemek, iki isteğin aynı anda gelmesi
+        // hâlinde aynı kullanıcıya iki sıra numarası verilmesine yol açıyordu.
+        await _kuyruk.EnqueueWaitlistAsync(etkinlikId, kullaniciId);
 
         return RedirectToAction(nameof(Durum), new { etkinlikId });
     }

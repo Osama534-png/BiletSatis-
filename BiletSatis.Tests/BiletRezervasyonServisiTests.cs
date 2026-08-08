@@ -183,11 +183,18 @@ public class BiletRezervasyonServisiTests
         var (etkinlikId, idler) = await BiletlerOlustur(3);
         try
         {
+            var kapi = new TaskCompletionSource();
+
             var gorevler = Enumerable.Range(0, 20).Select(async i =>
             {
                 using var db = DatabaseFixture.CreateContext();
+                await db.Database.ExecuteSqlRawAsync("SELECT 1");
+                await kapi.Task;
                 return await YeniServis(db).TryAddManyToCartAsync(idler, $"kullanici-{i}");
-            });
+            }).ToList();
+
+            await Task.Delay(250);
+            kapi.SetResult();
 
             var sonuclar = await Task.WhenAll(gorevler);
 
@@ -210,17 +217,23 @@ public class BiletRezervasyonServisiTests
         var (etkinlikId, idler) = await BiletlerOlustur(5);
         try
         {
-            var birinci = Task.Run(async () =>
-            {
-                using var db = DatabaseFixture.CreateContext();
-                return await YeniServis(db).TryAddManyToCartAsync(new[] { idler[0], idler[1], idler[2] }, "kullanici-1");
-            });
+            // İki isteğin gerçekten aynı anda çarpışması için ortak kapı kullanılıyor;
+            // aksi halde biri diğerinden önce bitip yarış hiç oluşmuyor.
+            var kapi = new TaskCompletionSource();
 
-            var ikinci = Task.Run(async () =>
+            async Task<CokluSepeteEklemeSonucu> Dene(int[] istenen, string kullanici)
             {
                 using var db = DatabaseFixture.CreateContext();
-                return await YeniServis(db).TryAddManyToCartAsync(new[] { idler[2], idler[3], idler[4] }, "kullanici-2");
-            });
+                await db.Database.ExecuteSqlRawAsync("SELECT 1");
+                await kapi.Task;
+                return await YeniServis(db).TryAddManyToCartAsync(istenen, kullanici);
+            }
+
+            var birinci = Dene(new[] { idler[0], idler[1], idler[2] }, "kullanici-1");
+            var ikinci = Dene(new[] { idler[2], idler[3], idler[4] }, "kullanici-2");
+
+            await Task.Delay(250);
+            kapi.SetResult();
 
             var sonuclar = await Task.WhenAll(birinci, ikinci);
 
@@ -273,6 +286,86 @@ public class BiletRezervasyonServisiTests
 
             Assert.Equal(2, tamamlanan);
             Assert.Equal(BiletDurumu.Sepette, await DurumOku(idler[2]));
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Kullanıcı ödeme başarı sayfasını yenilerse işlem ikinci kez çalışır. İkinci
+    // çağrı hiçbir satırı güncellemez ama kullanıcı biletlerine sahip olduğu için
+    // yine tam sayı dönmeli — aksi halde ekranda sahte "biletiniz kayboldu" uyarısı çıkar.
+    [Fact]
+    public async Task CompletePaymentManyAsync_IkinciKezCagrilirsa_YineTamSayiDonmeli()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(3);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+            await servis.TryAddManyToCartAsync(idler, "kullanici-1");
+
+            var ilk = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+            var ikinci = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+
+            Assert.Equal(3, ilk);
+            Assert.Equal(3, ikinci);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Kullanıcı Stripe sayfasındayken kilit süresi dolup koltuk serbest bırakılmış
+    // olabilir. Koltuğu bu arada kimse almadıysa parası ödenmiş bilet geri kazanılmalı.
+    [Fact]
+    public async Task CompletePaymentManyAsync_KilidiDusmusAmaBostaKalanKoltugu_GeriKazanmali()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(2);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+            await servis.TryAddManyToCartAsync(idler, "kullanici-1");
+
+            // CartExpiryWorker'ın süresi dolan kilidi serbest bırakmasını taklit et.
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE Biletler SET Durum = N'Satışta', RezerveEdenKullaniciId = NULL, KilitBitisZamani = NULL
+                WHERE Id = {idler[1]}
+                """);
+
+            var tamamlanan = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+
+            Assert.Equal(2, tamamlanan);
+            Assert.Equal(BiletDurumu.Satildi, await DurumOku(idler[1]));
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Kurtarma yalnızca koltuk gerçekten boştaysa çalışmalı; başkasının sepetindeki
+    // koltuk asla geri alınmamalı.
+    [Fact]
+    public async Task CompletePaymentManyAsync_KoltugaBaskasiGectiyse_GeriAlmamali()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(2);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+            await servis.TryAddManyToCartAsync(idler, "kullanici-1");
+
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE Biletler SET Durum = N'Satışta', RezerveEdenKullaniciId = NULL, KilitBitisZamani = NULL
+                WHERE Id = {idler[1]}
+                """);
+
+            // Serbest kalan koltuğu başka bir kullanıcı sepetine aldı.
+            await servis.TryAddToCartAsync(idler[1], "kullanici-2");
+
+            var tamamlanan = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+
+            Assert.Equal(1, tamamlanan);
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var kapilan = await kontrol.Biletler.AsNoTracking().FirstAsync(b => b.Id == idler[1]);
+            Assert.Equal(BiletDurumu.Sepette, kapilan.Durum);
+            Assert.Equal("kullanici-2", kapilan.RezerveEdenKullaniciId);
         }
         finally { await Temizle(etkinlikId); }
     }

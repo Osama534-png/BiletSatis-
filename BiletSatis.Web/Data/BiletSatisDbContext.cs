@@ -52,6 +52,11 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
             // Admin panelindeki giriş sayacı etkinlik bazında bu alanı sayar.
             b.HasIndex(x => new { x.EtkinlikId, x.GirisYapildi });
 
+            // Aynı etkinlikte aynı koltuk numarası iki kez bulunamaz. Bilet ekleme
+            // "kaç tane var" sayıp numara üretiyor; iki eşzamanlı ekleme aynı numarayı
+            // üretebilir. Bu dizin, çakışmayı veritabanı seviyesinde imkânsız kılar.
+            b.HasIndex(x => new { x.EtkinlikId, x.KoltukNo }).IsUnique();
+
             b.HasOne(x => x.Etkinlik)
                 .WithMany(x => x.Biletler)
                 .HasForeignKey(x => x.EtkinlikId);

@@ -60,7 +60,35 @@ Geri alma sonrası "hangi koltuk elden gitti" sorgusu bilerek `ROLLBACK`'ten **s
 
 Normal sepet kilidi 5 dakika. Kullanıcı Stripe'ın ödeme sayfasında kart bilgilerini girerken bu süre dolarsa `CartExpiryWorker` koltuğu tekrar satışa açar; kullanıcı ödemeyi tamamladığında koltuk başkasına satılmış olabilir — parası alınmış, bileti yok. Bu yüzden Stripe oturumu oluşturulmadan hemen önce sepetteki biletlerin kilidi 15 dakikaya uzatılır.
 
-Yine de bir açık kalıyor: ödeme 15 dakikadan uzun sürerse. Bu durumda para alınır ama biletler işaretlenemez; kod bunu `LogError` ile kaydeder ve kullanıcıyı uyarır. Otomatik iade akışı henüz yok.
+İkinci bir savunma daha var: ödeme tamamlanırken bilet yalnızca "hâlâ sepetimde" koşuluyla değil, **"serbest kalmış ama kimse almamış"** koşuluyla da alınır. Yani kilit düşmüş olsa bile koltuğu bu arada başkası kapmadıysa, parası ödenmiş bilet geri kazanılır. Koltuk gerçekten başkasına gittiyse kayıp gerçektir; kod bunu `LogError` ile kaydeder ve kullanıcıyı uyarır (otomatik iade akışı yok).
+
+Ayrıca ödeme sonucu, güncellenen satır sayısından değil **kullanıcının gerçekten sahip olduğu bilet sayısından** okunur. Böylece kullanıcı başarı sayfasını yenilediğinde ikinci çağrı hiçbir satırı değiştirmese bile doğru cevap döner; sahte "biletiniz kayboldu" uyarısı çıkmaz ve bildirim e-postası ikinci kez tetiklenmez.
+
+### Aynı kullanıcı kuyruğa iki kez giremez — nasıl?
+
+"Zaten sırada mı" kontrolü ile ekleme ayrı sorgular olduğunda, aynı kullanıcının iki isteği aynı anda geldiğinde ikisi de "sırada değil" görüp iki kayıt açıyordu. Kontrol artık eklemeyle **aynı SQL deyiminin içinde**:
+
+```sql
+INSERT INTO RezervasyonKuyrugu (...)
+OUTPUT INSERTED.SiraNo
+SELECT @etkinlikId, @kullaniciId, 'Beklemede', GETUTCDATE()
+WHERE NOT EXISTS (
+    SELECT 1 FROM RezervasyonKuyrugu WITH (UPDLOCK, HOLDLOCK)
+    WHERE EtkinlikId = @etkinlikId AND KullaniciId = @kullaniciId AND Durum <> 'SuresiDoldu'
+)
+```
+
+Kayıt açılmadıysa sıra numarası dönmez (`null`). `UPDLOCK, HOLDLOCK` aralığı kilitleyerek ikinci isteğin araya kayıt sokmasını engeller.
+
+Bu hata, testler gerçekten eşzamanlı hâle getirilene kadar görünmüyordu: istekler `Task.WhenAll` ile başlatılsa bile biri diğerinden önce bitiyordu. Testler artık ortak bir "kapı" kullanıyor — her görev önce bağlantısını açıp ısınıyor, sonra hep birlikte serbest bırakılıyor. Eski kodla test 3/3 kırılıyor, yeni kodla 4/4 geçiyor.
+
+### Satılmış bileti olan etkinlik silme kontrolü neden SQL içinde?
+
+Önce "satılmış bilet var mı" diye sorup sonra silmek yetmiyordu: tam aradaki anda bir ödeme tamamlanırsa satılmış bilet cascade ile yok olurdu. Koşul artık `DELETE`'in kendi içinde (`WHERE NOT EXISTS (...)`) ve etkilenen satır sayısına bakılıyor; kuyruk kayıtlarının temizliğiyle birlikte tek bir işlem (transaction) içinde yapılıyor.
+
+### Koltuk numarası çakışması
+
+Bilet ekleme "bu blokta kaç bilet var" sayıp numarayı ondan üretiyor. İki eşzamanlı ekleme aynı numarayı üretebilirdi; `(EtkinlikId, KoltukNo)` üzerindeki **benzersiz dizin** bunu veritabanı seviyesinde imkânsız kılar. Çakışma olursa hiçbir bilet yazılmaz ve yöneticiye tekrar denemesi söylenir.
 
 ### Neden `RowVersion` (optimistic concurrency) kullanılmadı?
 
@@ -274,7 +302,7 @@ Kapsanan alanlar:
 | Dosya | Ne test ediliyor |
 |---|---|
 | `BiletRezervasyonServisiTests` | Eşzamanlı sepete ekleme, kilit süresi, ödeme tamamlama, çoklu koltukta "hepsi ya da hiçbiri", kesişen koltuk kümeleri, kilit uzatma |
-| `KuyrukServisiTests` | Sıra numarası benzersizliği, FIFO hak tanıma, süre dolumu |
+| `KuyrukServisiTests` | Sıra numarası benzersizliği, FIFO hak tanıma, süre dolumu, aynı kullanıcının eşzamanlı katılımında tek kayıt, eşzamanlı hak tanımada tutarlılık |
 | `AdminEtkinlikSilmeTests` | Satılmış bilet koruması, bilet ve kuyruk kayıtlarının temizlenmesi |
 | `MekanBilgisiTests` | Şehir/salon ayrıştırma uç durumları |
 | `EtkinlikKartVmTests` | Geri sayım metni, kıtlık uyarısı eşikleri |

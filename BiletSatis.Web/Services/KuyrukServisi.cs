@@ -15,16 +15,28 @@ public class KuyrukServisi : IKuyrukServisi
         _logger = logger;
     }
 
-    public async Task<int> EnqueueWaitlistAsync(int etkinlikId, string kullaniciId, CancellationToken ct = default)
+    public async Task<int?> EnqueueWaitlistAsync(int etkinlikId, string kullaniciId, CancellationToken ct = default)
     {
+        // "Zaten sıradaysa ekleme" kontrolü ayrı bir SELECT ile yapılsaydı, aynı
+        // kullanıcının iki isteği aynı anda geldiğinde ikisi de "sırada değil" görüp
+        // iki kayıt açardı. Kontrol ile ekleme tek deyimde: NOT EXISTS içindeki
+        // UPDLOCK/HOLDLOCK, aralığı kilitleyerek ikinci isteğin araya girmesini önler.
         var siraNolar = await _db.Database.SqlQuery<int>($"""
             INSERT INTO RezervasyonKuyrugu (EtkinlikId, KullaniciId, Durum, OlusturmaZamani)
             OUTPUT INSERTED.SiraNo
-            VALUES ({etkinlikId}, {kullaniciId}, {KuyrukDurumMetni.Beklemede}, GETUTCDATE())
+            SELECT {etkinlikId}, {kullaniciId}, {KuyrukDurumMetni.Beklemede}, GETUTCDATE()
+            WHERE NOT EXISTS (
+                SELECT 1 FROM RezervasyonKuyrugu WITH (UPDLOCK, HOLDLOCK)
+                WHERE EtkinlikId = {etkinlikId}
+                  AND KullaniciId = {kullaniciId}
+                  AND Durum <> {KuyrukDurumMetni.SuresiDoldu}
+            )
             """).ToListAsync(ct);
 
-        var siraNo = siraNolar.Single();
-        _logger.LogInformation("Kuyruğa katılım: EtkinlikId={EtkinlikId} KullaniciId={KullaniciId} SiraNo={SiraNo}",
+        var siraNo = siraNolar.Count == 1 ? siraNolar[0] : (int?)null;
+
+        _logger.LogInformation(
+            "Kuyruğa katılım: EtkinlikId={EtkinlikId} KullaniciId={KullaniciId} SiraNo={SiraNo}",
             etkinlikId, kullaniciId, siraNo);
 
         return siraNo;
@@ -32,10 +44,16 @@ public class KuyrukServisi : IKuyrukServisi
 
     public async Task<int> AllocateWaitlistBatchAsync(int etkinlikId, int n, CancellationToken ct = default)
     {
+        if (n <= 0) return 0;
+
+        // UPDLOCK: satırlar daha okunurken güncelleme niyetiyle kilitlenir. Hint olmadan
+        // da çift hak tanıma gözlenmedi (bkz. AllocateWaitlistBatchAsync_EsZamanliCagrilar
+        // testi); buradaki amaç, paylaşılan kilidin güncelleme kilidine yükseltilmesi
+        // sırasında iki eşzamanlı çağrının birbirini kilitlemesini (deadlock) önlemek.
         var etkilenen = await _db.Database.ExecuteSqlInterpolatedAsync($"""
             ;WITH cte AS (
                 SELECT TOP ({n}) *
-                FROM RezervasyonKuyrugu
+                FROM RezervasyonKuyrugu WITH (UPDLOCK)
                 WHERE EtkinlikId = {etkinlikId} AND Durum = {KuyrukDurumMetni.Beklemede}
                 ORDER BY SiraNo
             )

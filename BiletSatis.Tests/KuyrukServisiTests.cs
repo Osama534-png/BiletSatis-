@@ -41,6 +41,113 @@ public class KuyrukServisiTests
         finally { await Temizle(etkinlikId); }
     }
 
+    // Aynı kullanıcı iki sekmeden aynı anda "kuyruğa katıl" derse tek sıra numarası
+    // almalı. Kontrol ile ekleme ayrı sorgular olsaydı ikisi de "sırada değil" görüp
+    // iki kayıt açardı ve kullanıcı kuyrukta iki yer kaplardı.
+    [Fact]
+    public async Task EnqueueWaitlistAsync_AyniKullaniciEsZamanliOnIstek_TekKayitOlusmali()
+    {
+        var etkinlikId = YeniEtkinlikId();
+        try
+        {
+            // Yarış durumunu güvenilir biçimde tetiklemek için istekler gerçekten aynı
+            // anda başlamalı. Her görev önce bağlantısını açıp ısınıyor, sonra ortak
+            // kapının açılmasını bekliyor; kapı açılınca hepsi birlikte koşuyor.
+            var kapi = new TaskCompletionSource();
+
+            var gorevler = Enumerable.Range(0, 10).Select(async _ =>
+            {
+                using var db = DatabaseFixture.CreateContext();
+                await db.Database.ExecuteSqlRawAsync("SELECT 1");
+                await kapi.Task;
+                return await YeniServis(db).EnqueueWaitlistAsync(etkinlikId, "tek-kullanici");
+            }).ToList();
+
+            await Task.Delay(250);
+            kapi.SetResult();
+
+            var sonuclar = await Task.WhenAll(gorevler);
+
+            Assert.Equal(1, sonuclar.Count(s => s.HasValue));
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var kayitSayisi = await kontrol.RezervasyonKuyrugu
+                .AsNoTracking()
+                .CountAsync(k => k.EtkinlikId == etkinlikId && k.KullaniciId == "tek-kullanici");
+
+            Assert.Equal(1, kayitSayisi);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    [Fact]
+    public async Task EnqueueWaitlistAsync_SuresiDolmusKaydiOlan_TekrarSirayaGirebilmeli()
+    {
+        var etkinlikId = YeniEtkinlikId();
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+
+            var ilkSiraNo = await servis.EnqueueWaitlistAsync(etkinlikId, "kullanici-1");
+
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE RezervasyonKuyrugu SET Durum = N'SuresiDoldu' WHERE SiraNo = {ilkSiraNo!.Value}
+                """);
+
+            var ikinciSiraNo = await servis.EnqueueWaitlistAsync(etkinlikId, "kullanici-1");
+
+            Assert.NotNull(ikinciSiraNo);
+            Assert.NotEqual(ilkSiraNo, ikinciSiraNo);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Arka plan görevi ile admin paneli aynı anda hak tanıyabilir. Toplam hak sayısı
+    // bekleyen kişi sayısını aşmamalı — yani kimseye iki kez hak tanınmamalı.
+    [Fact]
+    public async Task AllocateWaitlistBatchAsync_EsZamanliCagrilar_ToplamHakSayisiniAsmamali()
+    {
+        var etkinlikId = YeniEtkinlikId();
+        try
+        {
+            using (var db = DatabaseFixture.CreateContext())
+            {
+                var servis = YeniServis(db);
+                for (var i = 0; i < 10; i++)
+                {
+                    await servis.EnqueueWaitlistAsync(etkinlikId, $"kullanici-{i}");
+                }
+            }
+
+            var kapi = new TaskCompletionSource();
+
+            var gorevler = Enumerable.Range(0, 5).Select(async _ =>
+            {
+                using var db = DatabaseFixture.CreateContext();
+                await db.Database.ExecuteSqlRawAsync("SELECT 1");
+                await kapi.Task;
+                return await YeniServis(db).AllocateWaitlistBatchAsync(etkinlikId, 4);
+            }).ToList();
+
+            await Task.Delay(250);
+            kapi.SetResult();
+
+            var atananlar = await Task.WhenAll(gorevler);
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var hakTaninan = await kontrol.RezervasyonKuyrugu
+                .AsNoTracking()
+                .CountAsync(k => k.EtkinlikId == etkinlikId && k.Durum == KuyrukDurumu.HakTanindi);
+
+            // Bildirilen toplam, veritabanındaki gerçek sayıyla birebir örtüşmeli;
+            // fazlası aynı kişiye iki kez hak tanındığı anlamına gelir.
+            Assert.Equal(hakTaninan, atananlar.Sum());
+            Assert.True(hakTaninan <= 10, $"10 bekleyen varken {hakTaninan} hak tanınmış");
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     [Fact]
     public async Task AllocateWaitlistBatchAsync_EnDusukSiraNolaraHakTanimali()
     {
@@ -53,7 +160,8 @@ public class KuyrukServisiTests
             var siraNolar = new List<int>();
             for (var i = 0; i < 10; i++)
             {
-                siraNolar.Add(await servis.EnqueueWaitlistAsync(etkinlikId, $"kullanici-{i}"));
+                var siraNo = await servis.EnqueueWaitlistAsync(etkinlikId, $"kullanici-{i}");
+                siraNolar.Add(siraNo!.Value);
             }
             siraNolar.Sort();
 
@@ -119,7 +227,7 @@ public class KuyrukServisiTests
             var siraNo = await servis.EnqueueWaitlistAsync(etkinlikId, "kullanici-1");
             await servis.AllocateWaitlistBatchAsync(etkinlikId, 1);
 
-            var basarili = await servis.CompleteQueueEntryAsync(siraNo, "kullanici-1");
+            var basarili = await servis.CompleteQueueEntryAsync(siraNo!.Value, "kullanici-1");
 
             Assert.True(basarili);
             var kayit = await db.RezervasyonKuyrugu.AsNoTracking().FirstAsync(k => k.SiraNo == siraNo);

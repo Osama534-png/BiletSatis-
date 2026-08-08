@@ -111,32 +111,51 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EtkinlikSil(int etkinlikId)
     {
-        var etkinlik = await _db.Etkinlikler
-            .Include(e => e.Biletler)
-            .FirstOrDefaultAsync(e => e.Id == etkinlikId);
+        var ad = await _db.Etkinlikler
+            .AsNoTracking()
+            .Where(e => e.Id == etkinlikId)
+            .Select(e => e.Ad)
+            .FirstOrDefaultAsync();
 
-        if (etkinlik == null) return NotFound();
+        if (ad == null) return NotFound();
 
         // Satılmış bilet gerçek bir satın alma kaydıdır; tek tıkla silinmemeli.
-        var satilan = etkinlik.Biletler.Count(b => b.Durum == BiletDurumu.Satildi);
-        if (satilan > 0)
+        // Kontrolü ayrı bir sorguyla yapıp sonra silmek yetmez: tam aradaki anda bir
+        // ödeme tamamlanırsa satılmış bilet cascade ile yok olurdu. Bu yüzden silme,
+        // koşulu kendi içinde taşıyan tek bir DELETE ile yapılıp etkilenen satır
+        // sayısına bakılıyor; tamamı da bir işlem içinde.
+        await using var islem = await _db.Database.BeginTransactionAsync();
+
+        var silinen = await _db.Database.ExecuteSqlInterpolatedAsync($"""
+            DELETE FROM Etkinlikler
+            WHERE Id = {etkinlikId}
+              AND NOT EXISTS (
+                    SELECT 1 FROM Biletler
+                    WHERE EtkinlikId = {etkinlikId} AND Durum = {BiletDurumMetni.Satildi}
+                  )
+            """);
+
+        if (silinen == 0)
         {
-            TempData["Hata"] = $"'{etkinlik.Ad}' silinemez: {satilan} adet satılmış bilet var. " +
+            await islem.RollbackAsync();
+
+            var satilan = await _db.Biletler
+                .AsNoTracking()
+                .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum == BiletDurumu.Satildi);
+
+            TempData["Hata"] = $"'{ad}' silinemez: {satilan} adet satılmış bilet var. " +
                                "Satış kaydı bulunan etkinlikler silinemez.";
             return RedirectToAction(nameof(Index));
         }
 
         // Kuyruk kayıtlarının etkinliğe foreign key'i yok; cascade ile silinmezler.
-        var kuyrukKayitlari = await _db.RezervasyonKuyrugu
-            .Where(k => k.EtkinlikId == etkinlikId)
-            .ToListAsync();
-        _db.RezervasyonKuyrugu.RemoveRange(kuyrukKayitlari);
+        await _db.Database.ExecuteSqlInterpolatedAsync($"""
+            DELETE FROM RezervasyonKuyrugu WHERE EtkinlikId = {etkinlikId}
+            """);
 
-        // Biletler foreign key üzerinden cascade ile silinir.
-        _db.Etkinlikler.Remove(etkinlik);
-        await _db.SaveChangesAsync();
+        await islem.CommitAsync();
 
-        TempData["Bilgi"] = $"'{etkinlik.Ad}' etkinliği silindi.";
+        TempData["Bilgi"] = $"'{ad}' etkinliği silindi.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -249,20 +268,34 @@ public class AdminController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        var onEk = koltukOnEki.Trim().ToUpperInvariant();
+
         var mevcutSayisi = await _db.Biletler
-            .CountAsync(b => b.EtkinlikId == etkinlikId && b.KoltukNo.StartsWith(koltukOnEki + "-"));
+            .CountAsync(b => b.EtkinlikId == etkinlikId && b.KoltukNo.StartsWith(onEk + "-"));
 
         for (var i = 1; i <= adet; i++)
         {
             _db.Biletler.Add(new Bilet
             {
                 EtkinlikId = etkinlikId,
-                KoltukNo = $"{koltukOnEki}-{(mevcutSayisi + i):00}",
+                KoltukNo = $"{onEk}-{(mevcutSayisi + i):00}",
                 Fiyat = fiyat,
                 Durum = BiletDurumu.Satista
             });
         }
-        await _db.SaveChangesAsync();
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // (EtkinlikId, KoltukNo) benzersiz dizini devreye girdi: başka bir ekleme
+            // aynı numaraları araya sıkıştırdı. Hiçbiri yazılmadı, kullanıcı tekrar dener.
+            _db.ChangeTracker.Clear();
+            TempData["Hata"] = "Koltuk numaraları çakıştı — biletler eklenmedi, lütfen tekrar deneyin.";
+            return RedirectToAction(nameof(Index));
+        }
 
         TempData["Bilgi"] = $"{adet} yeni bilet eklendi.";
         return RedirectToAction(nameof(Index));

@@ -137,21 +137,40 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
         var idler = biletIdleri.Distinct().ToArray();
         if (idler.Length == 0) return 0;
 
+        // İki durumu birden karşılıyoruz:
+        //  1) Normal akış — bilet hâlâ bu kullanıcının sepetinde.
+        //  2) Kurtarma — kullanıcı Stripe sayfasındayken kilit süresi dolmuş ve
+        //     CartExpiryWorker koltuğu serbest bırakmış olabilir. Koltuğu bu arada
+        //     kimse almadıysa (Satışta ve sahipsiz) geri alıyoruz; parası ödenmiş
+        //     bir koltuğu yalnızca gerçekten başkasına gittiyse kaybediyoruz.
         var etkilenen = await _db.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE Biletler
             SET Durum = {BiletDurumMetni.Satildi},
                 KilitBitisZamani = NULL,
-                BildirimGonderildi = 0
-            WHERE Durum = {BiletDurumMetni.Sepette}
-              AND RezerveEdenKullaniciId = {kullaniciId}
-              AND Id IN (SELECT CAST(value AS INT) FROM STRING_SPLIT({IdListesi(idler)}, ','))
+                BildirimGonderildi = 0,
+                RezerveEdenKullaniciId = {kullaniciId}
+            WHERE Id IN (SELECT CAST(value AS INT) FROM STRING_SPLIT({IdListesi(idler)}, ','))
+              AND (
+                    (Durum = {BiletDurumMetni.Sepette} AND RezerveEdenKullaniciId = {kullaniciId})
+                 OR (Durum = {BiletDurumMetni.Satista} AND RezerveEdenKullaniciId IS NULL)
+                  )
             """, ct);
 
-        _logger.LogInformation(
-            "Ödeme sonucu: KullaniciId={KullaniciId} İstenen={Istenen} Tamamlanan={Tamamlanan}",
-            kullaniciId, idler.Length, etkilenen);
+        // Sonucu etkilenen satır sayısından değil, kullanıcının gerçekten sahip olduğu
+        // bilet sayısından okuyoruz. Böylece işlem tekrar çalıştırıldığında (kullanıcı
+        // başarı sayfasını yenilerse) hiçbir satır güncellenmese bile doğru cevap döner
+        // ve sahte "biletiniz kayboldu" uyarısı çıkmaz.
+        var sahipOlunan = await _db.Biletler
+            .AsNoTracking()
+            .CountAsync(b => idler.Contains(b.Id)
+                          && b.Durum == BiletDurumu.Satildi
+                          && b.RezerveEdenKullaniciId == kullaniciId, ct);
 
-        return etkilenen;
+        _logger.LogInformation(
+            "Ödeme sonucu: KullaniciId={KullaniciId} İstenen={Istenen} Yazilan={Yazilan} SahipOlunan={SahipOlunan}",
+            kullaniciId, idler.Length, etkilenen, sahipOlunan);
+
+        return sahipOlunan;
     }
 
     public async Task<bool> CancelReservationAsync(int biletId, string kullaniciId, CancellationToken ct = default)
