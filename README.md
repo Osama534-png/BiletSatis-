@@ -18,6 +18,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
 - **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
 - **E-posta bildirimleri** — kuyrukta sırası gelene "sıran geldi", bilet satın alana QR kodlu "biletin hazır" e-postası gönderilir. Gönderim, kuyruk ve ödeme işlemlerinden ayrı bir arka plan görevinde yapılır; hata olursa bildirim kaybolmaz, tekrar denenir.
+- **Kapı kontrolü** — görevli biletteki QR'ı okutur, mobil öncelikli doğrulama sayfası bileti kontrol eder. QR kodu HMAC ile imzalıdır (sahte bilet üretilemez), bir bilet yalnızca bir kez giriş sağlar ve eşzamanlı okutmalarda tek atomik `UPDATE` ile yalnızca biri kaydedilir.
 
 ## Mimari Kararlar
 
@@ -61,7 +62,23 @@ Bu özellik eklendiğinde veritabanında zaten satılmış biletler vardı; migr
 
 Gmail gibi istemciler `data:` URI'li görselleri engeller. Bu yüzden QR kodu MailKit'in `LinkedResources` özelliğiyle e-postaya iliştirilir ve HTML içinde `cid:biletqr` ile referans verilir. Geliştirme modunda (SMTP yokken) dosyaya yazan gönderici, önizleme tarayıcıda açılacağı için `cid:` referanslarını `data:` URI'ye çevirir.
 
-QR kodu `BILETSATIS-{etkinlikId}-{biletId}-{koltukNo}` biçiminde bir bilet referansı taşır. Girişte bu kodu okuyup doğrulayan bir uç nokta henüz yok — kapı kontrolü için sonraki adım budur.
+QR kodu, kapı görevlisinin okutunca açacağı imzalı doğrulama adresini taşır (bkz. aşağıdaki bölüm).
+
+### Kapı kontrolü QR kodu neden imzalı?
+
+QR'daki adres `"/Giris/Dogrula?kod=1399"` olsaydı, kapıdaki herkes numarayı artırarak başkalarının biletlerini "kullanıldı" işaretleyebilir ve o kişiler içeri alınamazdı. Bu yüzden kod, bilet numarası ve **HMAC-SHA256 imzasından** oluşur:
+
+```
+1399.a7f3c9e2b1d4f608
+```
+
+Sunucu imzayı gizli anahtarla yeniden hesaplayıp karşılaştırır; anahtarı bilmeyen geçerli kod üretemez. Karşılaştırma sabit sürelidir (`FixedTimeEquals`), böylece imza karakter karakter tahmin edilemez. İmza tutmayan kod veritabanına hiç sorulmaz.
+
+İkinci katman: doğrulama sayfası `[Authorize(Roles = "Admin")]` ile korunur. Sayfa herkese açık olsaydı, biletini okutan herkes kendi girişini yakabilir ya da başkasınınkiyle oynayabilirdi.
+
+Üçüncü katman: giriş onayı tek atomik `UPDATE` ile yapılır (`WHERE ... AND GirisYapildi = 0`). İki görevli aynı bileti aynı anda okutsa bile yalnızca biri girişi kaydeder — bilet satın almadaki yarış durumu çözümünün aynısı.
+
+**Kapsam dışı:** Biletin ekran görüntüsü paylaşılırsa ilk okutan içeri girer, ikincisi "zaten kullanıldı" görür. Bu doğru davranıştır ama sistem gerçek sahibi ayırt edemez; gerçek etkinliklerde bu yüzden kimlik kontrolü yapılır. Ayrıca site içinde kamera açan bir okuyucu yoktur — görevli telefonun kendi kamera uygulamasıyla okutur.
 
 ### Koltuk blokları nereden geliyor?
 
@@ -172,6 +189,17 @@ dotnet user-secrets set "Stripe:SecretKey" "sk_test_..."
 
 Test kartı: `4242 4242 4242 4242`, herhangi bir gelecek son kullanma tarihi, herhangi 3 haneli CVC.
 
+### Kapı kontrolü imza anahtarı
+
+Bilet QR kodları bu anahtarla imzalanır. Geliştirmede tanımlı değilse sabit bir geçici anahtar kullanılır; **üretimde tanımlı değilse uygulama başlamaz** — anahtarsız imza tahmin edilebilir olur ve sahte bilet üretilebilir.
+
+```bash
+cd BiletSatis.Web
+dotnet user-secrets set "Giris:ImzaAnahtari" "uzun-ve-rastgele-bir-deger"
+```
+
+Anahtar değiştirilirse önceden gönderilmiş biletlerin QR kodları geçersiz olur.
+
 ### E-posta bildirimi yapılandırması
 
 Proje **SMTP hesabı olmadan da çalışır**. `Eposta:SmtpSunucu` boşsa e-postalar gönderilmez, `logs/eposta/` klasörüne `.html` dosyası olarak yazılır — bildirimlerin içeriği tarayıcıda açılıp kontrol edilebilir.
@@ -216,6 +244,8 @@ Kapsanan alanlar:
 | `ProfilVmTests` | Avatar baş harfleri |
 | `KuyrukBildirimServisiTests` | Bildirim gönderimi, tekrar gönderim engeli, hata sonrası yeniden deneme |
 | `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
+| `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
+| `GirisServisiTests` | Kapı kontrolü: tek kullanım, 20 eşzamanlı okutmada tek giriş, satılmamış bilet reddi |
 
 ### Yük testleri (k6)
 
@@ -231,6 +261,7 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut).
 - Kayıt onayı ve şifre sıfırlama e-postaları yok (kuyruk ve satın alma bildirimleri uygulandı).
-- QR kodunu okuyup bileti doğrulayan kapı kontrolü uç noktası yok; kod yalnızca bilet referansı taşır.
+- Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.
+- Site içinde kamera açan QR okuyucu yok; görevli telefonun kendi kamera uygulamasını kullanır.
 - Arayüzdeki filtreler (arama, kategori, şehir, fiyat, sıralama) istemci tarafında çalışır. Tüm etkinlikler tek sayfada render edildiği için etkinlik sayısı büyüdüğünde sunucu tarafı filtreleme ve sayfalama gerekir.
 - Şehir bilgisi ayrı bir sütun değil, `Mekan` alanından ayrıştırılır (bkz. Mimari Kararlar).

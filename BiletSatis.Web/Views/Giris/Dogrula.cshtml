@@ -1,0 +1,79 @@
+@model BiletSatis.Web.Services.Giris.GirisSonucu
+@using BiletSatis.Web.Services.Giris
+@using BiletSatis.Web.Domain
+@{
+    ViewData["Title"] = "Bilet Doğrulama";
+    var kod = ViewData["Kod"] as string;
+    var onaylandi = ViewData["Onaylandi"] as bool? ?? false;
+
+    var (sinif, ikon, baslik, aciklama) = Model.Durum switch
+    {
+        GirisDurumu.GirisOnaylandi when onaylandi =>
+            ("gecerli", "✓", "Giriş onaylandı", "Misafiri içeri alabilirsiniz."),
+        GirisDurumu.GirisOnaylandi =>
+            ("gecerli", "✓", "Geçerli bilet", "Girişi onaylamak için aşağıdaki düğmeye basın."),
+        GirisDurumu.ZatenKullanildi =>
+            ("kullanildi", "!", "Zaten kullanıldı", "Bu bilet daha önce okutuldu. İçeri almadan önce kontrol edin."),
+        GirisDurumu.SatilmamisBilet =>
+            ("gecersiz", "✕", "Satılmamış bilet", "Bu bilet için ödeme tamamlanmamış. İçeri almayın."),
+        _ =>
+            ("gecersiz", "✕", "Geçersiz kod", "Bu QR kod sisteme ait değil ya da değiştirilmiş. İçeri almayın.")
+    };
+}
+
+<div class="giris-ekran">
+    <div class="giris-sonuc @sinif">
+        <div class="giris-ikon">@ikon</div>
+        <h1>@baslik</h1>
+        <p>@aciklama</p>
+    </div>
+
+    @if (Model.BiletBulundu)
+    {
+        <div class="giris-detay">
+            <div class="giris-etkinlik">
+                <strong>@Model.EtkinlikAdi</strong>
+                <span>@Model.Mekan</span>
+                <span>@Model.EtkinlikTarihi.ToString("dd.MM.yyyy · HH:mm")</span>
+            </div>
+
+            <dl class="giris-liste">
+                <div>
+                    <dt>Koltuk</dt>
+                    <dd class="vurgu">@Model.KoltukNo</dd>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Model.SahibiAdi))
+                {
+                    <div>
+                        <dt>Bilet sahibi</dt>
+                        <dd>@Model.SahibiAdi</dd>
+                    </div>
+                }
+                @if (Model.YasSiniri > 0)
+                {
+                    <div>
+                        <dt>Yaş sınırı</dt>
+                        <dd>@Model.YasSiniri+ · kimlik sorun</dd>
+                    </div>
+                }
+                @if (Model.GirisZamani.HasValue)
+                {
+                    <div>
+                        <dt>Giriş saati</dt>
+                        <dd>@Model.GirisZamani.Value.ToLocalTime().ToString("HH:mm:ss")</dd>
+                    </div>
+                }
+            </dl>
+        </div>
+
+        @if (Model.Durum == GirisDurumu.GirisOnaylandi && !onaylandi)
+        {
+            <form asp-action="Onayla" method="post" class="giris-form">
+                <input type="hidden" name="kod" value="@kod" />
+                <button type="submit" class="giris-buton">Girişi onayla</button>
+            </form>
+        }
+    }
+
+    <a asp-controller="Admin" asp-action="Index" class="giris-geri">← Yönetim paneli</a>
+</div>

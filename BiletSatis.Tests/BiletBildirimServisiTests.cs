@@ -2,6 +2,7 @@ using BiletSatis.Web.Data;
 using BiletSatis.Web.Domain;
 using BiletSatis.Web.Services;
 using BiletSatis.Web.Services.Eposta;
+using BiletSatis.Web.Services.Giris;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -32,10 +33,14 @@ public class BiletBildirimServisiTests
         }
     }
 
+    private static readonly IBiletKoduServisi Kodlayici =
+        new BiletKoduServisi(Options.Create(new GirisAyarlari { ImzaAnahtari = "test-imza-anahtari" }));
+
     private static BiletBildirimServisi YeniServis(BiletSatisDbContext db, IEpostaGonderici gonderici) =>
         new(db,
             gonderici,
             new QrKodUretici(),
+            Kodlayici,
             Options.Create(new EpostaAyarlari { SiteAdresi = "https://test.local" }),
             NullLogger<BiletBildirimServisi>.Instance);
 
@@ -172,8 +177,8 @@ public class BiletBildirimServisiTests
             Assert.NotEmpty(gorsel.Icerik);
             // Gövde, gömülü görseli cid ile referanslamalı.
             Assert.Contains($"cid:{gorsel.ContentId}", mesaj.Govde);
-            // Bilet kodu hem gövdede hem QR içeriğinde geçmeli.
-            Assert.Contains($"-{biletId}-A-07", mesaj.Govde);
+            // Gövdedeki bilet kodu, kapı doğrulamasında kullanılan imzalı kodun aynısı olmalı.
+            Assert.Contains(Kodlayici.KodUret(biletId), mesaj.Govde);
         }
         finally { await Temizle(etkinlikId, kullaniciId); }
     }

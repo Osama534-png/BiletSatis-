@@ -43,6 +43,7 @@ public class AdminController : Controller
                 SepetteSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Sepette),
                 SatildiSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Satildi),
                 Gelir = e.Biletler.Where(b => b.Durum == BiletDurumu.Satildi).Sum(b => (decimal?)b.Fiyat) ?? 0m,
+                GirisYapan = e.Biletler.Count(b => b.GirisYapildi),
                 KuyrukBeklemede = _db.RezervasyonKuyrugu.Count(k => k.EtkinlikId == e.Id && k.Durum == KuyrukDurumu.Beklemede),
                 KuyrukHakTanindi = _db.RezervasyonKuyrugu.Count(k => k.EtkinlikId == e.Id && k.Durum == KuyrukDurumu.HakTanindi)
             })

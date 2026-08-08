@@ -1671,6 +1671,186 @@ footer.site-footer a:hover {
 }
 
 /* =========================================================
+   Kapı kontrolü (QR doğrulama) — mobil öncelikli
+   Görevli bunu telefondan, kalabalık ve karanlık bir kapıda okur:
+   büyük yazı, tek bakışta anlaşılan renk, kolay basılan düğme.
+   ========================================================= */
+
+.giris-ekran {
+  max-width: 26rem;
+  margin: 0 auto;
+}
+
+.giris-sonuc {
+  text-align: center;
+  border-radius: var(--radius-lg);
+  padding: 2.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.giris-sonuc h1 {
+  font-size: clamp(1.5rem, 6vw, 2rem);
+  margin-bottom: 0.4rem;
+}
+
+.giris-sonuc p {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+.giris-ikon {
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0 auto 1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.giris-sonuc.gecerli {
+  background: var(--success-bg);
+}
+
+.giris-sonuc.gecerli h1 { color: #0d5c47; }
+.giris-sonuc.gecerli p { color: #15694f; }
+.giris-sonuc.gecerli .giris-ikon {
+  background: var(--accent-2);
+  color: #fff;
+}
+
+.giris-sonuc.kullanildi {
+  background: var(--warning-bg);
+}
+
+.giris-sonuc.kullanildi h1 { color: #6b4409; }
+.giris-sonuc.kullanildi p { color: #93600f; }
+.giris-sonuc.kullanildi .giris-ikon {
+  background: var(--warning);
+  color: #fff;
+}
+
+.giris-sonuc.gecersiz {
+  background: var(--danger-bg);
+}
+
+.giris-sonuc.gecersiz h1 { color: #7d2312; }
+.giris-sonuc.gecersiz p { color: #9c2c17; }
+.giris-sonuc.gecersiz .giris-ikon {
+  background: var(--danger);
+  color: #fff;
+}
+
+.giris-detay {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.giris-etkinlik {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.giris-etkinlik strong {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.giris-etkinlik span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.giris-liste {
+  margin: 0;
+}
+
+.giris-liste > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.giris-liste > div + div {
+  border-top: 1px solid var(--surface-alt);
+}
+
+.giris-liste dt {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.giris-liste dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: right;
+}
+
+.giris-liste dd.vurgu {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.35rem;
+  color: var(--accent-dark);
+}
+
+.giris-form {
+  margin-bottom: 1.25rem;
+}
+
+/* Kapıda hızlı basılması için tam genişlik ve yüksek dokunma alanı. */
+.giris-buton {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-2);
+  color: #fff;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 1.1rem;
+  cursor: pointer;
+  transition: filter 0.18s var(--ease), transform 0.12s var(--ease);
+}
+
+.giris-buton:hover {
+  filter: brightness(0.93);
+}
+
+.giris-buton:active {
+  transform: scale(0.98);
+}
+
+.giris-geri {
+  display: block;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.giris-geri:hover {
+  color: var(--accent-dark);
+}
+
+/* =========================================================
    Yönetim paneli
    ========================================================= */
 

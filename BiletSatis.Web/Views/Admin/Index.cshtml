@@ -124,6 +124,20 @@
                 </div>
             </div>
 
+            @if (e.SatildiSayisi > 0)
+            {
+                <div class="admin-gelir-serit">
+                    <div>
+                        <span class="etiket">Kapıdan geçen</span>
+                        <span class="tutar">@e.GirisYapan / @e.SatildiSayisi</span>
+                    </div>
+                    <div class="doluluk-cubugu" title="@e.GirisYapan bilet sahibi giriş yaptı">
+                        <div class="doluluk-dolu" style="width:@e.GirisYuzdesi%"></div>
+                    </div>
+                    <span class="doluluk-yazi">%@e.GirisYuzdesi giriş</span>
+                </div>
+            }
+
             <p class="text-muted small mb-2">Hak Tanındı: <strong>@e.KuyrukHakTanindi</strong> kişi</p>
 
             <form asp-action="SatisiBaslat" method="post" class="d-flex gap-2 align-items-center mb-3">

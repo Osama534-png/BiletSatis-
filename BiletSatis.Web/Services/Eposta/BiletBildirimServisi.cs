@@ -1,5 +1,6 @@
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Domain;
+using BiletSatis.Web.Services.Giris;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -10,6 +11,7 @@ public class BiletBildirimServisi : IBiletBildirimServisi
     private readonly BiletSatisDbContext _db;
     private readonly IEpostaGonderici _gonderici;
     private readonly IQrKodUretici _qr;
+    private readonly IBiletKoduServisi _biletKodu;
     private readonly EpostaAyarlari _ayarlar;
     private readonly ILogger<BiletBildirimServisi> _logger;
 
@@ -20,12 +22,14 @@ public class BiletBildirimServisi : IBiletBildirimServisi
         BiletSatisDbContext db,
         IEpostaGonderici gonderici,
         IQrKodUretici qr,
+        IBiletKoduServisi biletKodu,
         IOptions<EpostaAyarlari> ayarlar,
         ILogger<BiletBildirimServisi> logger)
     {
         _db = db;
         _gonderici = gonderici;
         _qr = qr;
+        _biletKodu = biletKodu;
         _ayarlar = ayarlar.Value;
         _logger = logger;
     }
@@ -68,11 +72,13 @@ public class BiletBildirimServisi : IBiletBildirimServisi
                 continue;
             }
 
-            var biletKodu = BiletKodu(bilet);
-            var qrPng = _qr.PngUret(biletKodu);
+            // QR, kapıdaki görevlinin okutunca açacağı imzalı doğrulama adresini taşır.
+            var imzaliKod = _biletKodu.KodUret(bilet.Id);
+            var dogrulamaAdresi = $"{_ayarlar.SiteAdresi.TrimEnd('/')}/Giris/Dogrula?kod={imzaliKod}";
+            var qrPng = _qr.PngUret(dogrulamaAdresi);
 
             var konu = $"Biletin hazır: {bilet.Etkinlik.Ad}";
-            var govde = GovdeOlustur(kullanici.Ad, bilet, bilet.Etkinlik, biletKodu);
+            var govde = GovdeOlustur(kullanici.Ad, bilet, bilet.Etkinlik, imzaliKod);
 
             try
             {
@@ -103,10 +109,6 @@ public class BiletBildirimServisi : IBiletBildirimServisi
 
         return gonderilen;
     }
-
-    /// <summary>QR koda ve bilete yazılan referans; girişte bu kod okutulur.</summary>
-    public static string BiletKodu(Bilet bilet) =>
-        $"BILETSATIS-{bilet.EtkinlikId}-{bilet.Id}-{bilet.KoltukNo}";
 
     private string GovdeOlustur(string ad, Bilet bilet, Etkinlik etkinlik, string biletKodu)
     {

@@ -2,6 +2,7 @@ using BiletSatis.Web.BackgroundServices;
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Services;
 using BiletSatis.Web.Services.Eposta;
+using BiletSatis.Web.Services.Giris;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Authorization;
@@ -73,7 +74,27 @@ else
     builder.Services.AddScoped<IEpostaGonderici, DosyayaYazanEpostaGonderici>();
 }
 
+// Bilet QR kodları bu anahtarla imzalanır. Anahtar boşsa imza tahmin edilebilir
+// hâle gelir ve sahte bilet üretilebilir; bu yüzden üretimde eksikse uygulama başlamaz.
+builder.Services.Configure<GirisAyarlari>(builder.Configuration.GetSection(GirisAyarlari.BolumAdi));
+
+var imzaAnahtari = builder.Configuration[$"{GirisAyarlari.BolumAdi}:ImzaAnahtari"];
+if (string.IsNullOrWhiteSpace(imzaAnahtari))
+{
+    if (!builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "Giris:ImzaAnahtari tanımlı değil. Bilet QR kodları imzalanamaz. " +
+            "Anahtarı user-secrets ya da ortam değişkeniyle verin.");
+    }
+
+    // Geliştirmede uygulama çalışmaya devam etsin, ama anahtarın geçici olduğu belli olsun.
+    builder.Services.PostConfigure<GirisAyarlari>(a => a.ImzaAnahtari = "gelistirme-icin-gecici-imza-anahtari");
+}
+
+builder.Services.AddSingleton<IBiletKoduServisi, BiletKoduServisi>();
 builder.Services.AddSingleton<IQrKodUretici, QrKodUretici>();
+builder.Services.AddScoped<IGirisServisi, GirisServisi>();
 builder.Services.AddScoped<IKuyrukBildirimServisi, KuyrukBildirimServisi>();
 builder.Services.AddScoped<IBiletBildirimServisi, BiletBildirimServisi>();
 builder.Services.AddHostedService<BildirimWorker>();

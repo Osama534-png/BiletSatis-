@@ -19,5 +19,11 @@ public class Bilet
     /// </summary>
     public bool BildirimGonderildi { get; set; }
 
+    /// <summary>Kapıda QR okutulup giriş onaylandı mı. Bir bilet yalnızca bir kez giriş sağlar.</summary>
+    public bool GirisYapildi { get; set; }
+
+    /// <summary>Girişin onaylandığı an (UTC).</summary>
+    public DateTime? GirisZamani { get; set; }
+
     public Etkinlik? Etkinlik { get; set; }
 }

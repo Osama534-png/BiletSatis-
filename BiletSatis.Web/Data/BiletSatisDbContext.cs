@@ -48,6 +48,9 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
             // Bildirim görevi "satılmış ama bildirilmemiş" biletleri tarar.
             b.HasIndex(x => new { x.Durum, x.BildirimGonderildi });
 
+            // Admin panelindeki giriş sayacı etkinlik bazında bu alanı sayar.
+            b.HasIndex(x => new { x.EtkinlikId, x.GirisYapildi });
+
             b.HasOne(x => x.Etkinlik)
                 .WithMany(x => x.Biletler)
                 .HasForeignKey(x => x.EtkinlikId);
