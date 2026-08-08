@@ -1231,6 +1231,57 @@ footer.site-footer a:hover {
   color: var(--text-muted);
 }
 
+.section-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-shrink: 0;
+}
+
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.view-btn {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 1.9rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.view-btn + .view-btn {
+  border-left: 1px solid var(--border);
+}
+
+.view-btn svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.view-btn:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.view-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
 .event-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
@@ -1239,6 +1290,106 @@ footer.site-footer a:hover {
 
 .event-grid .event-card {
   flex: initial;
+}
+
+/* Izgara düzeninde başlık ve meta doğrudan .body'nin çocuğu gibi davranır. */
+.card-main {
+  display: contents;
+}
+
+/* ---- Liste görünümü ---- */
+
+.event-grid.is-list {
+  grid-template-columns: 1fr;
+  gap: 0.7rem;
+}
+
+.event-grid.is-list .event-card {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.event-grid.is-list .event-card:hover {
+  transform: translateY(-2px);
+}
+
+.event-grid.is-list .poster {
+  flex: 0 0 5rem;
+  aspect-ratio: 3 / 4;
+  max-height: 6.7rem;
+}
+
+/* Küçük küçük rozetler minik görselde okunmuyor. */
+.event-grid.is-list .poster-index,
+.event-grid.is-list .poster-category,
+.event-grid.is-list .poster-countdown,
+.event-grid.is-list .poster::after {
+  display: none;
+}
+
+.event-grid.is-list .body {
+  flex-direction: row;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 0.85rem 1.15rem;
+}
+
+.event-grid.is-list .card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Satır yükseklikleri eşit kalsın diye meta tek satırda tutulur;
+   uzun mekan adı üç nokta ile kısaltılır. */
+.event-grid.is-list .meta {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.event-grid.is-list .meta > * {
+  flex-shrink: 0;
+}
+
+.event-grid.is-list .venue-line {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-grid.is-list .price-row {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.event-grid.is-list .cta-row {
+  flex: 0 0 auto;
+}
+
+.event-grid.is-list .cta-row .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .event-grid.is-list .body {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .event-grid.is-list .card-main {
+    flex: 1 1 100%;
+  }
 }
 
 /* ---- Numaralı vitrin şeridi ---- */

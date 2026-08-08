@@ -181,8 +181,8 @@
         <div class="filter-group">
             <h3>Durum</h3>
             <label class="check-row">
-                <input type="checkbox" id="onlyAvailable" />
-                <span>Sadece müsait olanlar</span>
+                <input type="checkbox" id="showSoldOut" />
+                <span>Tükenenleri göster</span>
             </label>
         </div>
 
@@ -192,7 +192,24 @@
     <section class="browse-main">
         <div class="section-head">
             <h2>Tüm Etkinlikler</h2>
-            <span class="result-count"><span id="resultCount">@Model.Etkinlikler.Count</span> sonuç</span>
+            <div class="section-tools">
+                <span class="result-count"><span id="resultCount">@Model.Etkinlikler.Count</span> sonuç</span>
+                <div class="view-toggle" id="viewToggle" role="group" aria-label="Görünüm">
+                    <button type="button" class="view-btn is-active" data-view="grid" title="Izgara görünümü" aria-label="Izgara görünümü">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="3" y="3" width="8" height="8" rx="1.5" />
+                            <rect x="13" y="3" width="8" height="8" rx="1.5" />
+                            <rect x="3" y="13" width="8" height="8" rx="1.5" />
+                            <rect x="13" y="13" width="8" height="8" rx="1.5" />
+                        </svg>
+                    </button>
+                    <button type="button" class="view-btn" data-view="list" title="Liste görünümü" aria-label="Liste görünümü">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
         </div>
 
         @if (!Model.Etkinlikler.Any())
@@ -221,6 +238,7 @@
                             <span class="poster-countdown @(e.YaklasanEtkinlik ? "is-yakin" : "")">⏳ @e.GeriSayimMetni</span>
                         </div>
                         <div class="body">
+                            <div class="card-main">
                             <h2>@e.Ad</h2>
                             <div class="meta">
                                 <span class="date-pill">📅 @e.Tarih.ToString("dd.MM.yyyy · HH:mm")</span>
@@ -240,6 +258,7 @@
                                 {
                                     <span>🎟️ @e.MusaitKoltukSayisi koltuk müsait</span>
                                 }
+                            </div>
                             </div>
                             <div class="price-row">
                                 @if (e.EnDusukFiyat.HasValue)

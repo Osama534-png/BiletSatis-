@@ -9,7 +9,43 @@ document.addEventListener("DOMContentLoaded", () => {
   initVenueMap();
   initShowcaseRail();
   initCategoryNav();
+  initViewToggle();
 });
+
+// Izgara / liste görünümü arasında geçiş yapar ve tercihi saklar.
+function initViewToggle() {
+  const toggle = document.getElementById("viewToggle");
+  const grid = document.getElementById("eventRail");
+  if (!toggle || !grid) return;
+
+  const GORUNUM_ANAHTARI = "biletsatis.gorunum";
+  const butonlar = toggle.querySelectorAll(".view-btn");
+
+  const gorunumSec = (gorunum, kaydet = true) => {
+    grid.classList.toggle("is-list", gorunum === "list");
+    butonlar.forEach((b) => b.classList.toggle("is-active", b.dataset.view === gorunum));
+    if (kaydet) {
+      try {
+        localStorage.setItem(GORUNUM_ANAHTARI, gorunum);
+      } catch {
+        /* gizli sekmede localStorage kapalı olabilir */
+      }
+    }
+  };
+
+  butonlar.forEach((b) => {
+    b.addEventListener("click", () => gorunumSec(b.dataset.view));
+  });
+
+  let kayitli = null;
+  try {
+    kayitli = localStorage.getItem(GORUNUM_ANAHTARI);
+  } catch {
+    /* localStorage erişilemiyor olabilir */
+  }
+
+  if (kayitli === "list") gorunumSec("list", false);
+}
 
 // Kategori şeridindeki vurgu hapını aktif sekmenin altına kaydırır.
 function initCategoryNav() {
@@ -154,7 +190,7 @@ function initEventSearch() {
   const categoryNav = document.getElementById("categoryNav");
   const priceRange = document.getElementById("priceRange");
   const priceValue = document.getElementById("priceValue");
-  const onlyAvailable = document.getElementById("onlyAvailable");
+  const showSoldOut = document.getElementById("showSoldOut");
   const sortSelect = document.getElementById("sortSelect");
   const resetBtn = document.getElementById("filterReset");
   const cityPicker = document.getElementById("cityPicker");
@@ -216,7 +252,8 @@ function initEventSearch() {
     cards.forEach((card) => {
       const nameOk = !term || (card.dataset.name || "").includes(term);
       const priceOk = Number(card.dataset.price || 0) <= maxPrice;
-      const availableOk = !onlyAvailable?.checked || Number(card.dataset.available || 0) > 0;
+      // Varsayılan olarak tükenenler gizli; kutu işaretliyse hepsi görünür.
+      const availableOk = showSoldOut?.checked || Number(card.dataset.available || 0) > 0;
       const dateOk = !limit || new Date(card.dataset.date) <= limit;
       const categoryOk = category === "all" || card.dataset.category === category;
       const cityOk = city === "all" || card.dataset.city === city;
@@ -232,7 +269,7 @@ function initEventSearch() {
 
   input.addEventListener("input", applyFilter);
   priceRange?.addEventListener("input", applyFilter);
-  onlyAvailable?.addEventListener("change", applyFilter);
+  showSoldOut?.addEventListener("change", applyFilter);
   sortSelect?.addEventListener("change", applySort);
 
   dateChips?.querySelectorAll(".chip").forEach((chip) => {
@@ -297,7 +334,7 @@ function initEventSearch() {
   resetBtn?.addEventListener("click", () => {
     input.value = "";
     if (priceRange) priceRange.value = priceRange.max;
-    if (onlyAvailable) onlyAvailable.checked = false;
+    if (showSoldOut) showSoldOut.checked = false;
     dateRange = "all";
     category = "all";
     categoryNav?.querySelectorAll(".category-tab").forEach((t) => {
@@ -322,8 +359,10 @@ function initEventSearch() {
 
   if (kayitliSehir && kayitliSehir !== "all") {
     sehriSec(kayitliSehir, false);
-    applyFilter();
   }
+
+  // Varsayılan durumda da tükenenler gizli olmalı; filtre açılışta bir kez çalışır.
+  applyFilter();
 }
 
 function initVenueMap() {
