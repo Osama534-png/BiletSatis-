@@ -12,6 +12,13 @@ public sealed record CokluSepeteEklemeSonucu(bool Basarili, IReadOnlyList<string
     public static CokluSepeteEklemeSonucu Olumsuz(IReadOnlyList<string> alinamayanlar) => new(false, alinamayanlar);
 }
 
+/// <summary>
+/// Ödeme tamamlama sonucu. <paramref name="SahipOlunan"/> kullanıcının gerçekten
+/// sahip olduğu bilet sayısı; <paramref name="CifteOdenenKoltuklar"/> daha önce başka
+/// bir ödeme oturumuyla satın alınmış, yani ikinci kez parası alınmış koltuklar.
+/// </summary>
+public sealed record OdemeTamamlamaSonucu(int SahipOlunan, IReadOnlyList<string> CifteOdenenKoltuklar);
+
 public interface IBiletRezervasyonServisi
 {
     Task<SepeteEklemeSonucu> TryAddToCartAsync(int biletId, string kullaniciId, CancellationToken ct = default);
@@ -32,8 +39,13 @@ public interface IBiletRezervasyonServisi
 
     Task<bool> CompletePaymentAsync(int biletId, string kullaniciId, CancellationToken ct = default);
 
-    /// <summary>Ödemesi alınan biletleri satıldı olarak işaretler, kaç tanesinin işaretlendiğini döner.</summary>
-    Task<int> CompletePaymentManyAsync(IReadOnlyCollection<int> biletIdleri, string kullaniciId, CancellationToken ct = default);
+    /// <summary>
+    /// Ödemesi alınan biletleri satıldı olarak işaretler. <paramref name="odemeReferansi"/>
+    /// biletle birlikte saklanır; aynı koltuk daha önce başka bir ödeme oturumuyla
+    /// satılmışsa çifte ödeme olarak raporlanır.
+    /// </summary>
+    Task<OdemeTamamlamaSonucu> CompletePaymentManyAsync(
+        IReadOnlyCollection<int> biletIdleri, string kullaniciId, string? odemeReferansi, CancellationToken ct = default);
 
     Task<bool> CancelReservationAsync(int biletId, string kullaniciId, CancellationToken ct = default);
 }

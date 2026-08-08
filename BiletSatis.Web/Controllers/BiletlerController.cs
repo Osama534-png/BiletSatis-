@@ -289,11 +289,28 @@ public class BiletlerController : Controller
             return RedirectToAction(nameof(Sepetim));
         }
 
-        var tamamlanan = await _rezervasyon.CompletePaymentManyAsync(idler, kullaniciId);
+        var sonuc = await _rezervasyon.CompletePaymentManyAsync(idler, kullaniciId, session.Id);
+        var tamamlanan = sonuc.SahipOlunan;
 
         if (tamamlanan > 0)
         {
             await KuyrukHaklariniKapatAsync(idler, kullaniciId);
+        }
+
+        if (sonuc.CifteOdenenKoltuklar.Count > 0)
+        {
+            // Kullanıcı aynı koltuklar için ikinci kez ödeme yaptı (ör. iki sekmede
+            // ödemeye geçip ikisini de tamamladı). Bilet zaten kendisinde; fazladan
+            // alınan tutarın iadesi elle yapılmalı.
+            _logger.LogError(
+                "Çifte ödeme: KullaniciId={KullaniciId} SessionId={SessionId} Koltuklar={Koltuklar}",
+                kullaniciId, session_id, string.Join(", ", sonuc.CifteOdenenKoltuklar));
+
+            TempData["Hata"] = $"{string.Join(", ", sonuc.CifteOdenenKoltuklar)} koltuğu için ödemeniz " +
+                               "ikinci kez alınmış görünüyor. Biletleriniz sizde — fazla tutarın iadesi için " +
+                               "bizimle iletişime geçin.";
+
+            return RedirectToAction(nameof(Biletlerim));
         }
 
         if (tamamlanan == idler.Length)

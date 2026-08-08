@@ -62,7 +62,10 @@ else
             <span class="selection-total-label">Toplam</span>
             <span class="selection-total-value">@toplam.ToString("C")</span>
         </div>
-        <form asp-action="SepetiOde" method="post">
+        @* Çift tıklama iki ayrı Stripe oturumu açıp aynı koltukların iki kez
+           ödenmesine yol açabiliyor; buton ilk gönderimde kilitleniyor. *@
+        <form asp-action="SepetiOde" method="post"
+              onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Yönlendiriliyor…';">
             <button type="submit" class="btn btn-primary">💳 Stripe ile Öde</button>
         </form>
     </div>

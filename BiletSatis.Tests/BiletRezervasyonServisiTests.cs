@@ -260,7 +260,7 @@ public class BiletRezervasyonServisiTests
             var servis = YeniServis(db);
             await servis.TryAddManyToCartAsync(idler, "kullanici-1");
 
-            var tamamlanan = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+            var tamamlanan = (await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_test")).SahipOlunan;
 
             Assert.Equal(3, tamamlanan);
             foreach (var id in idler)
@@ -282,7 +282,7 @@ public class BiletRezervasyonServisiTests
             await servis.TryAddManyToCartAsync(new[] { idler[0], idler[1] }, "kullanici-1");
             await servis.TryAddToCartAsync(idler[2], "kullanici-2");
 
-            var tamamlanan = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+            var tamamlanan = (await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_test")).SahipOlunan;
 
             Assert.Equal(2, tamamlanan);
             Assert.Equal(BiletDurumu.Sepette, await DurumOku(idler[2]));
@@ -303,8 +303,8 @@ public class BiletRezervasyonServisiTests
             var servis = YeniServis(db);
             await servis.TryAddManyToCartAsync(idler, "kullanici-1");
 
-            var ilk = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
-            var ikinci = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+            var ilk = (await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_test")).SahipOlunan;
+            var ikinci = (await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_test")).SahipOlunan;
 
             Assert.Equal(3, ilk);
             Assert.Equal(3, ikinci);
@@ -330,7 +330,7 @@ public class BiletRezervasyonServisiTests
                 WHERE Id = {idler[1]}
                 """);
 
-            var tamamlanan = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+            var tamamlanan = (await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_test")).SahipOlunan;
 
             Assert.Equal(2, tamamlanan);
             Assert.Equal(BiletDurumu.Satildi, await DurumOku(idler[1]));
@@ -358,7 +358,7 @@ public class BiletRezervasyonServisiTests
             // Serbest kalan koltuğu başka bir kullanıcı sepetine aldı.
             await servis.TryAddToCartAsync(idler[1], "kullanici-2");
 
-            var tamamlanan = await servis.CompletePaymentManyAsync(idler, "kullanici-1");
+            var tamamlanan = (await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_test")).SahipOlunan;
 
             Assert.Equal(1, tamamlanan);
 
@@ -366,6 +366,52 @@ public class BiletRezervasyonServisiTests
             var kapilan = await kontrol.Biletler.AsNoTracking().FirstAsync(b => b.Id == idler[1]);
             Assert.Equal(BiletDurumu.Sepette, kapilan.Durum);
             Assert.Equal("kullanici-2", kapilan.RezerveEdenKullaniciId);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Kullanıcı iki sekmede ödemeye geçip ikisini de tamamlarsa aynı koltuğun parası
+    // iki kez alınır. Bunu engelleyemiyoruz (iade akışı yok) ama sessizce geçmemeli:
+    // ikinci ödeme farklı bir oturuma ait olduğu için tespit edilip raporlanmalı.
+    [Fact]
+    public async Task CompletePaymentManyAsync_FarkliOdemeOturumuyla_CifteOdemeyiBildirmeli()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(2);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+            await servis.TryAddManyToCartAsync(idler, "kullanici-1");
+
+            var ilk = await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_birinci");
+            Assert.Empty(ilk.CifteOdenenKoltuklar);
+
+            // İkinci sekmede açılmış olan diğer ödeme oturumu da tamamlandı.
+            var ikinci = await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_ikinci");
+
+            Assert.Equal(2, ikinci.SahipOlunan);
+            Assert.Equal(new[] { "T-01", "T-02" }, ikinci.CifteOdenenKoltuklar);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Aynı oturumun tekrar çalışması (kullanıcı başarı sayfasını yeniledi) çifte
+    // ödeme sayılmamalı — yoksa her yenilemede yanlış uyarı verirdik.
+    [Fact]
+    public async Task CompletePaymentManyAsync_AyniOdemeOturumuTekrarlanirsa_CifteOdemeSaymamali()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(2);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+            await servis.TryAddManyToCartAsync(idler, "kullanici-1");
+
+            await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_ayni");
+            var tekrar = await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_ayni");
+
+            Assert.Equal(2, tekrar.SahipOlunan);
+            Assert.Empty(tekrar.CifteOdenenKoltuklar);
         }
         finally { await Temizle(etkinlikId); }
     }

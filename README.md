@@ -146,6 +146,32 @@ Kontrol yalnızca arayüzde formu gizlemekle yapılmaz; `KaydetAsync` her çağr
 
 `(EtkinlikId, KullaniciId)` üzerindeki **benzersiz dizin** aynı kişinin iki kez oy kullanıp ortalamayı bozmasını veritabanı seviyesinde engeller — iki istek aynı anda gelirse ikincisi reddedilir ve güncelleme olarak ele alınır.
 
+### Aynı koltuk iki kez ödenirse ne olur?
+
+Kullanıcı iki sekmede ödemeye geçip ikisini de tamamlarsa Stripe iki ayrı ödeme alır. İade akışı olmadığı için bunu geri çeviremiyoruz, ama sessizce geçmesi kabul edilemez: satın alma sırasında Stripe oturumunun kimliği `Biletler.OdemeReferansi` alanına yazılır. İkinci ödeme farklı bir oturuma ait olduğu için tespit edilir, `LogError` ile kaydedilir ve kullanıcıya "fazla tutar için iletişime geçin" denir. Aynı oturumun tekrarı (başarı sayfasının yenilenmesi) çifte ödeme sayılmaz.
+
+Önleyici olarak ödeme butonu ilk gönderimde kilitlenir; bu çift tıklamayı engeller ama iki ayrı sekmeyi engelleyemez.
+
+### Güvenlik önlemleri
+
+| Önlem | Neden |
+|---|---|
+| Hesap kilidi (5 hatalı deneme → 5 dk) | Şifre sınırsız denenebiliyordu |
+| Giriş/kayıt uçlarında hız sınırı (IP başına 10/dk) | Hesap kilidi tek hesabı korur; bu, çok sayıda hesaba yapılan taramayı yavaşlatır |
+| `HttpOnly` + `SameSite=Lax` + üretimde `Secure` çerez | XSS'te oturum çalınmasını ve siteler arası kullanımı zorlaştırır |
+| `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | MIME tahmini, tıklama hırsızlığı ve adres sızıntısına karşı |
+| Yönetici şifresi yapılandırmadan | Koda gömülü şifre üretimde herkesin bildiği bir yönetici hesabı demekti |
+| `Stripe:SecretKey` üretimde zorunlu | Anahtarsız uygulama ayağa kalkıp ödeme adımında patlıyordu |
+| Giriş hatasında tek mesaj | "E-posta veya şifre hatalı" — hangi adresin kayıtlı olduğu ele verilmez |
+
+Yönetici hesabı artık yalnızca `Yonetici:Sifre` tanımlıysa oluşturulur. Geliştirmede tanımlı değilse bilinen geliştirme şifresi kullanılır; üretimde tanımlı değilse hesap **açılmaz** ve uyarı loglanır.
+
+```bash
+cd BiletSatis.Web
+dotnet user-secrets set "Yonetici:Eposta" "siz@ornek.com"
+dotnet user-secrets set "Yonetici:Sifre" "guclu-bir-sifre"
+```
+
 ### Koltuk blokları nereden geliyor?
 
 Ayrı bir "blok" tablosu yok. Blok bilgisi koltuk numarasının önekinden türetilir (`A-01`, `B-33` → A ve B blokları). Kategori sırası fiyata göre belirlenir: en pahalı blok "1. Kategori" olur ve salon haritasında sahneye en yakın konuma yerleşir.
@@ -327,7 +353,9 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut). Bu yüzden ödeme 15 dakikalık uzatılmış kilidi de aşarsa para alınmış olmasına rağmen bilet verilemez; durum loglanır ve kullanıcı uyarılır, iade elle yapılır.
-- Kayıt onayı ve şifre sıfırlama e-postaları yok (kuyruk ve satın alma bildirimleri uygulandı).
+- Kayıt onayı ve şifre sıfırlama e-postaları yok (kuyruk ve satın alma bildirimleri uygulandı). Yani kimse e-posta adresinin sahibi olduğunu kanıtlamak zorunda değil ve şifresini unutan kullanıcının hesabı kurtarılamaz.
+- Uygulama tek örnek (single instance) varsayımıyla çalışır. Birden fazla kopya aynı anda çalışırsa: başlangıçtaki `Migrate()` çağrıları çakışabilir ve bildirim görevi aynı e-postayı iki kez gönderebilir (bayrak okuma ile işaretleme arasında kilit yok). Yatay ölçekleme için bu iki nokta ele alınmalıdır.
+- İçerik Güvenlik Politikası (CSP) başlığı yok. Arayüz satır içi stil ve script kullandığı için CSP eklemek bunların dışarı taşınmasını gerektirir.
 - Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.
 - Site içinde kamera açan QR okuyucu yok; görevli telefonun kendi kamera uygulamasını kullanır.
 - Arayüzdeki filtreler (arama, kategori, şehir, fiyat, sıralama) istemci tarafında çalışır. Tüm etkinlikler tek sayfada render edildiği için etkinlik sayısı büyüdüğünde sunucu tarafı filtreleme ve sayfalama gerekir.

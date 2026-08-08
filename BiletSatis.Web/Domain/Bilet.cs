@@ -19,6 +19,14 @@ public class Bilet
     /// </summary>
     public bool BildirimGonderildi { get; set; }
 
+    /// <summary>
+    /// Bu bileti satın alan Stripe ödeme oturumunun kimliği. İki amacı var:
+    /// satışın hangi ödemeye karşılık geldiğini izlemek ve aynı koltuklar için
+    /// ikinci bir ödeme yapıldığını (kullanıcı iki sekmede ödemeye geçtiyse)
+    /// fark edip kayda geçmek.
+    /// </summary>
+    public string? OdemeReferansi { get; set; }
+
     /// <summary>Kapıda QR okutulup giriş onaylandı mı. Bir bilet yalnızca bir kez giriş sağlar.</summary>
     public bool GirisYapildi { get; set; }
 

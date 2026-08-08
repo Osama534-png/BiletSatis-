@@ -44,6 +44,7 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
                 .HasMaxLength(20);
 
             b.Property(x => x.Fiyat).HasColumnType("decimal(10,2)");
+            b.Property(x => x.OdemeReferansi).HasMaxLength(200);
             b.HasIndex(x => new { x.Durum, x.KilitBitisZamani });
 
             // Bildirim görevi "satılmış ama bildirilmemiş" biletleri tarar.

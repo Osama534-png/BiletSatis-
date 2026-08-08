@@ -129,13 +129,13 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
     }
 
     public async Task<bool> CompletePaymentAsync(int biletId, string kullaniciId, CancellationToken ct = default) =>
-        await CompletePaymentManyAsync(new[] { biletId }, kullaniciId, ct) == 1;
+        (await CompletePaymentManyAsync(new[] { biletId }, kullaniciId, null, ct)).SahipOlunan == 1;
 
-    public async Task<int> CompletePaymentManyAsync(
-        IReadOnlyCollection<int> biletIdleri, string kullaniciId, CancellationToken ct = default)
+    public async Task<OdemeTamamlamaSonucu> CompletePaymentManyAsync(
+        IReadOnlyCollection<int> biletIdleri, string kullaniciId, string? odemeReferansi, CancellationToken ct = default)
     {
         var idler = biletIdleri.Distinct().ToArray();
-        if (idler.Length == 0) return 0;
+        if (idler.Length == 0) return new OdemeTamamlamaSonucu(0, Array.Empty<string>());
 
         // İki durumu birden karşılıyoruz:
         //  1) Normal akış — bilet hâlâ bu kullanıcının sepetinde.
@@ -148,7 +148,8 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
             SET Durum = {BiletDurumMetni.Satildi},
                 KilitBitisZamani = NULL,
                 BildirimGonderildi = 0,
-                RezerveEdenKullaniciId = {kullaniciId}
+                RezerveEdenKullaniciId = {kullaniciId},
+                OdemeReferansi = {odemeReferansi}
             WHERE Id IN (SELECT CAST(value AS INT) FROM STRING_SPLIT({IdListesi(idler)}, ','))
               AND (
                     (Durum = {BiletDurumMetni.Sepette} AND RezerveEdenKullaniciId = {kullaniciId})
@@ -160,17 +161,30 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
         // bilet sayısından okuyoruz. Böylece işlem tekrar çalıştırıldığında (kullanıcı
         // başarı sayfasını yenilerse) hiçbir satır güncellenmese bile doğru cevap döner
         // ve sahte "biletiniz kayboldu" uyarısı çıkmaz.
-        var sahipOlunan = await _db.Biletler
+        var sahipOlunanlar = await _db.Biletler
             .AsNoTracking()
-            .CountAsync(b => idler.Contains(b.Id)
-                          && b.Durum == BiletDurumu.Satildi
-                          && b.RezerveEdenKullaniciId == kullaniciId, ct);
+            .Where(b => idler.Contains(b.Id)
+                     && b.Durum == BiletDurumu.Satildi
+                     && b.RezerveEdenKullaniciId == kullaniciId)
+            .Select(b => new { b.KoltukNo, b.OdemeReferansi })
+            .ToListAsync(ct);
+
+        // Bilet başka bir ödeme oturumuna ait görünüyorsa, kullanıcı aynı koltuklar
+        // için iki kez ödeme yapmış demektir (ör. iki sekmede ödemeye geçip ikisini de
+        // tamamlamak). Aynı oturumun tekrar çalışması bu listeye girmez.
+        var cifteOdenen = odemeReferansi == null
+            ? Array.Empty<string>()
+            : sahipOlunanlar
+                .Where(b => b.OdemeReferansi != null && b.OdemeReferansi != odemeReferansi)
+                .Select(b => b.KoltukNo)
+                .OrderBy(k => k)
+                .ToArray();
 
         _logger.LogInformation(
             "Ödeme sonucu: KullaniciId={KullaniciId} İstenen={Istenen} Yazilan={Yazilan} SahipOlunan={SahipOlunan}",
-            kullaniciId, idler.Length, etkilenen, sahipOlunan);
+            kullaniciId, idler.Length, etkilenen, sahipOlunanlar.Count);
 
-        return sahipOlunan;
+        return new OdemeTamamlamaSonucu(sahipOlunanlar.Count, cifteOdenen);
     }
 
     public async Task<bool> CancelReservationAsync(int biletId, string kullaniciId, CancellationToken ct = default)

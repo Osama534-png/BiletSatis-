@@ -3,10 +3,12 @@ using BiletSatis.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace BiletSatis.Web.Controllers;
 
 [AllowAnonymous]
+[EnableRateLimiting("giris")]
 public class AccountController : Controller
 {
     private readonly UserManager<ApplicationUser> _userManager;//kullanıcı OLUŞTURMA/yönetme
@@ -62,13 +64,23 @@ public class AccountController : Controller
         ViewData["ReturnUrl"] = returnUrl;
         if (!ModelState.IsValid) return View(model);
 
-        var sonuc = await _signInManager.PasswordSignInAsync(model.Email, model.Sifre, model.BeniHatirla, lockoutOnFailure: false);
+        // lockoutOnFailure: art arda hatalı denemeler hesabı geçici olarak kilitler.
+        // Kapalıyken şifre sınırsız kez denenebiliyordu — kaba kuvvet saldırısına açıktı.
+        var sonuc = await _signInManager.PasswordSignInAsync(model.Email, model.Sifre, model.BeniHatirla, lockoutOnFailure: true);
 
         if (sonuc.Succeeded)
         {
             return RedirectToLocal(returnUrl);
         }
 
+        if (sonuc.IsLockedOut)
+        {
+            ModelState.AddModelError(string.Empty,
+                "Çok fazla hatalı deneme yapıldı. Hesabınız güvenlik için 5 dakika kilitlendi.");
+            return View(model);
+        }
+
+        // Hangi adresin kayıtlı olduğunu ele vermemek için mesaj tek: "e-posta veya şifre".
         ModelState.AddModelError(string.Empty, "E-posta veya şifre hatalı.");
         return View(model);
     }
