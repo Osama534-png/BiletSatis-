@@ -20,6 +20,15 @@
         <span class="detay-kategori">@KategoriMetni.Ad(Model.Kategori)</span>
         <h1>@Model.Ad</h1>
 
+        @if (Model.Degerlendirmeler.Adet > 0)
+        {
+            <a class="puan-rozeti" href="#degerlendirmeler">
+                <span class="puan-yildiz">★</span>
+                <strong>@Model.Degerlendirmeler.Ortalama!.Value.ToString("0.0")</strong>
+                <span class="puan-adet">(@Model.Degerlendirmeler.Adet değerlendirme)</span>
+            </a>
+        }
+
         <ul class="detay-meta">
             <li>
                 <span class="meta-ikon">📅</span>
@@ -158,6 +167,110 @@
                 </table>
             </section>
         }
+        <section class="detay-blok" id="degerlendirmeler">
+            <h2>Değerlendirmeler</h2>
+
+            @if (TempData["Bilgi"] != null)
+            {
+                <div class="alert alert-success">✅ @TempData["Bilgi"]</div>
+            }
+            @if (TempData["Hata"] != null)
+            {
+                <div class="alert alert-danger">⚠️ @TempData["Hata"]</div>
+            }
+
+            @if (Model.Degerlendirmeler.Adet == 0)
+            {
+                <p class="text-muted">Bu etkinlik henüz değerlendirilmedi.</p>
+            }
+            else
+            {
+                <div class="puan-ozet">
+                    <div class="puan-ortalama">
+                        <span class="puan-buyuk">@Model.Degerlendirmeler.Ortalama!.Value.ToString("0.0")</span>
+                        <span class="puan-yildizlar">@(new string('★', (int)Math.Round(Model.Degerlendirmeler.Ortalama.Value)))</span>
+                        <span class="puan-adet">@Model.Degerlendirmeler.Adet değerlendirme</span>
+                    </div>
+                    <div class="puan-dagilim">
+                        @for (var p = 5; p >= 1; p--)
+                        {
+                            var adet = Model.Degerlendirmeler.Dagilim.TryGetValue(p, out var a) ? a : 0;
+                            var oran = Model.Degerlendirmeler.Adet == 0 ? 0 : adet * 100 / Model.Degerlendirmeler.Adet;
+                            <div class="dagilim-satiri">
+                                <span class="dagilim-etiket">@p ★</span>
+                                <span class="dagilim-cubuk"><span style="width:@oran%"></span></span>
+                                <span class="dagilim-adet">@adet</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.DegerlendirebilirMi)
+            {
+                var mevcutPuan = Model.KendiDegerlendirmesi?.Puan ?? 0;
+
+                <form asp-action="Degerlendir" method="post" class="degerlendirme-formu">
+                    <input type="hidden" name="etkinlikId" value="@Model.Id" />
+
+                    <p class="degerlendirme-baslik">
+                        @(Model.KendiDegerlendirmesi == null ? "Bu etkinliği değerlendirin" : "Değerlendirmenizi güncelleyin")
+                        <span class="katildi-rozeti">✔ Katıldınız</span>
+                    </p>
+
+                    <fieldset class="yildiz-secim">
+                        <legend class="visually-hidden">Puanınız</legend>
+                        @for (var p = 5; p >= 1; p--)
+                        {
+                            <input type="radio" name="puan" value="@p" id="puan-@p" checked="@(mevcutPuan == p)" required />
+                            <label for="puan-@p" title="@p yıldız">★</label>
+                        }
+                    </fieldset>
+
+                    <textarea name="yorum" class="form-control" rows="3"
+                              maxlength="@BiletSatis.Web.Domain.Degerlendirme.EnUzunYorum"
+                              placeholder="Nasıldı? (isteğe bağlı)">@Model.KendiDegerlendirmesi?.Yorum</textarea>
+
+                    <button type="submit" class="btn btn-primary btn-sm mt-2">
+                        @(Model.KendiDegerlendirmesi == null ? "Gönder" : "Güncelle")
+                    </button>
+                </form>
+            }
+            else if (Model.KendiDegerlendirmesi == null)
+            {
+                <p class="text-muted degerlendirme-kilit">
+                    🔒 Değerlendirme yalnızca etkinliğe katılan misafirlere açıktır — biletiniz girişte okutulduğunda bu alan aktifleşir.
+                </p>
+            }
+
+            @if (Model.Degerlendirmeler.Satirlar.Any())
+            {
+                <ul class="yorum-listesi">
+                    @foreach (var y in Model.Degerlendirmeler.Satirlar)
+                    {
+                        <li class="yorum">
+                            <div class="yorum-ust">
+                                <span class="yorum-avatar">@(string.IsNullOrWhiteSpace(y.KullaniciAdi) ? "?" : y.KullaniciAdi.Trim()[..1].ToUpperInvariant())</span>
+                                <div>
+                                    <strong class="yorum-ad">@(string.IsNullOrWhiteSpace(y.KullaniciAdi) ? "Misafir" : y.KullaniciAdi)</strong>
+                                    <span class="yorum-yildiz">@(new string('★', y.Puan))<span class="sonuk">@(new string('★', 5 - y.Puan))</span></span>
+                                </div>
+                                <time class="yorum-zaman" datetime="@y.Zaman.ToString("o")">
+                                    @y.Zaman.ToLocalTime().ToString("dd.MM.yyyy")@(y.Duzenlendi ? " · düzenlendi" : "")
+                                </time>
+                            </div>
+                            <p class="yorum-izledi">
+                                @Model.Tarih.ToString("dd MMMM yyyy HH:mm") tarihinde @Model.MekanAdi mekanında izledi
+                            </p>
+                            @if (!string.IsNullOrWhiteSpace(y.Yorum))
+                            {
+                                <p class="yorum-metin">@y.Yorum</p>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
     </div>
 
     <aside class="detay-sag">

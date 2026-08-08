@@ -1,6 +1,7 @@
 using BiletSatis.Web.BackgroundServices;
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Services;
+using BiletSatis.Web.Services.Degerlendirmeler;
 using BiletSatis.Web.Services.Eposta;
 using BiletSatis.Web.Services.Giris;
 using Microsoft.AspNetCore.Authorization;
@@ -57,6 +58,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IBiletRezervasyonServisi, BiletRezervasyonServisi>();
 builder.Services.AddScoped<IKuyrukServisi, KuyrukServisi>();
+builder.Services.AddScoped<IDegerlendirmeServisi, DegerlendirmeServisi>();
 builder.Services.AddHostedService<CartExpiryWorker>();
 builder.Services.AddHostedService<WaitlistWorker>();
 

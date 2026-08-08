@@ -11,6 +11,7 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Etkinlik> Etkinlikler => Set<Etkinlik>();
     public DbSet<Bilet> Biletler => Set<Bilet>();
     public DbSet<RezervasyonKuyrugu> RezervasyonKuyrugu => Set<RezervasyonKuyrugu>();
+    public DbSet<Degerlendirme> Degerlendirmeler => Set<Degerlendirme>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +55,23 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
             b.HasOne(x => x.Etkinlik)
                 .WithMany(x => x.Biletler)
                 .HasForeignKey(x => x.EtkinlikId);
+        });
+
+        modelBuilder.Entity<Degerlendirme>(d =>
+        {
+            d.Property(x => x.KullaniciId).HasMaxLength(450);
+            d.Property(x => x.Yorum).HasMaxLength(Degerlendirme.EnUzunYorum).HasDefaultValue("");
+
+            // Bir kullanıcı bir etkinliği yalnızca bir kez değerlendirebilir. Kural
+            // servis içinde de kontrol ediliyor; buradaki benzersiz dizin, iki isteğin
+            // aynı anda gelmesi hâlinde ikinci satırın veritabanı seviyesinde
+            // reddedilmesini sağlar.
+            d.HasIndex(x => new { x.EtkinlikId, x.KullaniciId }).IsUnique();
+
+            d.HasOne(x => x.Etkinlik)
+                .WithMany()
+                .HasForeignKey(x => x.EtkinlikId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RezervasyonKuyrugu>(r =>

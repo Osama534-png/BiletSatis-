@@ -19,6 +19,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
 - **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
 - **E-posta bildirimleri** — kuyrukta sırası gelene "sıran geldi", bilet satın alana QR kodlu "biletin hazır" e-postası gönderilir. Gönderim, kuyruk ve ödeme işlemlerinden ayrı bir arka plan görevinde yapılır; hata olursa bildirim kaybolmaz, tekrar denenir.
+- **Doğrulanmış değerlendirme** — etkinlik sayfasında puan ortalaması, yıldız dağılımı ve yorumlar gösterilir. Değerlendirme bırakabilmek için bilet almak yetmez, biletin **kapıda okutulmuş** olması gerekir; böylece her yorumun arkasında gerçek bir katılım vardır. Bir kullanıcı bir etkinliği yalnızca bir kez değerlendirir, sonradan güncelleyebilir.
 - **Kapı kontrolü** — görevli biletteki QR'ı okutur, mobil öncelikli doğrulama sayfası bileti kontrol eder. QR kodu HMAC ile imzalıdır (sahte bilet üretilemez), bir bilet yalnızca bir kez giriş sağlar ve eşzamanlı okutmalarda tek atomik `UPDATE` ile yalnızca biri kaydedilir.
 
 ## Mimari Kararlar
@@ -107,6 +108,16 @@ Sunucu imzayı gizli anahtarla yeniden hesaplayıp karşılaştırır; anahtarı
 
 **Kapsam dışı:** Biletin ekran görüntüsü paylaşılırsa ilk okutan içeri girer, ikincisi "zaten kullanıldı" görür. Bu doğru davranıştır ama sistem gerçek sahibi ayırt edemez; gerçek etkinliklerde bu yüzden kimlik kontrolü yapılır. Ayrıca site içinde kamera açan bir okuyucu yoktur — görevli telefonun kendi kamera uygulamasıyla okutur.
 
+### Değerlendirme hakkı neye bağlı?
+
+Çoğu sitede "satın aldıysan yorum yazabilirsin" kuralı vardır. Burada çıta bir kademe yukarıda: kullanıcının o etkinliğe ait **satılmış ve kapıda okutulmuş** (`GirisYapildi = 1`) bir bileti olmalı. Bilet alıp gitmeyen biri yorum yazamaz.
+
+Bu kural, kapı kontrolü özelliğinin ürettiği veriyi kullanır — `Biletler.GirisYapildi` alanı hem girişte tek kullanım garantisi verir hem de burada "gerçekten oradaydı" kanıtı olur. Yorumların altındaki "… tarihinde … mekanında izledi" satırı uydurma bir rozet değil, bu kaydın karşılığıdır.
+
+Kontrol yalnızca arayüzde formu gizlemekle yapılmaz; `KaydetAsync` her çağrıda hakkı yeniden doğrular, çünkü form doğrudan da gönderilebilir.
+
+`(EtkinlikId, KullaniciId)` üzerindeki **benzersiz dizin** aynı kişinin iki kez oy kullanıp ortalamayı bozmasını veritabanı seviyesinde engeller — iki istek aynı anda gelirse ikincisi reddedilir ve güncelleme olarak ele alınır.
+
 ### Koltuk blokları nereden geliyor?
 
 Ayrı bir "blok" tablosu yok. Blok bilgisi koltuk numarasının önekinden türetilir (`A-01`, `B-33` → A ve B blokları). Kategori sırası fiyata göre belirlenir: en pahalı blok "1. Kategori" olur ve salon haritasında sahneye en yakın konuma yerleşir.
@@ -132,7 +143,7 @@ Ayrı bir "blok" tablosu yok. Blok bilgisi koltuk numarasının önekinden türe
 ```
 BiletSatis/
   BiletSatis.Web/          # Ana MVC uygulaması
-    Domain/                # Etkinlik, Bilet, RezervasyonKuyrugu, EtkinlikKategorisi
+    Domain/                # Etkinlik, Bilet, RezervasyonKuyrugu, Degerlendirme, EtkinlikKategorisi
     Data/                  # DbContext, migration'lar, seed, Identity yapılandırması
     Services/              # Atomik SQL sorgularını içeren servisler
     BackgroundServices/    # CartExpiryWorker, WaitlistWorker
@@ -273,6 +284,7 @@ Kapsanan alanlar:
 | `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
 | `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
 | `GirisServisiTests` | Kapı kontrolü: tek kullanım, 20 eşzamanlı okutmada tek giriş, satılmamış bilet reddi |
+| `DegerlendirmeServisiTests` | Değerlendirme hakkı (okutulmamış bilet reddi), geçersiz puan, tek kayıt kuralı, eşzamanlı istek, ortalama ve dağılım hesabı |
 
 ### Yük testleri (k6)
 

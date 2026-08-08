@@ -1,6 +1,8 @@
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Domain;
 using BiletSatis.Web.Models;
+using BiletSatis.Web.Services;
+using BiletSatis.Web.Services.Degerlendirmeler;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,10 +11,17 @@ namespace BiletSatis.Web.Controllers;
 public class EtkinlikController : Controller
 {
     private readonly BiletSatisDbContext _db;
+    private readonly IDegerlendirmeServisi _degerlendirme;
+    private readonly ICurrentUserService _currentUser;
 
-    public EtkinlikController(BiletSatisDbContext db)
+    public EtkinlikController(
+        BiletSatisDbContext db,
+        IDegerlendirmeServisi degerlendirme,
+        ICurrentUserService currentUser)
     {
         _db = db;
+        _degerlendirme = degerlendirme;
+        _currentUser = currentUser;
     }
 
     public async Task<IActionResult> Detay(int id)
@@ -79,10 +88,41 @@ public class EtkinlikController : Controller
             EnDusukFiyat = satistakiler.Count == 0 ? null : satistakiler.Min(b => b.Fiyat),
             EnYuksekFiyat = satistakiler.Count == 0 ? null : satistakiler.Max(b => b.Fiyat),
             Fiyatlar = fiyatlar,
-            BenzerEtkinlikler = benzerler
+            BenzerEtkinlikler = benzerler,
+            Degerlendirmeler = await _degerlendirme.OzetAsync(id)
         };
 
+        var kullaniciId = _currentUser.GetKullaniciId();
+        vm.DegerlendirebilirMi = await _degerlendirme.DegerlendirebilirMiAsync(id, kullaniciId);
+        vm.KendiDegerlendirmesi = await _degerlendirme.KendiDegerlendirmesiAsync(id, kullaniciId);
+
         return View(vm);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Degerlendir(int etkinlikId, int puan, string? yorum)
+    {
+        var kullaniciId = _currentUser.GetKullaniciId();
+        var sonuc = await _degerlendirme.KaydetAsync(etkinlikId, kullaniciId, puan, yorum);
+
+        switch (sonuc)
+        {
+            case DegerlendirmeSonucu.Kaydedildi:
+                TempData["Bilgi"] = "Değerlendirmeniz için teşekkürler.";
+                break;
+            case DegerlendirmeSonucu.Guncellendi:
+                TempData["Bilgi"] = "Değerlendirmeniz güncellendi.";
+                break;
+            case DegerlendirmeSonucu.GecersizPuan:
+                TempData["Hata"] = "Lütfen 1 ile 5 arasında bir puan seçin.";
+                break;
+            case DegerlendirmeSonucu.KatilimYok:
+                TempData["Hata"] = "Yalnızca etkinliğe katılan misafirler değerlendirme bırakabilir.";
+                break;
+        }
+
+        return RedirectToAction(nameof(Detay), new { id = etkinlikId });
     }
 
     private static string BlokKodu(string koltukNo)

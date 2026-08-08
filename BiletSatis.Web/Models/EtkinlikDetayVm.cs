@@ -1,4 +1,5 @@
 using BiletSatis.Web.Domain;
+using BiletSatis.Web.Services.Degerlendirmeler;
 
 namespace BiletSatis.Web.Models;
 
@@ -23,6 +24,15 @@ public class EtkinlikDetayVm
 
     /// <summary>Aynı kategorideki diğer etkinlikler.</summary>
     public List<EtkinlikKartVm> BenzerEtkinlikler { get; set; } = new();
+
+    /// <summary>Puan ortalaması, dağılımı ve yorumlar.</summary>
+    public DegerlendirmeOzeti Degerlendirmeler { get; set; } = new();
+
+    /// <summary>Giriş yapan kullanıcının bu etkinliğe okutulmuş bileti var mı.</summary>
+    public bool DegerlendirebilirMi { get; set; }
+
+    /// <summary>Kullanıcı daha önce değerlendirdiyse formu doldurmak için kullanılır.</summary>
+    public DegerlendirmeSatiri? KendiDegerlendirmesi { get; set; }
 
     public bool Tukendi => MusaitKoltuk == 0;
     public int KalanGun => (Tarih.Date - DateTime.Now.Date).Days;

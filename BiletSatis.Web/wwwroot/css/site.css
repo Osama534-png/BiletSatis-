@@ -2877,3 +2877,174 @@ footer.site-footer a:hover {
     transparent 15px
   );
 }
+
+/* ---------- Değerlendirmeler ---------- */
+
+.puan-rozeti {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.puan-rozeti:hover { background: var(--gold-soft); }
+.puan-yildiz { color: var(--gold); }
+.puan-adet { color: var(--neutral-text); font-size: 0.82rem; }
+
+.puan-ozet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem;
+  align-items: center;
+  padding: 1.1rem 1.25rem;
+  background: var(--surface-alt);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+}
+
+.puan-ortalama {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 7rem;
+}
+
+.puan-buyuk {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-dark);
+}
+
+.puan-yildizlar { color: var(--gold); letter-spacing: 0.1em; }
+
+.puan-dagilim { flex: 1 1 14rem; display: flex; flex-direction: column; gap: 0.3rem; }
+
+.dagilim-satiri { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; }
+.dagilim-etiket { min-width: 2.4rem; color: var(--neutral-text); }
+.dagilim-adet { min-width: 1.6rem; text-align: right; color: var(--neutral-text); }
+
+.dagilim-cubuk {
+  flex: 1;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--neutral-bg);
+  overflow: hidden;
+}
+
+.dagilim-cubuk > span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+
+.degerlendirme-formu {
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+}
+
+.degerlendirme-baslik {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.katildi-rozeti {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-2-soft);
+  color: #14604f;
+}
+
+.yildiz-secim {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  gap: 0.15rem;
+  border: none;
+  padding: 0;
+  margin: 0 0 0.6rem;
+}
+
+.yildiz-secim input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.yildiz-secim label {
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--neutral-bg);
+  cursor: pointer;
+  transition: color 0.12s var(--ease);
+}
+
+.yildiz-secim input:checked ~ label,
+.yildiz-secim label:hover,
+.yildiz-secim label:hover ~ label {
+  color: var(--gold);
+}
+
+.yildiz-secim input:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+
+.degerlendirme-kilit {
+  padding: 0.9rem 1.1rem;
+  background: var(--surface-alt);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+}
+
+.yorum-listesi { list-style: none; padding: 0; margin: 0; }
+
+.yorum {
+  padding: 1rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.yorum-ust { display: flex; align-items: center; gap: 0.7rem; }
+
+.yorum-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 50%;
+  background: var(--accent-2-soft);
+  color: #14604f;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.yorum-ad { display: block; font-size: 0.92rem; }
+.yorum-yildiz { color: var(--gold); font-size: 0.85rem; letter-spacing: 0.05em; }
+.yorum-yildiz .sonuk { color: var(--neutral-bg); }
+.yorum-zaman { margin-left: auto; font-size: 0.78rem; color: var(--neutral-text); }
+
+.yorum-izledi {
+  margin: 0.5rem 0 0.35rem;
+  font-size: 0.78rem;
+  color: var(--neutral-text);
+}
+
+.yorum-metin { margin: 0; font-size: 0.94rem; line-height: 1.6; }
