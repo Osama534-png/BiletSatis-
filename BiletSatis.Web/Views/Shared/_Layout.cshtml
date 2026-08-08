@@ -40,7 +40,7 @@
                                 <a class="nav-link" asp-controller="Biletler" asp-action="Biletlerim">🎫 Biletlerim</a>
                             </li>
                             <li class="nav-item">
-                                <span class="nav-link">👋 Merhaba, @User.Identity!.Name</span>
+                                <a class="nav-link" asp-controller="Profil" asp-action="Index">👤 Profilim</a>
                             </li>
                             @if (User.IsInRole("Admin"))
                             {

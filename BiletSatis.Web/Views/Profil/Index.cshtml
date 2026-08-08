@@ -1,0 +1,96 @@
+@model BiletSatis.Web.Models.ProfilVm
+@{
+    ViewData["Title"] = "Profilim";
+}
+
+<div class="profil-hero">
+    <div class="profil-avatar">@Model.BasHarfler</div>
+    <div class="profil-kimlik">
+        <h1>@Model.Ad</h1>
+        <p>@Model.Email</p>
+        @if (Model.AdminMi)
+        {
+            <span class="profil-rozet">Yönetici</span>
+        }
+    </div>
+</div>
+
+@if (TempData["Bilgi"] != null)
+{
+    <div class="alert alert-success">✅ @TempData["Bilgi"]</div>
+}
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+<div class="stats-strip">
+    <div class="stat-tile">
+        <div class="stat-icon">🎫</div>
+        <div class="stat-value">@Model.SatinAlinanBilet</div>
+        <div class="stat-label">Satın Alınan Bilet</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-icon">💳</div>
+        <div class="stat-value">@Model.ToplamHarcama.ToString("N0")₺</div>
+        <div class="stat-label">Toplam Harcama</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-icon">🛒</div>
+        <div class="stat-value">@Model.SepettekiBilet</div>
+        <div class="stat-label">Sepette Bekleyen</div>
+    </div>
+</div>
+
+<div class="profil-formlar">
+    <section class="profil-kart">
+        <h2>Hesap Bilgileri</h2>
+        <p class="profil-aciklama">Adınızı ve giriş yaptığınız e-posta adresini buradan değiştirebilirsiniz.</p>
+
+        <form asp-action="BilgileriGuncelle" method="post">
+            <div class="mb-3">
+                <label asp-for="Bilgiler.Ad" class="form-label"></label>
+                <input asp-for="Bilgiler.Ad" class="form-control" />
+                <span asp-validation-for="Bilgiler.Ad" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Bilgiler.Email" class="form-label"></label>
+                <input asp-for="Bilgiler.Email" class="form-control" />
+                <div class="form-text">Giriş yaparken bu adresi kullanırsınız.</div>
+                <span asp-validation-for="Bilgiler.Email" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Bilgileri Kaydet</button>
+        </form>
+    </section>
+
+    <section class="profil-kart">
+        <h2>Şifre Değiştir</h2>
+        <p class="profil-aciklama">Güvenliğiniz için önce mevcut şifrenizi doğrulamanız gerekir.</p>
+
+        <form asp-action="SifreDegistir" method="post">
+            <div class="mb-3">
+                <label asp-for="Sifre.MevcutSifre" class="form-label"></label>
+                <input asp-for="Sifre.MevcutSifre" class="form-control" autocomplete="current-password" />
+                <span asp-validation-for="Sifre.MevcutSifre" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Sifre.YeniSifre" class="form-label"></label>
+                <input asp-for="Sifre.YeniSifre" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Sifre.YeniSifre" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Sifre.YeniSifreTekrar" class="form-label"></label>
+                <input asp-for="Sifre.YeniSifreTekrar" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Sifre.YeniSifreTekrar" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Şifreyi Değiştir</button>
+        </form>
+    </section>
+</div>
+
+<div class="queue-cta">
+    <span>Satın aldığın biletleri görmek ister misin?</span>
+    <a asp-controller="Biletler" asp-action="Biletlerim" class="btn btn-outline-secondary btn-sm">🎫 Biletlerim</a>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

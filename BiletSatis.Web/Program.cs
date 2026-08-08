@@ -40,13 +40,14 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.SignIn.RequireConfirmedAccount = false;
 })
     .AddEntityFrameworkStores<BiletSatisDbContext>()
+    .AddErrorDescriber<TurkceIdentityHatalari>()
     .AddDefaultTokenProviders();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/GirisYap"; // giri? yapmam?? biri korumal? sayfaya girerse buraya at
 	options.AccessDeniedPath = "/Account/ErisimEngellendi";// yetkisi olmayan biri buraya at
-	options.ExpireTimeSpan = TimeSpan.FromDays(14); // 14 gün sonra çerez geçersiz olur, tekrar giri? gerekir
+	options.ExpireTimeSpan = TimeSpan.FromDays(14); // 14 gï¿½n sonra ï¿½erez geï¿½ersiz olur, tekrar giri? gerekir
 	options.SlidingExpiration = true;
 });
 
