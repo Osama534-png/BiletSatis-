@@ -13,6 +13,10 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Gerçek ödeme entegrasyonu** — Stripe Checkout ile PCI-uyumlu ödeme akışı; kart bilgisi hiçbir zaman kendi sunucumuza gelmez.
 - **Yapılandırılmış loglama** — Serilog ile her kritik karar noktası (sepete ekleme sonucu, ödeme sonucu, kuyruk terfi, arka plan servis hataları) structured log olarak kaydedilir.
 - **Otomatik test kapsamı** — hem gerçek SQL Server'a karşı çalışan xUnit entegrasyon testleri hem de k6 ile gerçek eşzamanlı yük testleri.
+- **İnteraktif salon haritası** — koltuk numarası önekinden (`A-01` → A blok) türetilen blok haritası, sahne yayı, doluluğa göre renklendirme ve koltuğa tıklayarak doğrudan sepete ekleme.
+- **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, canlı arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü; tümü sayfa yenilemeden çalışır ve tercihler tarayıcıda saklanır.
+- **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
+- **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
 
 ## Mimari Kararlar
 
@@ -36,6 +40,20 @@ Optimistic concurrency, EF Core'un normal oku-değiştir-kaydet akışında (`Sa
 
 `RezervasyonKuyrugu` tablosundaki `SiraNo` sütunu SQL Server `IDENTITY` — yani sıra numarasını uygulama kodu değil, veritabanının kendisi üretiyor. Aynı milisaniyede gelen yüzlerce "sıraya gir" isteği bile SQL Server tarafından sıraya dizilip benzersiz, artan numaralar alır.
 
+### Satılmış bileti olan etkinlik neden silinemiyor?
+
+Yönetim panelinden etkinlik silinebilir, ancak **satılmış bileti olan etkinlikler silinemez**. Satılmış bilet gerçek bir satın alma kaydıdır; etkinlik silinirse `Biletler` tablosundaki satırlar cascade ile gider ve kullanıcıların bilet geçmişi yok olur. Kontrol yalnızca arayüzde butonu gizlemekle yapılmaz, `EtkinlikSil` action'ının içindedir.
+
+Silinebilir etkinliklerde biletler foreign key üzerinden cascade ile silinir; `RezervasyonKuyrugu`'nun `Etkinlik`'e foreign key'i **olmadığı** için o kayıtlar ayrıca temizlenir — aksi halde öksüz satır kalırdı.
+
+### Koltuk blokları nereden geliyor?
+
+Ayrı bir "blok" tablosu yok. Blok bilgisi koltuk numarasının önekinden türetilir (`A-01`, `B-33` → A ve B blokları). Kategori sırası fiyata göre belirlenir: en pahalı blok "1. Kategori" olur ve salon haritasında sahneye en yakın konuma yerleşir.
+
+### Şehir neden ayrı bir sütun değil?
+
+Şehir, `Mekan` alanındaki `"Salon Adı, Şehir"` metninden ayrıştırılır (`MekanBilgisi` sınıfı). Bu, ek bir migration gerektirmeden şehir filtresi eklemeyi mümkün kıldı; karşılığında mekan alanının bu biçimde girilmesi gerekir. Şehir bağımsız bir varlık hâline gelirse (ör. şehir sayfaları, il/ilçe hiyerarşisi) ayrı sütuna taşınmalıdır.
+
 ## Teknoloji Yığını
 
 | Katman | Teknoloji |
@@ -53,17 +71,45 @@ Optimistic concurrency, EF Core'un normal oku-değiştir-kaydet akışında (`Sa
 ```
 BiletSatis/
   BiletSatis.Web/          # Ana MVC uygulaması
-    Domain/                # Etkinlik, Bilet, RezervasyonKuyrugu entity'leri
-    Data/                  # DbContext, migration'lar, seed
+    Domain/                # Etkinlik, Bilet, RezervasyonKuyrugu, EtkinlikKategorisi
+    Data/                  # DbContext, migration'lar, seed, Identity yapılandırması
     Services/              # Atomik SQL sorgularını içeren servisler
     BackgroundServices/    # CartExpiryWorker, WaitlistWorker
-    Controllers/, Views/   # MVC katmanı
+    Controllers/           # Home, Etkinlik, Biletler, Kuyruk, Profil, Admin, Account
+    Views/                 # Razor görünümleri
+    wwwroot/
+      css/site.css         # Tüm tasarım sistemi (tek dosya)
+      js/site.js           # Filtreler, salon haritası, görünüm değiştirici
+      img/afis/            # Yerel SVG konser afişleri
+      img/afis/yuklenen/   # Panelden yüklenen afişler (.gitignore'da)
     Dockerfile             # Multi-stage build (SDK -> ASP.NET runtime)
-  BiletSatis.Tests/        # xUnit entegrasyon testleri (gerçek SQL Server'a karşı)
+  BiletSatis.Tests/        # xUnit testleri (gerçek SQL Server'a karşı)
   loadtests/k6/            # k6 yük testi script'leri
   docker-compose.yml       # web + db container'larını birlikte ayağa kaldırır
   .env.example             # Docker için gerekli ortam değişkenleri şablonu
 ```
+
+### Etkinlik alanları
+
+| Alan | Açıklama |
+|---|---|
+| `Ad`, `Tarih` | Temel bilgiler |
+| `Mekan` | `"Salon Adı, Şehir"` biçiminde; şehir buradan ayrıştırılır |
+| `Kategori` | Konser, Tiyatro, Sinema, Festival, StandUp, ElektronikMuzik, CocukAktiviteleri, Eglence |
+| `Aciklama` | Detay sayfasındaki tanıtım metni |
+| `YasSiniri` | Asgari yaş; `0` = sınır yok |
+| `AfisUrl` | Afiş görselinin yolu; boşsa varsayılan afiş kullanılır |
+
+### Afiş görselleri
+
+`wwwroot/img/afis/` altındaki afişler harici bağımlılığı olmayan yerel SVG dosyalarıdır. Yönetim panelinden yeni afiş yüklenebilir; yükleme dört katmanlı doğrulamadan geçer:
+
+1. Uzantı allowlist'i (JPG, PNG, WEBP)
+2. Boyut sınırı (4 MB)
+3. Dosya imzası (magic bytes) kontrolü — uzantısı değiştirilmiş dosyalar reddedilir
+4. Dosya adı istemciden alınmaz, sunucuda GUID olarak üretilir
+
+Yüklenen dosyalar `img/afis/yuklenen/` altına kaydedilir ve `.gitignore` ile depoya girmez.
 
 ## Kurulum
 
@@ -121,6 +167,18 @@ dotnet test BiletSatis.Tests
 
 En kritik test, projenin tüm iddiasını kanıtlar: 50 ayrı bağlantıdan aynı bilete gerçek eşzamanlı istek gönderilir ve tam olarak birinin başarılı olduğu doğrulanır (`TryAddToCartAsync_ElliEsZamanliIstek_SadeceBiriBasariliOlmali`).
 
+Kapsanan alanlar:
+
+| Dosya | Ne test ediliyor |
+|---|---|
+| `BiletRezervasyonServisiTests` | Eşzamanlı sepete ekleme, kilit süresi, ödeme tamamlama |
+| `KuyrukServisiTests` | Sıra numarası benzersizliği, FIFO hak tanıma, süre dolumu |
+| `AdminEtkinlikSilmeTests` | Satılmış bilet koruması, bilet ve kuyruk kayıtlarının temizlenmesi |
+| `MekanBilgisiTests` | Şehir/salon ayrıştırma uç durumları |
+| `EtkinlikKartVmTests` | Geri sayım metni, kıtlık uyarısı eşikleri |
+| `AdminOzetTests` | Gelir/doluluk hesapları, sıfıra bölme durumu |
+| `ProfilVmTests` | Avatar baş harfleri |
+
 ### Yük testleri (k6)
 
 ```bash
@@ -134,3 +192,6 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut).
+- E-posta gönderimi yok — kayıt onayı, şifre sıfırlama ve kuyruk bildirimi uygulanmadı.
+- Arayüzdeki filtreler (arama, kategori, şehir, fiyat, sıralama) istemci tarafında çalışır. Tüm etkinlikler tek sayfada render edildiği için etkinlik sayısı büyüdüğünde sunucu tarafı filtreleme ve sayfalama gerekir.
+- Şehir bilgisi ayrı bir sütun değil, `Mekan` alanından ayrıştırılır (bkz. Mimari Kararlar).
