@@ -260,3 +260,10 @@ app.MapControllerRoute(
     .WithStaticAssets();
 
 app.Run();
+
+/// <summary>
+/// Uçtan uca testler uygulamayı bu sınıf üzerinden test sunucusunda ayağa kaldırır
+/// (<c>WebApplicationFactory&lt;Program&gt;</c>). Üst düzey deyimlerle yazılan
+/// Program sınıfı varsayılan olarak internal olduğu için açıkça public yapılıyor.
+/// </summary>
+public partial class Program { }

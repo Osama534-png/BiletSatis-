@@ -449,6 +449,32 @@ Kapsanan alanlar:
 | `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
 | `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
 | `KimlikEpostaServisiTests` | Doğrulama ve şifre sıfırlama e-postalarının içeriği, gönderim hatasının yukarı taşınması |
+| `EtkinlikEsZamanliDuzenlemeTests` | İki yöneticinin aynı etkinliği düzenlemesi (kayıp güncelleme koruması) |
+| `UctanUcaAkisTests` | Giriş yapmış kullanıcı olarak tüm akışlar (aşağıya bakınız) |
+
+### Uçtan uca testler
+
+Servis testleri sınıfları tek tek çağırır; **uçtan uca testler** uygulamanın tamamını bellek içi bir test sunucusunda ayağa kaldırıp gerçek HTTP istekleri gönderir. Böylece yönlendirme, yetkilendirme filtreleri, antiforgery, model bağlama ve Razor görünümleri de kapsama girer — yani "servis doğru ama sayfa bozuk" durumu yakalanır.
+
+Kapsanan akışlar:
+
+| Akış | Doğrulanan |
+|---|---|
+| Salon haritası | Koltuklar ve seçim çubuğu render ediliyor, sayfada hiç satır içi `style` kalmamış (CSP uyumu) |
+| Çoklu koltuk | 3 koltuk sepete giriyor, sepet toplamı doğru |
+| Çakışma | Koltuklardan biri başkasındaysa hiçbiri sepete girmiyor |
+| Sınır | 6'dan fazla koltuk reddediliyor |
+| Vazgeçme | Koltuk tekrar satışa çıkıyor |
+| Yetki | Başkasının sepeti görünmüyor ve iptal edilemiyor |
+| Rol | Normal kullanıcı admin sayfalarına ve kapı kontrolüne giremiyor |
+| Yönetici | Panel açılıyor, satılmış bileti olan etkinlik silinemiyor |
+| Değerlendirme | Kapıdan geçmeyen yazamıyor, geçen yazabiliyor ve yorumu sayfada görünüyor |
+| Kuyruk | İki kez katılım denemesinde tek kayıt oluşuyor |
+| Güvenlik başlıkları | CSP nonce'lu, `unsafe-inline` içermiyor, Stripe yönlendirmesine izin veriyor |
+
+Ödeme adımı kapsam dışıdır: Stripe'ın kendi sunucusunda oturum açılmasını gerektirir. Ödemenin veritabanı tarafı `BiletRezervasyonServisiTests` içinde ayrıca test edilir.
+
+Testler `Guvenlik:EpostaDogrulamaZorunlu` ve `Guvenlik:HizSiniriAktif` kapalı, arka plan görevleri devre dışı bırakılmış bir yapılandırmayla çalışır — aksi halde görevler sepet kilitlerini düşürüp sonuçları belirsiz hâle getirirdi.
 | `GirisServisiTests` | Kapı kontrolü: tek kullanım, 20 eşzamanlı okutmada tek giriş, satılmamış bilet reddi |
 | `DegerlendirmeServisiTests` | Değerlendirme hakkı (okutulmamış bilet reddi), geçersiz puan, tek kayıt kuralı, eşzamanlı istek, ortalama ve dağılım hesabı |
 
