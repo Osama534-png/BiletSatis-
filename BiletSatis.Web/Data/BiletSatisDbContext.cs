@@ -29,6 +29,12 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
                 .HasDefaultValue(EtkinlikKategorisi.Konser);
 
             e.HasIndex(x => x.Kategori);
+
+            // rowversion: SQL Server her güncellemede kendisi artırır. EF, güncelleme
+            // sorgusuna "WHERE ... AND SatirSurumu = okuduğum değer" koşulunu ekler;
+            // araya başka bir kayıt girdiyse hiçbir satır etkilenmez ve
+            // DbUpdateConcurrencyException fırlar.
+            e.Property(x => x.SatirSurumu).IsRowVersion();
         });
 
         modelBuilder.Entity<Bilet>(b =>

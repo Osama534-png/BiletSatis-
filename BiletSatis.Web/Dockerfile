@@ -22,4 +22,9 @@ EXPOSE 8080
 
 COPY --from=build /app/publish .
 
+# Uygulama root olarak çalışmasın: container'da bir açık bulunursa saldırganın
+# eline geçen yetki sınırlı olsun. $APP_UID, .NET resmi imajlarında hazır gelen
+# yetkisiz kullanıcıdır.
+USER $APP_UID
+
 ENTRYPOINT ["dotnet", "BiletSatis.Web.dll"]

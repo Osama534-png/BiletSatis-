@@ -19,4 +19,13 @@ public class Etkinlik
     public DateTime Tarih { get; set; }
 
     public List<Bilet> Biletler { get; set; } = new();
+
+    /// <summary>
+    /// Satır sürümü (optimistic concurrency). Etkinlik düzenleme ekranı oku-değiştir-kaydet
+    /// akışıyla çalışır; iki yönetici aynı etkinliği aynı anda düzenlerse ikincisi
+    /// birincinin değişikliğini sessizce ezerdi. SQL Server bu sütunu her güncellemede
+    /// kendisi değiştirir; kayıt sırasında değer tutmazsa EF hata verir ve kullanıcı
+    /// uyarılır. Biletlerde buna gerek yok: orada okuma-sonra-yazma zaten yok.
+    /// </summary>
+    public byte[]? SatirSurumu { get; set; }
 }

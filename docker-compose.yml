@@ -28,6 +28,16 @@ services:
       ASPNETCORE_ENVIRONMENT: "Production"
       ConnectionStrings__DefaultConnection: "Server=db;Database=BiletSatisDb;User Id=sa;Password=${DB_SA_PASSWORD:?DB_SA_PASSWORD .env dosyasında tanımlanmalı};TrustServerCertificate=True"
       Stripe__SecretKey: "${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY .env dosyasında tanımlanmalı}"
+
+      # Bilet QR kodlarının imza anahtarı. Üretim ortamında tanımlı değilse uygulama
+      # bilinçli olarak başlamaz — anahtarsız imza tahmin edilebilir olur ve sahte
+      # bilet üretilebilir.
+      Giris__ImzaAnahtari: "${GIRIS_IMZA_ANAHTARI:?GIRIS_IMZA_ANAHTARI .env dosyasında tanımlanmalı}"
+
+      # Yönetici hesabı. Tanımlı değilse hesap hiç oluşturulmaz ve yönetim paneline
+      # kimse giremez; koda gömülü şifreyle hesap açmak üretimde kabul edilemez.
+      Yonetici__Eposta: "${YONETICI_EPOSTA:?YONETICI_EPOSTA .env dosyasında tanımlanmalı}"
+      Yonetici__Sifre: "${YONETICI_SIFRE:?YONETICI_SIFRE .env dosyasında tanımlanmalı}"
     ports:
       - "8080:8080"
 

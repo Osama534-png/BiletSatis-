@@ -101,7 +101,37 @@ public class AdminController : Controller
         etkinlik.YasSiniri = model.YasSiniri;
         etkinlik.Tarih = model.Tarih;
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Bu ekran oku-değiştir-kaydet akışıyla çalışıyor. Formu açtıktan sonra
+            // başka bir yönetici aynı etkinliği kaydettiyse, buradaki kayıt onun
+            // değişikliklerini sessizce ezerdi. Satır sürümü tutmadığı için EF
+            // kaydetmeyi reddetti; kullanıcıya güncel hâli gösteriyoruz.
+            _db.ChangeTracker.Clear();
+
+            ModelState.AddModelError(string.Empty,
+                "Bu etkinlik siz formu açtıktan sonra başka biri tarafından değiştirildi. " +
+                "Aşağıda güncel bilgiler var; değişikliğinizi tekrar yapın.");
+
+            var guncel = await _db.Etkinlikler.AsNoTracking().FirstOrDefaultAsync(e => e.Id == model.Id);
+            if (guncel == null) return NotFound();
+
+            return View(new EtkinlikDuzenleViewModel
+            {
+                Id = guncel.Id,
+                Ad = guncel.Ad,
+                Mekan = guncel.Mekan,
+                Kategori = guncel.Kategori,
+                Aciklama = guncel.Aciklama,
+                YasSiniri = guncel.YasSiniri,
+                Tarih = guncel.Tarih,
+                MevcutAfisUrl = guncel.AfisUrl
+            });
+        }
 
         TempData["Bilgi"] = $"'{etkinlik.Ad}' etkinliği güncellendi.";
         return RedirectToAction(nameof(Index));

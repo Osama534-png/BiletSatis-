@@ -43,8 +43,12 @@ public class SmtpEpostaGonderici : IEpostaGonderici
 
         using var istemci = new SmtpClient();
 
+        // StartTlsWhenAvailable DEĞİL: "WhenAvailable", sunucu TLS duyurmazsa bağlantıyı
+        // düz metin olarak sürdürür. Araya giren biri STARTTLS duyurusunu düşürerek
+        // hem SMTP şifresini hem de e-posta içeriğini açıkta okuyabilirdi. StartTls
+        // ise TLS kurulamazsa bağlantıyı kesip hata verir — sessizce düşmek yok.
         var guvenlik = _ayarlar.SslKullan
-            ? SecureSocketOptions.StartTlsWhenAvailable
+            ? SecureSocketOptions.StartTls
             : SecureSocketOptions.None;
 
         await istemci.ConnectAsync(_ayarlar.SmtpSunucu, _ayarlar.SmtpPort, guvenlik, ct);

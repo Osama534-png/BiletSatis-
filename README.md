@@ -90,9 +90,17 @@ Bu hata, testler gerçekten eşzamanlı hâle getirilene kadar görünmüyordu: 
 
 Bilet ekleme "bu blokta kaç bilet var" sayıp numarayı ondan üretiyor. İki eşzamanlı ekleme aynı numarayı üretebilirdi; `(EtkinlikId, KoltukNo)` üzerindeki **benzersiz dizin** bunu veritabanı seviyesinde imkânsız kılar. Çakışma olursa hiçbir bilet yazılmaz ve yöneticiye tekrar denemesi söylenir.
 
-### Neden `RowVersion` (optimistic concurrency) kullanılmadı?
+### Etkinlik düzenlemede `RowVersion` (optimistic concurrency)
 
-Optimistic concurrency, EF Core'un normal oku-değiştir-kaydet akışında (`SaveChanges`) anlamlıdır. Burada zaten read-then-write yapılmadığı için `RowVersion` eklemek gereksiz olurdu — ileride bir admin "fiyat düzenle" ekranı eklenirse orada anlamlı olabilir.
+Bilet satın almada oku-değiştir-kaydet akışı hiç yok, o yüzden orada satır sürümüne gerek duyulmuyor. Ama **etkinlik düzenleme ekranı** kaçınılmaz olarak bu akışla çalışır: form açılır, yönetici düşünür, sonra kaydeder. Araya başka bir yönetici girip aynı etkinliği kaydederse, ikinci kayıt birincinin değişikliğini sessizce ezerdi.
+
+`Etkinlikler` tablosuna `SatirSurumu` (`rowversion`) sütunu eklendi. SQL Server bu sütunu her güncellemede kendisi artırır; EF de güncelleme sorgusuna `AND SatirSurumu = okuduğum değer` koşulunu ekler. Araya biri girdiyse hiçbir satır etkilenmez ve `DbUpdateConcurrencyException` fırlar. Kullanıcıya "bu etkinlik siz formu açtıktan sonra değiştirildi" denip **güncel değerler** gösterilir; kaybolan bir düzenleme olmaz.
+
+Korumanın gerçekten çalıştığı ölçüldü: satır sürümü devre dışı bırakıldığında ilgili testler 3/3 kırılıyor.
+
+### Neden biletlerde `RowVersion` yok?
+
+Bilet satın alma tek atomik UPDATE ile yapılır; okuma-sonra-yazma olmadığı için orada satır sürümü tutmanın bir karşılığı yoktur. Optimistic concurrency yalnızca yukarıdaki gibi form tabanlı düzenleme akışlarında anlamlıdır.
 
 ### Kuyruk adaleti nasıl garanti ediliyor?
 
