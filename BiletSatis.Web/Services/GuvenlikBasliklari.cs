@@ -52,7 +52,13 @@ public static class GuvenlikBasliklari
                 "img-src 'self' data: https:",
 
                 "connect-src 'self'",
-                "form-action 'self'");
+
+                // form-action yalnızca formun gittiği adresi değil, gönderimin
+                // ardından gelen YÖNLENDİRMELERİ de kapsar. Ödeme formu kendi
+                // sunucumuza POST ediyor, sunucu da Stripe'ın ödeme sayfasına
+                // yönlendiriyor; Stripe alan adı burada olmazsa tarayıcı bu
+                // yönlendirmeyi sessizce engeller ve kullanıcı sepette kalır.
+                "form-action 'self' https://checkout.stripe.com");
 
             // Sunucunun bildirdiği içerik türünü tarayıcı "tahmin ederek" değiştirmesin.
             headers["X-Content-Type-Options"] = "nosniff";

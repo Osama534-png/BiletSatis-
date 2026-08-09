@@ -208,6 +208,8 @@ Script'ler için **nonce** kullanılır: her istekte rastgele bir değer üretil
 
 Bunun bir bedeli var: `onclick="..."` / `onsubmit="..."` gibi satır içi olay öznitelikleri nonce alamaz, CSP altında çalışmazlar. Projedeki ikisi (ödeme butonunun çift gönderim kilidi ve etkinlik silme onayı) `data-*` özniteliklerine çevrilip davranışları `site.js`'e taşındı.
 
+**Dikkat edilecek bir nokta:** `form-action` yalnızca formun gittiği adresi değil, gönderimin ardından gelen **yönlendirmeleri** de kapsar. Ödeme formu kendi sunucumuza POST eder, sunucu da Stripe'ın ödeme sayfasına yönlendirir. `form-action` içinde Stripe alan adı yoksa tarayıcı bu yönlendirmeyi **sessizce** engeller: sunucu tarafında her şey başarılı görünür (oturum oluşur, 302 döner) ama kullanıcı sepet sayfasında kalır. Bu yüzden `https://checkout.stripe.com` listeye eklenmiştir.
+
 **Stiller de sıkı.** `style="..."` öznitelikleri de nonce alamaz — nonce yalnızca `<style>` etiketlerinde çalışır. Bu yüzden arayüzdeki 28 satır içi stilin tamamı kaldırıldı:
 
 - **22 sabit stil** CSS sınıflarına taşındı (`durum-ikonu`, `girdi-dar`, `ticket-seat-buyuk` …).
