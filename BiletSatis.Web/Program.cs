@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using System.Globalization;
 using System.Threading.RateLimiting;
 
 // Giriş/kayıt uçlarında kullanılan hız sınırı politikasının adı.
@@ -81,16 +82,32 @@ builder.Services.ConfigureApplicationCookie(options =>
 // kayıt spam'i) yavaşlatır.
 builder.Services.AddRateLimiter(options =>
 {
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
     options.AddPolicy(GirisHizSiniri, httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "bilinmeyen",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                // Hesap kilidi 5 hatalı denemede devreye girer; sınır bunun üstünde
+                // olmalı ki kullanıcı önce anlaşılır kilit mesajını görsün.
+                PermitLimit = 15,
                 Window = TimeSpan.FromMinutes(1)
             }));
+
+    // Varsayılan davranış çıplak bir 429 hata sayfasıdır. Bunun yerine kullanıcıyı
+    // ne olduğunu anlatan normal bir sayfaya yönlendiriyoruz.
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var bekleme))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((int)bekleme.TotalSeconds).ToString(NumberFormatInfo.InvariantInfo);
+        }
+
+        context.HttpContext.Response.Redirect("/Account/CokFazlaDeneme");
+        return ValueTask.CompletedTask;
+    };
 });
 
 builder.Services.AddHttpContextAccessor();

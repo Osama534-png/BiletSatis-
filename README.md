@@ -157,12 +157,14 @@ Kullanıcı iki sekmede ödemeye geçip ikisini de tamamlarsa Stripe iki ayrı �
 | Önlem | Neden |
 |---|---|
 | Hesap kilidi (5 hatalı deneme → 5 dk) | Şifre sınırsız denenebiliyordu |
-| Giriş/kayıt uçlarında hız sınırı (IP başına 10/dk) | Hesap kilidi tek hesabı korur; bu, çok sayıda hesaba yapılan taramayı yavaşlatır |
+| Giriş/kayıt **POST**'larında hız sınırı (IP başına 15/dk) | Hesap kilidi tek hesabı korur; bu, çok sayıda hesaba yapılan taramayı yavaşlatır |
 | `HttpOnly` + `SameSite=Lax` + üretimde `Secure` çerez | XSS'te oturum çalınmasını ve siteler arası kullanımı zorlaştırır |
 | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | MIME tahmini, tıklama hırsızlığı ve adres sızıntısına karşı |
 | Yönetici şifresi yapılandırmadan | Koda gömülü şifre üretimde herkesin bildiği bir yönetici hesabı demekti |
 | `Stripe:SecretKey` üretimde zorunlu | Anahtarsız uygulama ayağa kalkıp ödeme adımında patlıyordu |
 | Giriş hatasında tek mesaj | "E-posta veya şifre hatalı" — hangi adresin kayıtlı olduğu ele verilmez |
+
+Hız sınırı bilinçli olarak yalnızca **POST** uçlarına uygulanır ve hesap kilidi eşiğinin (5) üstünde tutulur. Sayfa açılışları da sayılsaydı her giriş denemesi iki isteğe mal olur, kullanıcı anlaşılır kilit mesajını görmeden sınıra takılırdı. Sınıra takılan istek çıplak `429` yerine `/Account/CokFazlaDeneme` sayfasına yönlendirilir; yanıt `Retry-After` başlığı taşır.
 
 Yönetici hesabı artık yalnızca `Yonetici:Sifre` tanımlıysa oluşturulur. Geliştirmede tanımlı değilse bilinen geliştirme şifresi kullanılır; üretimde tanımlı değilse hesap **açılmaz** ve uyarı loglanır.
 

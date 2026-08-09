@@ -8,9 +8,11 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace BiletSatis.Web.Controllers;
 
 [AllowAnonymous]
-[EnableRateLimiting("giris")]
 public class AccountController : Controller
 {
+    /// <summary>Program.cs'te tanımlı hız sınırı politikasının adı.</summary>
+    public const string HizSiniri = "giris";
+
     private readonly UserManager<ApplicationUser> _userManager;//kullanıcı OLUŞTURMA/yönetme
 	private readonly SignInManager<ApplicationUser> _signInManager;//giriş/çıkış YAPTIRMA cookıs
 
@@ -27,8 +29,12 @@ public class AccountController : Controller
         return View(new KayitOlViewModel());
     }
 
+    // Hız sınırı yalnızca formu gönderen POST'lara uygulanır. Sayfa açılışları (GET)
+    // da sayılsaydı her deneme iki isteğe mal olur, kullanıcı hesap kilidi mesajını
+    // görmeden sınıra takılırdı.
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(HizSiniri)]
     public async Task<IActionResult> KayitOl(KayitOlViewModel model, string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
@@ -59,6 +65,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(HizSiniri)]
     public async Task<IActionResult> GirisYap(GirisYapViewModel model, string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
@@ -95,6 +102,13 @@ public class AccountController : Controller
 
     [HttpGet]
     public IActionResult ErisimEngellendi() => View();
+
+    /// <summary>
+    /// Hız sınırına takılan istekler buraya yönlendirilir. Bu sayfanın kendisi
+    /// sınırlanmaz, aksi halde yönlendirme döngüye girerdi.
+    /// </summary>
+    [HttpGet]
+    public IActionResult CokFazlaDeneme() => View();
 
     private IActionResult RedirectToLocal(string? returnUrl)
     {
