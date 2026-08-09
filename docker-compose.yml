@@ -43,8 +43,21 @@ services:
       # yerel geliştirme portunu (5052) gösterir; container 8080'de çalıştığı için
       # doğrulama ve şifre sıfırlama bağlantıları çalışmayan bir adrese giderdi.
       Eposta__SiteAdresi: "${SITE_ADRESI:-http://localhost:8080}"
+
+      # SMTP ayarları yerel geliştirmede user-secrets'ta durur, ama user-secrets
+      # container'a geçmez. Verilmezse uygulama e-postaları göndermeyip
+      # /app/logs/eposta altına .html olarak yazar (geliştirme modu).
+      Eposta__SmtpSunucu: "${EPOSTA_SMTP_SUNUCU:-}"
+      Eposta__KullaniciAdi: "${EPOSTA_KULLANICI_ADI:-}"
+      Eposta__Sifre: "${EPOSTA_SIFRE:-}"
+      Eposta__GondericiAdresi: "${EPOSTA_GONDERICI_ADRESI:-bildirim@biletsatis.local}"
+
+    # E-posta önizlemeleri ve loglar container silinince kaybolmasın.
+    volumes:
+      - biletsatis-web-logs:/app/logs
     ports:
       - "8080:8080"
 
 volumes:
   biletsatis-db-data:
+  biletsatis-web-logs:

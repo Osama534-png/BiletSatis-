@@ -22,6 +22,12 @@ EXPOSE 8080
 
 COPY --from=build /app/publish .
 
+# Uygulama log dosyalarını ve (SMTP yapılandırılmamışsa) e-posta önizlemelerini
+# buraya yazar. /app kök kullanıcıya ait olduğu için, yetkisiz kullanıcıya
+# geçmeden önce bu klasörün sahipliği ona verilmeli — aksi halde yazma
+# girişimleri sessizce hata verir.
+RUN mkdir -p /app/logs/eposta && chown -R $APP_UID:$APP_UID /app/logs
+
 # Uygulama root olarak çalışmasın: container'da bir açık bulunursa saldırganın
 # eline geçen yetki sınırlı olsun. $APP_UID, .NET resmi imajlarında hazır gelen
 # yetkisiz kullanıcıdır.
