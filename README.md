@@ -144,6 +144,17 @@ Sunucu imzayı gizli anahtarla yeniden hesaplayıp karşılaştırır; anahtarı
 
 **Kapsam dışı:** Biletin ekran görüntüsü paylaşılırsa ilk okutan içeri girer, ikincisi "zaten kullanıldı" görür. Bu doğru davranıştır ama sistem gerçek sahibi ayırt edemez; gerçek etkinliklerde bu yüzden kimlik kontrolü yapılır. Ayrıca site içinde kamera açan bir okuyucu yoktur — görevli telefonun kendi kamera uygulamasıyla okutur.
 
+### Çerez imzalama anahtarları neden veritabanında?
+
+ASP.NET, oturum çerezlerini ve antiforgery jetonlarını bir anahtar takımıyla imzalar. Varsayılanda bu anahtarlar **dosya sistemine** yazılır ve container'da bu iki soruna yol açar:
+
+- Container yeniden oluşturulduğunda anahtarlar kaybolur; herkes oturumdan düşer, açık formlar "antiforgery doğrulanamadı" hatası verir.
+- Uygulamanın iki kopyası ayrı anahtar üretir; biri diğerinin çerezini doğrulayamaz. Kullanıcı kopyalar arasında gezindikçe sürekli çıkış yapmış olur — yani aşağıdaki yatay ölçekleme çalışmasını boşa çıkarır.
+
+Anahtarlar `DataProtectionKeys` tablosunda tutuluyor (`PersistKeysToDbContext`). Bu, projenin genel yaklaşımıyla da tutarlı: koordinasyon noktası veritabanı. `SetApplicationName` sabitlenmiştir; aksi halde farklı container adları farklı anahtar halkaları üretirdi.
+
+Bu eksik, Docker kurulumu ilk kez gerçekten çalıştırıldığında başlangıç loglarındaki uyarıdan fark edildi.
+
 ### Uygulamanın iki kopyası aynı anda çalışabilir mi?
 
 Projenin baştan beri iddiası, kilitlemenin uygulama belleğinde değil veritabanında olduğu ve bu sayede yatay ölçeklenebildiğiydi. Bilet satın alma akışı bunu gerçekten karşılıyordu, ama iki nokta karşılamıyordu:

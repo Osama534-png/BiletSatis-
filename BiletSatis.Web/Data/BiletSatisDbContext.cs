@@ -1,11 +1,21 @@
 using BiletSatis.Web.Domain;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace BiletSatis.Web.Data;
 
-public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
+/// <summary>
+/// <see cref="IDataProtectionKeyContext"/>: ASP.NET'in çerezleri ve antiforgery
+/// jetonlarını imzaladığı anahtarlar da bu veritabanında tutulur. Varsayılan
+/// davranışta anahtarlar dosya sistemine yazılır; container'da bu, her yeniden
+/// oluşturmada tüm kullanıcıların oturumdan düşmesi ve iki kopyanın birbirinin
+/// çerezini doğrulayamaması demektir.
+/// </summary>
+public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionKeyContext
 {
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     public BiletSatisDbContext(DbContextOptions<BiletSatisDbContext> options) : base(options) { }
 
     public DbSet<Etkinlik> Etkinlikler => Set<Etkinlik>();

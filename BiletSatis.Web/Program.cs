@@ -1,5 +1,6 @@
 using BiletSatis.Web.BackgroundServices;
 using BiletSatis.Web.Data;
+using Microsoft.AspNetCore.DataProtection;
 using BiletSatis.Web.Services;
 using BiletSatis.Web.Services.Degerlendirmeler;
 using BiletSatis.Web.Services.Eposta;
@@ -38,6 +39,15 @@ builder.Services.AddControllersWithViews(options =>
 });
 builder.Services.AddDbContext<BiletSatisDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Çerez ve antiforgery jetonlarını imzalayan anahtarlar veritabanında tutulur.
+// Varsayılanda dosya sistemine yazılırlar; container'da bu, her yeniden oluşturmada
+// herkesin oturumdan düşmesi demek. Ayrıca uygulamanın iki kopyası ayrı anahtar
+// üretirse biri diğerinin çerezini doğrulayamaz — kullanıcı kopyalar arasında
+// gezindikçe sürekli çıkış yapmış olur.
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<BiletSatisDbContext>()
+    .SetApplicationName("BiletSatis");
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
