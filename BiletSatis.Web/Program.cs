@@ -45,6 +45,12 @@ builder.Services.AddDbContext<BiletSatisDbContext>(opt =>
 // herkesin oturumdan düşmesi demek. Ayrıca uygulamanın iki kopyası ayrı anahtar
 // üretirse biri diğerinin çerezini doğrulayamaz — kullanıcı kopyalar arasında
 // gezindikçe sürekli çıkış yapmış olur.
+// Yük testleri (loadtests/k6) tek IP'den yüzlerce kayıt/giriş isteği gönderir ve
+// gelen kutusu olmadığı için e-posta doğrulamasını tamamlayamaz. Bu iki koruma
+// yalnızca o senaryo için kapatılabilir; varsayılanları açıktır.
+var epostaDogrulamaZorunlu = builder.Configuration.GetValue("Guvenlik:EpostaDogrulamaZorunlu", true);
+var hizSiniriAktif = builder.Configuration.GetValue("Guvenlik:HizSiniriAktif", true);
+
 builder.Services.AddDataProtection()
     .PersistKeysToDbContext<BiletSatisDbContext>()
     .SetApplicationName("BiletSatis");
@@ -59,7 +65,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     // E-posta doğrulanmadan giriş yapılamaz. Özellik eklenmeden önce açılmış
     // hesaplar migration ile "doğrulanmış" işaretlendi; aksi halde mevcut
     // kullanıcılar bir anda kapıda kalırdı.
-    options.SignIn.RequireConfirmedAccount = true;
+    //
+    // Yük testleri yüzlerce tek kullanımlık hesap açıp hemen giriş yapar; gelen
+    // kutusu olmadığı için doğrulama adımını tamamlayamazlar. Bu yüzden kural
+    // kapatılabilir — varsayılan açık, kapatmak bilinçli bir tercih olmalı.
+    options.SignIn.RequireConfirmedAccount = epostaDogrulamaZorunlu;
 
     // Kaba kuvvet koruması: 5 hatalı denemeden sonra hesap 5 dakika kilitlenir.
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
@@ -96,7 +106,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy(GirisHizSiniri, httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
+        !hizSiniriAktif
+        ? RateLimitPartition.GetNoLimiter("kapali")
+        : RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "bilinmeyen",
             factory: _ => new FixedWindowRateLimiterOptions
             {
@@ -194,6 +206,15 @@ if (!builder.Environment.IsDevelopment() && (string.IsNullOrWhiteSpace(izinliHos
     Log.Warning(
         "AllowedHosts '*' olarak bırakılmış. Üretimde gerçek alan adlarıyla sınırlandırın " +
         "(ör. \"biletsatis.com;www.biletsatis.com\").");
+}
+
+// Yük testi için kapatılan korumaların üretimde açık kalmaması gerekir.
+if (!builder.Environment.IsDevelopment() && (!epostaDogrulamaZorunlu || !hizSiniriAktif))
+{
+    Log.Warning(
+        "Üretimde güvenlik korumaları kapalı: EpostaDogrulamaZorunlu={Dogrulama} HizSiniriAktif={HizSiniri}. " +
+        "Bu ayarlar yalnızca yük testi içindir.",
+        epostaDogrulamaZorunlu, hizSiniriAktif);
 }
 
 var app = builder.Build();

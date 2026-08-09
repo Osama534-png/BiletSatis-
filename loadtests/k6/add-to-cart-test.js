@@ -79,6 +79,10 @@ function kayitOlVeGirisYap() {
     },
     { redirects: 5 },
   );
+  // Kayıt artık otomatik giriş yaptırmıyor: e-posta doğrulaması eklendiğinde
+  // akış "doğrulama bekleniyor" sayfasına yönlendirilir hâle geldi. Bu yüzden
+  // oturum açmak için ayrıca giriş yapılıyor.
+  girisYap(email, 'YukTest123');
 }
 
 export function setup() {

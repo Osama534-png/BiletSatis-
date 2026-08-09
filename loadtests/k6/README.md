@@ -55,3 +55,21 @@ Her iki script de ortam değişkenleriyle özelleştirilebilir:
 | `VUS` (add-to-cart) | `50` | Aynı bilete saldıran sanal kullanıcı sayısı |
 | `M` (queue-fairness) | `30` | Kuyruğa katılacak toplam kullanıcı |
 | `N` (queue-fairness) | `10` | Satışın açılacağı kişi sayısı |
+
+## Yük testinden önce: iki korumayı kapatın
+
+Yük testleri her sanal kullanıcı için tek kullanımlık bir hesap açıp hemen giriş yapar. İki güvenlik önlemi bu senaryoyu engeller:
+
+- **E-posta doğrulama zorunluluğu** — test hesaplarının gelen kutusu yok, doğrulama adımını tamamlayamazlar.
+- **Hız sınırı** — tüm istekler tek IP'den geldiği için kayıt/giriş uçları dakikada 15 istekte kilitlenir.
+
+İkisi de yapılandırmadan kapatılabilir. Varsayılanları **açıktır**; kapatmak bilinçli bir tercih olmalı ve yalnızca yük testi sırasında yapılmalıdır:
+
+```bash
+# Uygulamayı bu iki koruma kapalı başlatın
+$env:Guvenlik__EpostaDogrulamaZorunlu="false"; $env:Guvenlik__HizSiniriAktif="false"; dotnet run --project BiletSatis.Web
+```
+
+Uygulama üretim ortamında bu ayarlar kapalıyken başlatılırsa başlangıçta uyarı loglanır.
+
+Testler bittikten sonra ortam değişkenlerini kaldırıp uygulamayı normal şekilde yeniden başlatın.
