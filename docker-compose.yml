@@ -38,6 +38,11 @@ services:
       # kimse giremez; koda gömülü şifreyle hesap açmak üretimde kabul edilemez.
       Yonetici__Eposta: "${YONETICI_EPOSTA:?YONETICI_EPOSTA .env dosyasında tanımlanmalı}"
       Yonetici__Sifre: "${YONETICI_SIFRE:?YONETICI_SIFRE .env dosyasında tanımlanmalı}"
+
+      # E-postalardaki bağlantılar bu adresi kullanır. appsettings.json'daki değer
+      # yerel geliştirme portunu (5052) gösterir; container 8080'de çalıştığı için
+      # doğrulama ve şifre sıfırlama bağlantıları çalışmayan bir adrese giderdi.
+      Eposta__SiteAdresi: "${SITE_ADRESI:-http://localhost:8080}"
     ports:
       - "8080:8080"
 
