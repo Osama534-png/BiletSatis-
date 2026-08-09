@@ -20,6 +20,14 @@ public class Bilet
     public bool BildirimGonderildi { get; set; }
 
     /// <summary>
+    /// Bildirim görevinin bu kaydı "ben gönderiyorum" diye sahiplendiği an (UTC).
+    /// Uygulamanın iki kopyası çalıştığında ikisi de aynı bileti görüp aynı e-postayı
+    /// gönderebilirdi; sahiplenme tek atomik UPDATE ile yapıldığı için kaydı yalnızca
+    /// biri alır. Sahiplenen süreç çökerse kira süresi dolar ve kayıt yeniden denenir.
+    /// </summary>
+    public DateTime? BildirimKilitZamani { get; set; }
+
+    /// <summary>
     /// Bu bileti satın alan Stripe ödeme oturumunun kimliği. İki amacı var:
     /// satışın hangi ödemeye karşılık geldiğini izlemek ve aynı koltuklar için
     /// ikinci bir ödeme yapıldığını (kullanıcı iki sekmede ödemeye geçtiyse)

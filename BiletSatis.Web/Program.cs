@@ -175,6 +175,12 @@ Stripe.StripeConfiguration.ApiKey = stripeAnahtari;
 
 var app = builder.Build();
 
+// Migration ve seed, uygulamanın birden çok kopyası aynı anda başlasa bile yalnızca
+// bir kez çalışmalı. Kilit veritabanı seviyesinde; süreç içi lock burada işe yaramaz.
+var baslangicLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Baslangic");
+
+await using (await BaslangicKilidi.AlAsync(
+    app.Configuration.GetConnectionString("DefaultConnection")!, baslangicLogger))
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BiletSatisDbContext>();

@@ -136,6 +136,32 @@ Sunucu imzayı gizli anahtarla yeniden hesaplayıp karşılaştırır; anahtarı
 
 **Kapsam dışı:** Biletin ekran görüntüsü paylaşılırsa ilk okutan içeri girer, ikincisi "zaten kullanıldı" görür. Bu doğru davranıştır ama sistem gerçek sahibi ayırt edemez; gerçek etkinliklerde bu yüzden kimlik kontrolü yapılır. Ayrıca site içinde kamera açan bir okuyucu yoktur — görevli telefonun kendi kamera uygulamasıyla okutur.
 
+### Uygulamanın iki kopyası aynı anda çalışabilir mi?
+
+Projenin baştan beri iddiası, kilitlemenin uygulama belleğinde değil veritabanında olduğu ve bu sayede yatay ölçeklenebildiğiydi. Bilet satın alma akışı bunu gerçekten karşılıyordu, ama iki nokta karşılamıyordu:
+
+**1. Başlangıç (migration + seed).** `DbSeeder` "hiç etkinlik yoksa örnek veriyi yaz" diye çalışır — klasik oku-sonra-yaz. İki kopya aynı anda başlarsa ikisi de boş görüp ikisi de yazabilirdi. Çözüm, migration ve seed'i SQL Server'ın `sp_getapplock` yordamıyla alınan **dağıtık bir kilit** içine almak:
+
+```
+sp_getapplock @Resource='BiletSatis_Baslangic', @LockMode='Exclusive', @LockOwner='Session'
+```
+
+Kilit bağlantı oturumuna bağlıdır; bu yüzden bağlantı iş bitene kadar açık tutulur. Kilidi tutan süreç çökerse bağlantı düşer ve kilit kendiliğinden serbest kalır — takılı kalmaz. C# tarafındaki `lock` burada işe yaramazdı, çünkü her kopyanın belleği ayrıdır.
+
+**2. Bildirim görevi.** Görev "bildirilmemiş" kayıtları okuyup e-postayı gönderiyor, sonra bayrağı işaretliyordu. İki kopya aynı satırları okuyup aynı e-postayı iki kez gönderebilirdi. Artık **önce sahiplenme, sonra gönderme** sırası uygulanıyor:
+
+```sql
+UPDATE TOP (50) Biletler
+SET BildirimKilitZamani = GETUTCDATE()
+OUTPUT INSERTED.Id
+WHERE Durum = 'Satıldı' AND BildirimGonderildi = 0
+  AND (BildirimKilitZamani IS NULL OR BildirimKilitZamani < DATEADD(MINUTE, -5, GETUTCDATE()))
+```
+
+Sahiplenme tek atomik `UPDATE` olduğu için her kaydı yalnızca bir kopya alır. Sahiplenen süreç çökerse 5 dakikalık kira dolar ve kayıt yeniden denenebilir hâle gelir. Gönderim hata verirse sahiplenme **hemen** bırakılır; aksi halde geçici bir SMTP hatası yüzünden bildirim kira süresi dolana kadar bekletilirdi (bunu, mevcut "hata sonrası tekrar dene" testleri kırılarak fark edildi).
+
+Koruma ölçüldü: sahiplenme adımı kaldırılıp iki kopya aynı anda çalıştırıldığında test 3/3 kırılıyor, sahiplenmeyle 3/3 geçiyor.
+
 ### Değerlendirme hakkı neye bağlı?
 
 Çoğu sitede "satın aldıysan yorum yazabilirsin" kuralı vardır. Burada çıta bir kademe yukarıda: kullanıcının o etkinliğe ait **satılmış ve kapıda okutulmuş** (`GirisYapildi = 1`) bir bileti olmalı. Bilet alıp gitmeyen biri yorum yazamaz.
@@ -374,7 +400,7 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut). Bu yüzden ödeme 15 dakikalık uzatılmış kilidi de aşarsa para alınmış olmasına rağmen bilet verilemez; durum loglanır ve kullanıcı uyarılır, iade elle yapılır.
-- Uygulama tek örnek (single instance) varsayımıyla çalışır. Birden fazla kopya aynı anda çalışırsa: başlangıçtaki `Migrate()` çağrıları çakışabilir ve bildirim görevi aynı e-postayı iki kez gönderebilir (bayrak okuma ile işaretleme arasında kilit yok). Yatay ölçekleme için bu iki nokta ele alınmalıdır.
+- Bildirim gönderimi **en az bir kez** (at-least-once) garantisi verir. Kayıt sahiplenilip e-posta gönderildikten hemen sonra süreç çökerse, kira süresi dolduğunda aynı bildirim tekrar gönderilebilir. Tam olarak bir kez garantisi, e-posta gönderimiyle veritabanı yazmasının aynı işlemde olmasını gerektirir; bu da dış bir servisle mümkün değildir.
 - İçerik Güvenlik Politikası (CSP) başlığı yok. Arayüz satır içi stil ve script kullandığı için CSP eklemek bunların dışarı taşınmasını gerektirir.
 - Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.
 - Site içinde kamera açan QR okuyucu yok; görevli telefonun kendi kamera uygulamasını kullanır.

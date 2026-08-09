@@ -15,6 +15,11 @@ public class KuyrukBildirimServisi : IKuyrukBildirimServisi
     /// <summary>Tek turda gönderilecek azami bildirim; bir tur uzun sürmesin.</summary>
     private const int TurBasinaAzami = 50;
 
+    /// <summary>
+    /// Sahiplenmenin geçerlilik süresi; bkz. <see cref="BiletBildirimServisi"/>.
+    /// </summary>
+    private const int KiraDakikasi = 5;
+
     public KuyrukBildirimServisi(
         BiletSatisDbContext db,
         IEpostaGonderici gonderici,
@@ -29,10 +34,24 @@ public class KuyrukBildirimServisi : IKuyrukBildirimServisi
 
     public async Task<int> BekleyenBildirimleriGonderAsync(CancellationToken ct = default)
     {
+        // Önce sahiplen, sonra gönder — bkz. BiletBildirimServisi'ndeki açıklama.
+        // Okuyup sonra göndermek, iki kopya çalıştığında aynı bildirimin iki kez
+        // gitmesine yol açardı.
+        var sahiplenilenSiraNolar = await _db.Database.SqlQuery<int>($"""
+            UPDATE TOP ({TurBasinaAzami}) RezervasyonKuyrugu
+            SET BildirimKilitZamani = GETUTCDATE()
+            OUTPUT INSERTED.SiraNo
+            WHERE Durum = {KuyrukDurumMetni.HakTanindi}
+              AND BildirimGonderildi = 0
+              AND (BildirimKilitZamani IS NULL
+                   OR BildirimKilitZamani < DATEADD(MINUTE, {-KiraDakikasi}, GETUTCDATE()))
+            """).ToListAsync(ct);
+
+        if (sahiplenilenSiraNolar.Count == 0) return 0;
+
         var bekleyenler = await _db.RezervasyonKuyrugu
-            .Where(k => k.Durum == KuyrukDurumu.HakTanindi && !k.BildirimGonderildi)
+            .Where(k => sahiplenilenSiraNolar.Contains(k.SiraNo))
             .OrderBy(k => k.SiraNo)
-            .Take(TurBasinaAzami)
             .ToListAsync(ct);
 
         if (bekleyenler.Count == 0) return 0;
@@ -92,7 +111,11 @@ public class KuyrukBildirimServisi : IKuyrukBildirimServisi
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // Bayrak false kalır; bir sonraki turda tekrar denenir.
+                // Bayrak false kalır; bir sonraki turda tekrar denenir. Sahiplenmeyi
+                // de bırakıyoruz, aksi halde geçici bir SMTP hatası yüzünden kayıt
+                // kira süresi (5 dk) dolana kadar bekletilirdi.
+                kayit.BildirimKilitZamani = null;
+
                 _logger.LogError(ex, "Kuyruk bildirimi gönderilemedi: SiraNo={SiraNo} Alici={Alici}",
                     kayit.SiraNo, kullanici.Email);
             }

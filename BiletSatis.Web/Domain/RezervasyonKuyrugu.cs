@@ -15,4 +15,9 @@ public class RezervasyonKuyrugu
     /// hem de gönderim hatasında kaybı önler (bayrak false kalırsa tekrar denenir).
     /// </summary>
     public bool BildirimGonderildi { get; set; }
+
+    /// <summary>
+    /// Bildirim görevinin bu kaydı sahiplendiği an (UTC). Bkz. <see cref="Bilet.BildirimKilitZamani"/>.
+    /// </summary>
+    public DateTime? BildirimKilitZamani { get; set; }
 }

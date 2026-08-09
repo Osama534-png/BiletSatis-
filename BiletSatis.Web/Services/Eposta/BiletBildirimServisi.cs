@@ -18,6 +18,12 @@ public class BiletBildirimServisi : IBiletBildirimServisi
     private const int TurBasinaAzami = 50;
     private const string QrContentId = "biletqr";
 
+    /// <summary>
+    /// Sahiplenmenin geçerlilik süresi. Kaydı alan süreç bu süre içinde işini
+    /// bitiremezse (ör. çöktüyse) kayıt yeniden denenebilir hâle gelir.
+    /// </summary>
+    private const int KiraDakikasi = 5;
+
     public BiletBildirimServisi(
         BiletSatisDbContext db,
         IEpostaGonderici gonderici,
@@ -36,11 +42,26 @@ public class BiletBildirimServisi : IBiletBildirimServisi
 
     public async Task<int> BekleyenBildirimleriGonderAsync(CancellationToken ct = default)
     {
+        // Önce sahiplen, sonra gönder. Kayıtları okuyup sonra göndermek, uygulamanın
+        // iki kopyası çalıştığında aynı e-postanın iki kez gitmesine yol açardı:
+        // ikisi de aynı "bildirilmemiş" satırları görürdü. Sahiplenme tek atomik
+        // UPDATE olduğu için her satırı yalnızca bir kopya alır.
+        var sahiplenilenIdler = await _db.Database.SqlQuery<int>($"""
+            UPDATE TOP ({TurBasinaAzami}) Biletler
+            SET BildirimKilitZamani = GETUTCDATE()
+            OUTPUT INSERTED.Id
+            WHERE Durum = {BiletDurumMetni.Satildi}
+              AND BildirimGonderildi = 0
+              AND (BildirimKilitZamani IS NULL
+                   OR BildirimKilitZamani < DATEADD(MINUTE, {-KiraDakikasi}, GETUTCDATE()))
+            """).ToListAsync(ct);
+
+        if (sahiplenilenIdler.Count == 0) return 0;
+
         var bekleyenler = await _db.Biletler
             .Include(b => b.Etkinlik)
-            .Where(b => b.Durum == BiletDurumu.Satildi && !b.BildirimGonderildi)
+            .Where(b => sahiplenilenIdler.Contains(b.Id))
             .OrderBy(b => b.Id)
-            .Take(TurBasinaAzami)
             .ToListAsync(ct);
 
         if (bekleyenler.Count == 0) return 0;
@@ -94,7 +115,11 @@ public class BiletBildirimServisi : IBiletBildirimServisi
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // Bayrak false kalır; bir sonraki turda tekrar denenir.
+                // Bayrak false kalır; bir sonraki turda tekrar denenir. Sahiplenmeyi
+                // de bırakıyoruz, aksi halde geçici bir SMTP hatası yüzünden kayıt
+                // kira süresi (5 dk) dolana kadar bekletilirdi.
+                bilet.BildirimKilitZamani = null;
+
                 _logger.LogError(ex, "Bilet bildirimi gönderilemedi: BiletId={BiletId} Alici={Alici}",
                     bilet.Id, kullanici.Email);
             }

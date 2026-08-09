@@ -115,6 +115,37 @@ public class BiletBildirimServisiTests
         finally { await Temizle(etkinlikId, kullaniciId); }
     }
 
+    // Uygulamanın iki kopyası aynı anda bildirim turu çalıştırırsa aynı bilet için
+    // iki e-posta gitmemeli. Kayıtlar gönderimden önce atomik olarak sahiplenildiği
+    // için yalnızca bir kopya bileti alır.
+    [Fact]
+    public async Task IkiKopyaAyniAndaCalisirsa_EpostaYalnizcaBirKezGitmeli()
+    {
+        var (etkinlikId, kullaniciId, _) = await OrtamHazirla("cift-gonderim@ornek.local");
+        try
+        {
+            var kapi = new TaskCompletionSource();
+            var gondericiler = new[] { new SahteGonderici(), new SahteGonderici() };
+
+            var gorevler = gondericiler.Select(async gonderici =>
+            {
+                using var db = DatabaseFixture.CreateContext();
+                await db.Database.ExecuteSqlRawAsync("SELECT 1");
+                await kapi.Task;
+                return await YeniServis(db, gonderici).BekleyenBildirimleriGonderAsync();
+            }).ToList();
+
+            await Task.Delay(250);
+            kapi.SetResult();
+
+            var sayilar = await Task.WhenAll(gorevler);
+
+            Assert.Equal(1, sayilar.Sum());
+            Assert.Equal(1, gondericiler.Sum(g => g.Gonderilenler.Count));
+        }
+        finally { await Temizle(etkinlikId, kullaniciId); }
+    }
+
     [Fact]
     public async Task BiletiAlanKisiyeEpostaGondermeli()
     {
