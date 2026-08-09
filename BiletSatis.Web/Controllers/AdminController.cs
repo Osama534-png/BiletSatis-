@@ -121,11 +121,10 @@ public class AdminController : Controller
 
         // Satılmış bilet gerçek bir satın alma kaydıdır; tek tıkla silinmemeli.
         // Kontrolü ayrı bir sorguyla yapıp sonra silmek yetmez: tam aradaki anda bir
-        // ödeme tamamlanırsa satılmış bilet cascade ile yok olurdu. Bu yüzden silme,
-        // koşulu kendi içinde taşıyan tek bir DELETE ile yapılıp etkilenen satır
-        // sayısına bakılıyor; tamamı da bir işlem içinde.
-        await using var islem = await _db.Database.BeginTransactionAsync();
-
+        // ödeme tamamlanırsa satılmış bilet cascade ile yok olurdu. Bu yüzden koşul
+        // DELETE'in kendi içinde taşınıyor ve etkilenen satır sayısına bakılıyor.
+        // Biletler, kuyruk kayıtları ve değerlendirmeler foreign key'ler üzerinden
+        // cascade ile temizlenir; ayrıca silmeye gerek yok.
         var silinen = await _db.Database.ExecuteSqlInterpolatedAsync($"""
             DELETE FROM Etkinlikler
             WHERE Id = {etkinlikId}
@@ -137,8 +136,6 @@ public class AdminController : Controller
 
         if (silinen == 0)
         {
-            await islem.RollbackAsync();
-
             var satilan = await _db.Biletler
                 .AsNoTracking()
                 .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum == BiletDurumu.Satildi);
@@ -147,13 +144,6 @@ public class AdminController : Controller
                                "Satış kaydı bulunan etkinlikler silinemez.";
             return RedirectToAction(nameof(Index));
         }
-
-        // Kuyruk kayıtlarının etkinliğe foreign key'i yok; cascade ile silinmezler.
-        await _db.Database.ExecuteSqlInterpolatedAsync($"""
-            DELETE FROM RezervasyonKuyrugu WHERE EtkinlikId = {etkinlikId}
-            """);
-
-        await islem.CommitAsync();
 
         TempData["Bilgi"] = $"'{ad}' etkinliği silindi.";
         return RedirectToAction(nameof(Index));

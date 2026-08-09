@@ -210,6 +210,27 @@ Bunun bir bedeli var: `onclick="..."` / `onsubmit="..."` gibi satır içi olay �
 
 Tarayıcıda ölçüldü: nonce'suz bir `<script>` enjekte edildiğinde çalışmıyor ve konsola *"Executing inline script violates the following Content Security Policy directive"* hatası düşüyor. Aynı sayfada jQuery, Bootstrap, `site.js` ve Google Fonts normal şekilde yükleniyor.
 
+### Veritabanı bütünlüğü
+
+Şema denetiminde iki eksik bulundu ve kapatıldı:
+
+- **`Biletler.RezerveEdenKullaniciId` üzerinde dizin yoktu.** "Biletlerim", "Sepetim" ve profil özeti hep bu alana göre filtreliyor; dizin olmadan her sorgu tüm bilet tablosunu tarıyordu.
+- **`RezervasyonKuyrugu`'nun `Etkinlikler`'e foreign key'i yoktu.** Kuyruk kayıtlarının silinmesi, etkinlik silme kodunun bunu hatırlamasına bağlıydı — unutulmaya açık bir tasarım. İlişki artık şemada, temizlik cascade ile yapılıyor. Testler bu eksikliği "sahte etkinlik id'si" kullanarak sömürüyordu; onlar da gerçek etkinlik oluşturacak şekilde düzeltildi.
+
+Ayrıca `(EtkinlikId, KullaniciId)` dizini eklendi: "bu kullanıcı zaten sırada mı" kontrolü hem kuyruk sayfasında hem de sıraya girmedeki `NOT EXISTS` kontrolünde kullanılıyor ve dizin olmadan o kontrolün aldığı aralık kilidi gereksiz genişti.
+
+Veri tutarlılığı 14 ayrı kontrolle tarandı (öksüz kayıt, sahipsiz sepet, geçersiz durum değeri, girişi olmadan yorum bırakılması, negatif fiyat, silinmiş kullanıcıya ait bilet vb.); geliştirme veritabanında hepsi temiz çıktı.
+
+### Üretime çıkarken
+
+`appsettings.json` içindeki `AllowedHosts` değeri `*`'dır. Bu, uygulamanın hangi alan adıyla çağrılırsa çağrılsın cevap vermesi demektir; üretimde Host başlığı manipülasyonuna kapı aralar. Yayına çıkarken gerçek alan adıyla değiştirin:
+
+```json
+"AllowedHosts": "biletsatis.com;www.biletsatis.com"
+```
+
+`Eposta:SiteAdresi` de aynı şekilde gerçek adresle güncellenmelidir — doğrulama ve şifre sıfırlama bağlantıları bu adresi kullanır.
+
 ### Güvenlik önlemleri
 
 | Önlem | Neden |

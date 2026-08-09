@@ -58,6 +58,12 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
             // üretebilir. Bu dizin, çakışmayı veritabanı seviyesinde imkânsız kılar.
             b.HasIndex(x => new { x.EtkinlikId, x.KoltukNo }).IsUnique();
 
+            b.Property(x => x.RezerveEdenKullaniciId).HasMaxLength(450);
+
+            // "Biletlerim", "Sepetim" ve profil özeti hep bu alana göre filtreliyor.
+            // Dizin olmadan bu sorgular tüm bilet tablosunu tarıyordu.
+            b.HasIndex(x => new { x.RezerveEdenKullaniciId, x.Durum });
+
             b.HasOne(x => x.Etkinlik)
                 .WithMany(x => x.Biletler)
                 .HasForeignKey(x => x.EtkinlikId);
@@ -97,7 +103,21 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>
                        : KuyrukDurumu.SuresiDoldu)
                 .HasMaxLength(20);
 
+            r.Property(x => x.KullaniciId).HasMaxLength(450);
+
             r.HasIndex(x => new { x.EtkinlikId, x.Durum, x.SiraNo });
+
+            // "Bu kullanıcı bu etkinlikte zaten sırada mı" sorgusu hem kuyruk durumu
+            // sayfasında hem de sıraya girmedeki NOT EXISTS kontrolünde kullanılıyor.
+            // Dizin olmadan o kontrolün aldığı aralık kilidi gereksiz genişti.
+            r.HasIndex(x => new { x.EtkinlikId, x.KullaniciId });
+
+            // Kuyruk kayıtlarının etkinliğe foreign key'i yoktu; silme sırasında elle
+            // temizlenmeleri gerekiyordu ve bu unutulmaya açıktı. Artık ilişki şemada.
+            r.HasOne<Etkinlik>()
+                .WithMany()
+                .HasForeignKey(x => x.EtkinlikId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Bildirim görevi "hakkı tanınmış ama bildirilmemiş" kayıtları tarar.
             r.HasIndex(x => new { x.Durum, x.BildirimGonderildi });

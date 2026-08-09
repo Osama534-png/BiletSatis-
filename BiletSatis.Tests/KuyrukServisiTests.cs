@@ -11,20 +11,28 @@ public class KuyrukServisiTests
     private static KuyrukServisi YeniServis(BiletSatis.Web.Data.BiletSatisDbContext db) =>
         new(db, NullLogger<KuyrukServisi>.Instance);
 
-    // RezervasyonKuyrugu.EtkinlikId'nin gerçek bir Etkinlikler satırına FK'ı yok,
-    // bu yüzden testler arası çakışmayı önlemek için her testte benzersiz bir sahte Id kullanılır.
-    private static int YeniEtkinlikId() => Random.Shared.Next(1_000_000, 2_000_000);
+    // RezervasyonKuyrugu.EtkinlikId artık Etkinlikler tablosuna foreign key ile bağlı,
+    // bu yüzden testler gerçek bir etkinlik satırı oluşturur. Kuyruk kayıtları etkinlik
+    // silinince cascade ile temizlenir.
+    private static async Task<int> YeniEtkinlikId()
+    {
+        using var db = DatabaseFixture.CreateContext();
+        var etkinlik = new Etkinlik { Ad = $"ZZ Kuyruk {Guid.NewGuid():N}", Tarih = DateTime.UtcNow.AddDays(30) };
+        db.Etkinlikler.Add(etkinlik);
+        await db.SaveChangesAsync();
+        return etkinlik.Id;
+    }
 
     private static async Task Temizle(int etkinlikId)
     {
         using var db = DatabaseFixture.CreateContext();
-        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM RezervasyonKuyrugu WHERE EtkinlikId = {etkinlikId}");
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM Etkinlikler WHERE Id = {etkinlikId}");
     }
 
     [Fact]
     public async Task EnqueueWaitlistAsync_YirmiEsZamanliKatilim_BenzersizSiraNoVermeli()
     {
-        var etkinlikId = YeniEtkinlikId();
+        var etkinlikId = await YeniEtkinlikId();
         try
         {
             var gorevler = Enumerable.Range(0, 20).Select(async i =>
@@ -47,7 +55,7 @@ public class KuyrukServisiTests
     [Fact]
     public async Task EnqueueWaitlistAsync_AyniKullaniciEsZamanliOnIstek_TekKayitOlusmali()
     {
-        var etkinlikId = YeniEtkinlikId();
+        var etkinlikId = await YeniEtkinlikId();
         try
         {
             // Yarış durumunu güvenilir biçimde tetiklemek için istekler gerçekten aynı
@@ -83,7 +91,7 @@ public class KuyrukServisiTests
     [Fact]
     public async Task EnqueueWaitlistAsync_SuresiDolmusKaydiOlan_TekrarSirayaGirebilmeli()
     {
-        var etkinlikId = YeniEtkinlikId();
+        var etkinlikId = await YeniEtkinlikId();
         try
         {
             using var db = DatabaseFixture.CreateContext();
@@ -108,7 +116,7 @@ public class KuyrukServisiTests
     [Fact]
     public async Task AllocateWaitlistBatchAsync_EsZamanliCagrilar_ToplamHakSayisiniAsmamali()
     {
-        var etkinlikId = YeniEtkinlikId();
+        var etkinlikId = await YeniEtkinlikId();
         try
         {
             using (var db = DatabaseFixture.CreateContext())
@@ -151,7 +159,7 @@ public class KuyrukServisiTests
     [Fact]
     public async Task AllocateWaitlistBatchAsync_EnDusukSiraNolaraHakTanimali()
     {
-        var etkinlikId = YeniEtkinlikId();
+        var etkinlikId = await YeniEtkinlikId();
         try
         {
             using var db = DatabaseFixture.CreateContext();
@@ -186,7 +194,7 @@ public class KuyrukServisiTests
     [Fact]
     public async Task PromoteExpiredAndFillAsync_SuresiDolaniSiradakineDevretmeli()
     {
-        var etkinlikId = YeniEtkinlikId();
+        var etkinlikId = await YeniEtkinlikId();
         try
         {
             using var db = DatabaseFixture.CreateContext();
@@ -218,7 +226,7 @@ public class KuyrukServisiTests
     [Fact]
     public async Task CompleteQueueEntryAsync_DogruKullaniciIcin_TamamlandiYapmali()
     {
-        var etkinlikId = YeniEtkinlikId();
+        var etkinlikId = await YeniEtkinlikId();
         try
         {
             using var db = DatabaseFixture.CreateContext();
