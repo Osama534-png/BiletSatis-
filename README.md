@@ -153,7 +153,9 @@ ASP.NET, oturum çerezlerini ve antiforgery jetonlarını bir anahtar takımıyl
 
 Anahtarlar `DataProtectionKeys` tablosunda tutuluyor (`PersistKeysToDbContext`). Bu, projenin genel yaklaşımıyla da tutarlı: koordinasyon noktası veritabanı. `SetApplicationName` sabitlenmiştir; aksi halde farklı container adları farklı anahtar halkaları üretirdi.
 
-Bu eksik, Docker kurulumu ilk kez gerçekten çalıştırıldığında başlangıç loglarındaki uyarıdan fark edildi.
+Bu eksik, Docker kurulumu ilk kez gerçekten çalıştırıldığında başlangıç loglarındaki uyarıdan fark edildi — kod okuyarak görülebilecek bir şey değildi.
+
+Başlangıçta hâlâ görünen `No XML encryptor configured` uyarısı **beklenen** durumdur: anahtarlar veritabanında şifrelenmeden saklanır. Şifrelemek bir sertifika (ör. Azure Key Vault, DPAPI) gerektirir; veritabanına erişebilen zaten uygulamanın tüm verisine erişebildiği için bu katman burada gerçek bir koruma eklemez. Gerçek bir dağıtımda anahtar yönetimi ayrı bir konudur ve orada değerlendirilmelidir.
 
 ### Uygulamanın iki kopyası aynı anda çalışabilir mi?
 
