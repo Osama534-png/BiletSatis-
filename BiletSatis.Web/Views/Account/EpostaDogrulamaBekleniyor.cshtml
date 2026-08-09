@@ -1,0 +1,35 @@
+@{
+    ViewData["Title"] = "E-postanızı Doğrulayın";
+    var eposta = ViewData["Eposta"] as string;
+}
+
+<div class="card auth-card">
+    <div class="card-body text-center">
+        <div style="font-size:3rem;">📬</div>
+        <h1 class="h3 mb-2">E-postanızı doğrulayın</h1>
+
+        @if (TempData["Bilgi"] != null)
+        {
+            <div class="alert alert-success">✅ @TempData["Bilgi"]</div>
+        }
+
+        <p class="text-muted mb-4">
+            @if (!string.IsNullOrWhiteSpace(eposta))
+            {
+                <text><strong>@eposta</strong> adresine bir doğrulama bağlantısı gönderdik.</text>
+            }
+            else
+            {
+                <text>Adresinize bir doğrulama bağlantısı gönderdik.</text>
+            }
+            Bağlantıya tıkladıktan sonra giriş yapabilirsiniz.
+        </p>
+
+        <form asp-action="DogrulamaTekrarGonder" method="post" class="d-grid mb-2">
+            <input type="hidden" name="eposta" value="@eposta" />
+            <button type="submit" class="btn btn-outline-secondary">Bağlantıyı tekrar gönder</button>
+        </form>
+
+        <a asp-action="GirisYap" class="btn btn-primary w-100">Giriş Sayfasına Dön</a>
+    </div>
+</div>

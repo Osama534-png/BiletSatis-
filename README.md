@@ -9,7 +9,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Race-condition güvenli satın alma** — "sepete ekle" işlemi, okuma-sonra-yazma yerine tek bir atomik `UPDATE ... WHERE Durum='Satışta'` sorgusuyla yapılır. Aynı bilete aynı anda 1000 istek gelse bile SQL Server garantisiyle sadece biri başarılı olur.
 - **5 dakikalık sepet kilidi + otomatik temizlik** — bir bilet sepete eklendiğinde 5 dakika rezerve edilir; ödeme yapılmazsa arka planda çalışan bir servis (`CartExpiryWorker`) 10 saniyede bir süresi dolanları otomatik olarak tekrar satışa açar.
 - **Adil FIFO bekleme kuyruğu** — biletler henüz satışa açılmadan önce kullanıcılar sıraya girebilir. Sıra numarası SQL Server'ın `IDENTITY` sütunu tarafından üretilir, böylece eşzamanlı katılımlarda bile sıralama hatasız garanti edilir. Satış açıldığında en düşük sıra numaralı N kişiye otomatik hak tanınır; hakkını kullanmayanların yeri arka planda (`WaitlistWorker`) sıradakine devredilir.
-- **Gerçek kullanıcı girişi** — ASP.NET Core Identity ile kayıt/giriş/çıkış, rol tabanlı yönetici yetkilendirmesi.
+- **Gerçek kullanıcı girişi** — ASP.NET Core Identity ile kayıt/giriş/çıkış, rol tabanlı yönetici yetkilendirmesi. Kayıt sonrası **e-posta doğrulaması zorunludur**; doğrulanmamış hesap giriş yapamaz. Şifresini unutan kullanıcı e-postayla gelen bağlantıdan yeni şifre belirleyebilir.
 - **Gerçek ödeme entegrasyonu** — Stripe Checkout ile PCI-uyumlu ödeme akışı; kart bilgisi hiçbir zaman kendi sunucumuza gelmez.
 - **Yapılandırılmış loglama** — Serilog ile her kritik karar noktası (sepete ekleme sonucu, ödeme sonucu, kuyruk terfi, arka plan servis hataları) structured log olarak kaydedilir.
 - **Otomatik test kapsamı** — hem gerçek SQL Server'a karşı çalışan xUnit entegrasyon testleri hem de k6 ile gerçek eşzamanlı yük testleri.
@@ -151,6 +151,24 @@ Kontrol yalnızca arayüzde formu gizlemekle yapılmaz; `KaydetAsync` her çağr
 Kullanıcı iki sekmede ödemeye geçip ikisini de tamamlarsa Stripe iki ayrı ödeme alır. İade akışı olmadığı için bunu geri çeviremiyoruz, ama sessizce geçmesi kabul edilemez: satın alma sırasında Stripe oturumunun kimliği `Biletler.OdemeReferansi` alanına yazılır. İkinci ödeme farklı bir oturuma ait olduğu için tespit edilir, `LogError` ile kaydedilir ve kullanıcıya "fazla tutar için iletişime geçin" denir. Aynı oturumun tekrarı (başarı sayfasının yenilenmesi) çifte ödeme sayılmaz.
 
 Önleyici olarak ödeme butonu ilk gönderimde kilitlenir; bu çift tıklamayı engeller ama iki ayrı sekmeyi engelleyemez.
+
+### E-posta doğrulama zorunlu hâle getirilirken mevcut kullanıcılar nasıl korundu?
+
+`RequireConfirmedAccount = true` yapıldığı anda, o güne kadar açılmış hesapların tamamı giriş yapamaz hâle gelirdi — çünkü hiçbiri doğrulama fırsatı bulamamıştı (geliştirme veritabanındaki 4 hesabın yalnızca 1'i doğrulanmıştı). Bu yüzden ayarla birlikte bir **veri migration'ı** eklendi:
+
+```sql
+UPDATE AspNetUsers SET EmailConfirmed = 1 WHERE EmailConfirmed = 0
+```
+
+Özellikten önce açılmış hesaplar doğrulanmış sayılır; bundan sonra açılanlar normal akıştan geçer. Migration geri alınamaz (hangi hesabın önceden doğrulanmış olduğu bilgisi saklanmıyor), bu bilinçli bir tercihtir.
+
+### Hesap adresleri neden ele verilmiyor?
+
+"Şifremi unuttum" formu, adres kayıtlı olsun ya da olmasın **aynı sayfayı** gösterir. Farklı cevap verilseydi form, hangi e-postaların sisteme kayıtlı olduğunu tarayan bir araca dönerdi. Aynı sebeple giriş hatası da tek mesajdır: "E-posta veya şifre hatalı."
+
+Şifre başarıyla sıfırlandığında hesabın kilidi de açılır (`SetLockoutEndDateAsync(null)`); aksi halde kullanıcı yeni şifresiyle bile kilit süresi dolana kadar giremezdi.
+
+Identity jetonları `+` ve `/` içerebildiği için adres satırında bozulmamaları adına Base64Url ile kodlanıp taşınır.
 
 ### Güvenlik önlemleri
 
@@ -339,6 +357,7 @@ Kapsanan alanlar:
 | `KuyrukBildirimServisiTests` | Bildirim gönderimi, tekrar gönderim engeli, hata sonrası yeniden deneme |
 | `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
 | `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
+| `KimlikEpostaServisiTests` | Doğrulama ve şifre sıfırlama e-postalarının içeriği, gönderim hatasının yukarı taşınması |
 | `GirisServisiTests` | Kapı kontrolü: tek kullanım, 20 eşzamanlı okutmada tek giriş, satılmamış bilet reddi |
 | `DegerlendirmeServisiTests` | Değerlendirme hakkı (okutulmamış bilet reddi), geçersiz puan, tek kayıt kuralı, eşzamanlı istek, ortalama ve dağılım hesabı |
 
@@ -355,7 +374,6 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut). Bu yüzden ödeme 15 dakikalık uzatılmış kilidi de aşarsa para alınmış olmasına rağmen bilet verilemez; durum loglanır ve kullanıcı uyarılır, iade elle yapılır.
-- Kayıt onayı ve şifre sıfırlama e-postaları yok (kuyruk ve satın alma bildirimleri uygulandı). Yani kimse e-posta adresinin sahibi olduğunu kanıtlamak zorunda değil ve şifresini unutan kullanıcının hesabı kurtarılamaz.
 - Uygulama tek örnek (single instance) varsayımıyla çalışır. Birden fazla kopya aynı anda çalışırsa: başlangıçtaki `Migrate()` çağrıları çakışabilir ve bildirim görevi aynı e-postayı iki kez gönderebilir (bayrak okuma ile işaretleme arasında kilit yok). Yatay ölçekleme için bu iki nokta ele alınmalıdır.
 - İçerik Güvenlik Politikası (CSP) başlığı yok. Arayüz satır içi stil ve script kullandığı için CSP eklemek bunların dışarı taşınmasını gerektirir.
 - Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.

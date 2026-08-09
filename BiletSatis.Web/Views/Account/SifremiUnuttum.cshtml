@@ -1,0 +1,29 @@
+@model BiletSatis.Web.Models.SifremiUnuttumViewModel
+@{
+    ViewData["Title"] = "Şifremi Unuttum";
+}
+
+<div class="card auth-card">
+    <div class="card-body">
+        <h1 class="h3 mb-2 text-center">🔑 Şifremi unuttum</h1>
+        <p class="text-muted text-center mb-4">
+            Hesabınızın e-posta adresini girin, size sıfırlama bağlantısı gönderelim.
+        </p>
+
+        <form asp-action="SifremiUnuttum" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+            <div class="mb-3">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" autocomplete="email" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Sıfırlama Bağlantısı Gönder</button>
+        </form>
+
+        <p class="text-center mt-3 mb-0">
+            <a asp-action="GirisYap">Giriş sayfasına dön</a>
+        </p>
+    </div>
+</div>

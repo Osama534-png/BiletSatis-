@@ -46,7 +46,10 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.Password.RequireUppercase = false;
     options.Password.RequireDigit = false;
     options.User.RequireUniqueEmail = true;
-    options.SignIn.RequireConfirmedAccount = false;
+    // E-posta doğrulanmadan giriş yapılamaz. Özellik eklenmeden önce açılmış
+    // hesaplar migration ile "doğrulanmış" işaretlendi; aksi halde mevcut
+    // kullanıcılar bir anda kapıda kalırdı.
+    options.SignIn.RequireConfirmedAccount = true;
 
     // Kaba kuvvet koruması: 5 hatalı denemeden sonra hesap 5 dakika kilitlenir.
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
@@ -155,6 +158,7 @@ builder.Services.AddSingleton<IQrKodUretici, QrKodUretici>();
 builder.Services.AddScoped<IGirisServisi, GirisServisi>();
 builder.Services.AddScoped<IKuyrukBildirimServisi, KuyrukBildirimServisi>();
 builder.Services.AddScoped<IBiletBildirimServisi, BiletBildirimServisi>();
+builder.Services.AddScoped<IKimlikEpostaServisi, KimlikEpostaServisi>();
 builder.Services.AddHostedService<BildirimWorker>();
 
 // Stripe anahtarı yoksa uygulama ayağa kalkar ama ödeme adımında anlaşılmaz bir

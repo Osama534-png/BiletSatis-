@@ -1,0 +1,30 @@
+@model BiletSatis.Web.Models.SifreSifirlaViewModel
+@{
+    ViewData["Title"] = "Yeni Şifre Belirle";
+}
+
+<div class="card auth-card">
+    <div class="card-body">
+        <h1 class="h3 mb-4 text-center">🔑 Yeni şifre belirle</h1>
+
+        <form asp-action="SifreSifirla" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+            <input type="hidden" asp-for="Email" />
+            <input type="hidden" asp-for="Jeton" />
+
+            <div class="mb-3">
+                <label asp-for="YeniSifre" class="form-label"></label>
+                <input asp-for="YeniSifre" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="YeniSifre" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="YeniSifreTekrar" class="form-label"></label>
+                <input asp-for="YeniSifreTekrar" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="YeniSifreTekrar" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Şifreyi Değiştir</button>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,15 @@
+@{
+    ViewData["Title"] = "Doğrulama Başarısız";
+}
+
+<div class="card auth-card">
+    <div class="card-body text-center">
+        <div style="font-size:3rem;">⚠️</div>
+        <h1 class="h3 mb-2">Bağlantı geçersiz</h1>
+        <p class="text-muted mb-4">
+            Doğrulama bağlantısı hatalı ya da daha önce kullanılmış olabilir.
+            Giriş yapmayı deneyin; hesabınız hâlâ doğrulanmamışsa yeni bir bağlantı isteyebilirsiniz.
+        </p>
+        <a asp-action="GirisYap" class="btn btn-primary">Giriş Sayfasına Dön</a>
+    </div>
+</div>
