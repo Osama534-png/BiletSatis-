@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initEventSearch();
   initVenueMap();
   initSeatSelection();
+  initFormDavranislari();
   initShowcaseRail();
   initCategoryNav();
   initViewToggle();
@@ -396,6 +397,31 @@ function initVenueMap() {
   document.getElementById("zoomOut")?.addEventListener("click", () => {
     zoom = Math.max(zoom - 0.15, 0.7);
     applyZoom();
+  });
+}
+
+// Form davranışları. Bunlar eskiden görünümlerde onsubmit="..." olarak duruyordu;
+// satır içi olay öznitelikleri nonce alamadığı için CSP altında çalışmazlar, bu
+// yüzden data-* öznitelikleriyle işaretlenip davranış buraya taşındı.
+function initFormDavranislari() {
+  // Onay isteyen formlar: data-onay="mesaj"
+  document.querySelectorAll("form[data-onay]").forEach((form) => {
+    form.addEventListener("submit", (olay) => {
+      if (!window.confirm(form.dataset.onay)) {
+        olay.preventDefault();
+      }
+    });
+  });
+
+  // Çift gönderimi engelleyen formlar: data-tek-gonderim="bekleme metni"
+  document.querySelectorAll("form[data-tek-gonderim]").forEach((form) => {
+    form.addEventListener("submit", () => {
+      const dugme = form.querySelector("button[type=submit]");
+      if (!dugme) return;
+
+      dugme.disabled = true;
+      dugme.textContent = form.dataset.tekGonderim;
+    });
   });
 }
 

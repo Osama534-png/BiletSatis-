@@ -197,22 +197,8 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Tarayıcı tarafı savunma başlıkları. Tek satırlık maliyetle üç sınıf saldırıyı zorlaştırır.
-app.Use(async (context, next) =>
-{
-    var headers = context.Response.Headers;
-
-    // Sunucunun bildirdiği içerik türünü tarayıcı "tahmin ederek" değiştirmesin.
-    headers["X-Content-Type-Options"] = "nosniff";
-
-    // Site başka bir sayfaya iframe ile gömülüp tıklama hırsızlığında kullanılmasın.
-    headers["X-Frame-Options"] = "DENY";
-
-    // Dış sitelere giderken tam adres (ve içindeki parametreler) sızmasın.
-    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-
-    await next();
-});
+// CSP (script'ler için nonce) ve diğer tarayıcı savunma başlıkları.
+app.UseGuvenlikBasliklari();
 
 app.UseSerilogRequestLogging();
 app.UseRouting();

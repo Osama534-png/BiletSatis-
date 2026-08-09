@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - BiletSatış</title>
-    <script type="importmap"></script>
+    @* Satır içi olduğu için CSP nonce'u taşımak zorunda; nonce'suz script çalışmaz. *@
+    <script type="importmap" nonce="@Context.CspNonce()"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />

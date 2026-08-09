@@ -63,9 +63,10 @@ else
             <span class="selection-total-value">@toplam.ToString("C")</span>
         </div>
         @* Çift tıklama iki ayrı Stripe oturumu açıp aynı koltukların iki kez
-           ödenmesine yol açabiliyor; buton ilk gönderimde kilitleniyor. *@
+           ödenmesine yol açabiliyor; buton ilk gönderimde kilitleniyor.
+           Davranış site.js'te: satır içi onsubmit, CSP altında çalışmaz. *@
         <form asp-action="SepetiOde" method="post"
-              onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Yönlendiriliyor…';">
+              data-tek-gonderim="Yönlendiriliyor…">
             <button type="submit" class="btn btn-primary">💳 Stripe ile Öde</button>
         </form>
     </div>

@@ -196,6 +196,20 @@ UPDATE AspNetUsers SET EmailConfirmed = 1 WHERE EmailConfirmed = 0
 
 Identity jetonları `+` ve `/` içerebildiği için adres satırında bozulmamaları adına Base64Url ile kodlanıp taşınır.
 
+### CSP neden var, XSS zaten engellenmiyor mu?
+
+Engelleniyor: Razor `@yorum` yazdığında metni otomatik kaçırır, gömülü script çalışmaz, ekranda düz yazı görünür. Ama bu güvenlik **tek bir alışkanlığa** bağlı. Yarın "yorumda kalın yazı olsun" diye `@Html.Raw(...)` yazılırsa ya da yeni bir özellikte kaçırma atlanırsa açık oluşur.
+
+CSP'nin amacı hatayı önlemek değil, **hatayı ölümcül olmaktan çıkarmak.** Tarayıcıya "bu sayfada yalnızca şu kaynaklardan script çalıştır" denir; enjekte edilen script kurala uymadığı için çalışmaz.
+
+Script'ler için **nonce** kullanılır: her istekte rastgele bir değer üretilip hem kendi script etiketlerimize hem de başlığa yazılır. Saldırganın enjekte ettiği script bu değeri bilemez, çünkü her sayfa yüklemesinde değişir. Sadece "satır içi script yasak" denseydi kendi script'lerimiz de çalışmazdı.
+
+**Aşamalı tercih:** script'ler sıkı, stiller şimdilik serbest. İkisi aynı tehlikede değil — enjekte edilen script senin adına istek atar, sayfayı değiştirir, form ekler; enjekte edilen stil yalnızca görüntüyü bozar.
+
+Bunun bir bedeli var: `onclick="..."` / `onsubmit="..."` gibi satır içi olay öznitelikleri nonce alamaz, CSP altında çalışmazlar. Projedeki ikisi (ödeme butonunun çift gönderim kilidi ve etkinlik silme onayı) `data-*` özniteliklerine çevrilip davranışları `site.js`'e taşındı.
+
+Tarayıcıda ölçüldü: nonce'suz bir `<script>` enjekte edildiğinde çalışmıyor ve konsola *"Executing inline script violates the following Content Security Policy directive"* hatası düşüyor. Aynı sayfada jQuery, Bootstrap, `site.js` ve Google Fonts normal şekilde yükleniyor.
+
 ### Güvenlik önlemleri
 
 | Önlem | Neden |
@@ -204,6 +218,7 @@ Identity jetonları `+` ve `/` içerebildiği için adres satırında bozulmamal
 | Giriş/kayıt **POST**'larında hız sınırı (IP başına 15/dk) | Hesap kilidi tek hesabı korur; bu, çok sayıda hesaba yapılan taramayı yavaşlatır |
 | `HttpOnly` + `SameSite=Lax` + üretimde `Secure` çerez | XSS'te oturum çalınmasını ve siteler arası kullanımı zorlaştırır |
 | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | MIME tahmini, tıklama hırsızlığı ve adres sızıntısına karşı |
+| CSP — script'ler için nonce | Bir gün metin kaçırma atlanırsa enjekte edilen script yine de çalışmasın |
 | Yönetici şifresi yapılandırmadan | Koda gömülü şifre üretimde herkesin bildiği bir yönetici hesabı demekti |
 | `Stripe:SecretKey` üretimde zorunlu | Anahtarsız uygulama ayağa kalkıp ödeme adımında patlıyordu |
 | Giriş hatasında tek mesaj | "E-posta veya şifre hatalı" — hangi adresin kayıtlı olduğu ele verilmez |
@@ -401,7 +416,7 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut). Bu yüzden ödeme 15 dakikalık uzatılmış kilidi de aşarsa para alınmış olmasına rağmen bilet verilemez; durum loglanır ve kullanıcı uyarılır, iade elle yapılır.
 - Bildirim gönderimi **en az bir kez** (at-least-once) garantisi verir. Kayıt sahiplenilip e-posta gönderildikten hemen sonra süreç çökerse, kira süresi dolduğunda aynı bildirim tekrar gönderilebilir. Tam olarak bir kez garantisi, e-posta gönderimiyle veritabanı yazmasının aynı işlemde olmasını gerektirir; bu da dış bir servisle mümkün değildir.
-- İçerik Güvenlik Politikası (CSP) başlığı yok. Arayüz satır içi stil ve script kullandığı için CSP eklemek bunların dışarı taşınmasını gerektirir.
+- CSP **stiller için** henüz sıkı değil (`style-src 'unsafe-inline'`). Arayüzde çok sayıda satır içi `style="..."` var; bunları dışarı taşımak geniş bir dokunuş gerektirir. Enjekte edilen stil kod çalıştıramaz, yalnızca görüntüyü bozabilir.
 - Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.
 - Site içinde kamera açan QR okuyucu yok; görevli telefonun kendi kamera uygulamasını kullanır.
 - Arayüzdeki filtreler (arama, kategori, şehir, fiyat, sıralama) istemci tarafında çalışır. Tüm etkinlikler tek sayfada render edildiği için etkinlik sayısı büyüdüğünde sunucu tarafı filtreleme ve sayfalama gerekir.

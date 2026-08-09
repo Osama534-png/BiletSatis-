@@ -73,8 +73,9 @@
                     <a asp-action="EtkinlikDuzenle" asp-route-id="@e.EtkinlikId" class="btn btn-outline-secondary btn-sm">✏️ Düzenle</a>
                     @if (e.Silinebilir)
                     {
+                        @* Onay site.js'te soruluyor: satır içi onsubmit CSP altında çalışmaz. *@
                         <form asp-action="EtkinlikSil" method="post"
-                              onsubmit="return confirm('@e.Ad etkinliği ve tüm biletleri silinecek. Emin misiniz?');">
+                              data-onay="@e.Ad etkinliği ve tüm biletleri silinecek. Emin misiniz?">
                             <input type="hidden" name="etkinlikId" value="@e.EtkinlikId" />
                             <button type="submit" class="btn btn-outline-danger btn-sm">🗑️ Sil</button>
                         </form>
