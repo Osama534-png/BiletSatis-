@@ -173,6 +173,19 @@ if (string.IsNullOrWhiteSpace(stripeAnahtari) && !builder.Environment.IsDevelopm
 
 Stripe.StripeConfiguration.ApiKey = stripeAnahtari;
 
+// AllowedHosts "*" ise uygulama hangi alan adıyla çağrılırsa çağrılsın cevap verir.
+// Üretimde bu, Host başlığı manipülasyonuna kapı aralar: saldırgan kendi alan adıyla
+// istek atıp, e-postalardaki bağlantıların kendi sitesini göstermesini sağlayabilir.
+// Uygulamayı durdurmuyoruz (yanlış yapılandırmayla da olsa ayakta kalması yeğdir),
+// ama sessizce geçmiyoruz.
+var izinliHostlar = builder.Configuration["AllowedHosts"];
+if (!builder.Environment.IsDevelopment() && (string.IsNullOrWhiteSpace(izinliHostlar) || izinliHostlar == "*"))
+{
+    Log.Warning(
+        "AllowedHosts '*' olarak bırakılmış. Üretimde gerçek alan adlarıyla sınırlandırın " +
+        "(ör. \"biletsatis.com;www.biletsatis.com\").");
+}
+
 var app = builder.Build();
 
 // Migration ve seed, uygulamanın birden çok kopyası aynı anda başlasa bile yalnızca

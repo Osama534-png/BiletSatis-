@@ -123,9 +123,13 @@ public class BiletBildirimServisi : IBiletBildirimServisi
                 _logger.LogError(ex, "Bilet bildirimi gönderilemedi: BiletId={BiletId} Alici={Alici}",
                     bilet.Id, kullanici.Email);
             }
-        }
 
-        await _db.SaveChangesAsync(ct);
+            // Her kayıt gönderildikten hemen sonra yazılıyor. Tur sonunda tek seferde
+            // yazılsaydı, 50 e-postanın 30'u gittikten sonra süreç çökerse hiçbiri
+            // işaretlenmemiş olur ve 30 kişiye ikinci kez e-posta giderdi. Böylece
+            // tekrar gönderim penceresi en fazla tek kayda iniyor.
+            await _db.SaveChangesAsync(ct);
+        }
 
         if (gonderilen > 0)
         {

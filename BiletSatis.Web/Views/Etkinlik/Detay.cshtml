@@ -198,7 +198,7 @@
                             var oran = Model.Degerlendirmeler.Adet == 0 ? 0 : adet * 100 / Model.Degerlendirmeler.Adet;
                             <div class="dagilim-satiri">
                                 <span class="dagilim-etiket">@p ★</span>
-                                <span class="dagilim-cubuk"><span style="width:@oran%"></span></span>
+                                <span class="dagilim-cubuk"><span data-genislik-yuzde="@oran"></span></span>
                                 <span class="dagilim-adet">@adet</span>
                             </div>
                         }
@@ -299,7 +299,7 @@
         <div class="event-grid">
             @foreach (var e in Model.BenzerEtkinlikler)
             {
-                <div class="event-card" style="animation-delay:0ms">
+                <div class="event-card">
                     <div class="poster">
                         <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
                              alt="@e.Ad afişi" loading="lazy" />

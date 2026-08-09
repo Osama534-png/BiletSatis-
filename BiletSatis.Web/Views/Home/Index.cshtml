@@ -168,7 +168,7 @@
             <div class="price-bars" aria-hidden="true">
                 @for (int i = 0; i < 22; i++)
                 {
-                    <span style="height:@(18 + (i * 37 % 26))px"></span>
+                    <span data-yukseklik-px="@(18 + (i * 37 % 26))"></span>
                 }
             </div>
             <input type="range" id="priceRange" class="price-slider" min="0" max="@fiyatTavan" step="50" value="@fiyatTavan" />
@@ -222,14 +222,13 @@
                 @for (int i = 0; i < Model.Etkinlikler.Count; i++)
                 {
                     var e = Model.Etkinlikler[i];
-                    <div class="event-card"
+                    <div class="event-card gecikme-@(i % 10)"
                          data-name="@e.Ad.ToLowerInvariant()"
                          data-category="@e.Kategori"
                          data-city="@e.Sehir"
                          data-date="@e.Tarih.ToString("yyyy-MM-dd")"
                          data-price="@(e.EnDusukFiyat?.ToString("0", System.Globalization.CultureInfo.InvariantCulture) ?? "0")"
-                         data-available="@e.MusaitKoltukSayisi"
-                         style="animation-delay:@(i * 60)ms">
+                         data-available="@e.MusaitKoltukSayisi">
                         <div class="poster">
                             <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
                                  alt="@e.Ad afişi" loading="lazy" />

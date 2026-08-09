@@ -33,7 +33,7 @@ else
 
             <div class="col-md-6 col-lg-4">
                 <div class="ticket-card reveal">
-                    <div class="ticket-band" style="background:@gradient">
+                    <div class="ticket-band" data-arka-plan="@gradient">
                         <div>
                             <div class="ticket-title">@bilet.Etkinlik?.Ad</div>
                             <div class="ticket-date">📅 @bilet.Etkinlik?.Tarih.ToString("dd.MM.yyyy HH:mm")</div>
@@ -45,7 +45,7 @@ else
                     <div class="ticket-body">
                         <div class="d-flex justify-content-between align-items-baseline">
                             <span class="text-muted small fw-semibold">Koltuk</span>
-                            <span class="ticket-seat" style="font-size:1.15rem">@bilet.KoltukNo</span>
+                            <span class="ticket-seat ticket-seat-buyuk">@bilet.KoltukNo</span>
                         </div>
                         <p class="ticket-desc">Bu bilet size ait — girişte QR kodunuz kontrol edilecektir.</p>
                         <div class="ticket-price-row">

@@ -14,10 +14,11 @@ namespace BiletSatis.Web.Services;
 /// kendi script etiketlerimize hem de başlığa yazılır. Saldırganın enjekte ettiği
 /// script bu değeri bilemez, çünkü her sayfa yüklemesinde değişir.
 ///
-/// Stiller şimdilik serbest ('unsafe-inline'). Enjekte edilen stil kod çalıştıramaz,
-/// yalnızca görüntüyü bozar; buna karşılık arayüzdeki yüzlerce satır içi stili
-/// dışarı taşımak geniş ve riskli bir dokunuş olurdu. Tehlikeli olan kısım bugün
-/// kapatıldı, kozmetik olan sonraya bırakıldı.
+/// Stiller için de 'unsafe-inline' kaldırıldı. style="..." öznitelikleri nonce ile
+/// beyaz listeye alınamaz (nonce yalnızca &lt;style&gt; etiketlerinde çalışır), bu yüzden
+/// sabit olanlar CSS sınıflarına taşındı; değere göre değişenler data-* özniteliğinden
+/// okunup JS ile atanıyor. CSSOM üzerinden stil yazmak CSP tarafından engellenmez,
+/// çünkü sayfaya metin enjekte edilmiyor.
 /// </summary>
 public static class GuvenlikBasliklari
 {
@@ -42,8 +43,9 @@ public static class GuvenlikBasliklari
                 "frame-ancestors 'none'",
                 $"script-src 'self' 'nonce-{nonce}'",
 
-                // Google Fonts stil dosyası dışarıdan gelir; satır içi stiller şimdilik serbest.
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                // Google Fonts stil dosyası dışarıdan gelir. Satır içi stiller tamamen
+                // kaldırıldığı için 'unsafe-inline' artık yok.
+                "style-src 'self' https://fonts.googleapis.com",
                 "font-src 'self' https://fonts.gstatic.com",
 
                 // Afiş adresleri dışarıyı gösterebilir; görsel kod çalıştıramaz.

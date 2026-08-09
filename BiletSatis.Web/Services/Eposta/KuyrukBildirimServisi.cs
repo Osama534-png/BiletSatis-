@@ -119,9 +119,12 @@ public class KuyrukBildirimServisi : IKuyrukBildirimServisi
                 _logger.LogError(ex, "Kuyruk bildirimi gönderilemedi: SiraNo={SiraNo} Alici={Alici}",
                     kayit.SiraNo, kullanici.Email);
             }
-        }
 
-        await _db.SaveChangesAsync(ct);
+            // Her kayıt gönderildikten hemen sonra yazılıyor; bkz. BiletBildirimServisi.
+            // Tur sonunda tek seferde yazmak, çökme hâlinde tüm turun tekrar
+            // gönderilmesine yol açardı.
+            await _db.SaveChangesAsync(ct);
+        }
 
         if (gonderilen > 0)
         {

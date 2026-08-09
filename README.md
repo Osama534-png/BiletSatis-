@@ -208,6 +208,12 @@ Script'ler için **nonce** kullanılır: her istekte rastgele bir değer üretil
 
 Bunun bir bedeli var: `onclick="..."` / `onsubmit="..."` gibi satır içi olay öznitelikleri nonce alamaz, CSP altında çalışmazlar. Projedeki ikisi (ödeme butonunun çift gönderim kilidi ve etkinlik silme onayı) `data-*` özniteliklerine çevrilip davranışları `site.js`'e taşındı.
 
+**Stiller de sıkı.** `style="..."` öznitelikleri de nonce alamaz — nonce yalnızca `<style>` etiketlerinde çalışır. Bu yüzden arayüzdeki 28 satır içi stilin tamamı kaldırıldı:
+
+- **22 sabit stil** CSS sınıflarına taşındı (`durum-ikonu`, `girdi-dar`, `ticket-seat-buyuk` …).
+- **5 değişken stil** `data-*` özniteliğinden okunup JS ile atanıyor. CSSOM üzerinden stil yazmak CSP tarafından engellenmez, çünkü sayfaya metin enjekte edilmiyor.
+- **1 tanesi JS ile atanamadı:** kart giriş animasyonunun kademeli gecikmesi. Kart `opacity: 0` ile animasyona sayfa çözümlenirken başlıyor; gecikmeyi `DOMContentLoaded`'da vermek animasyonu yeniden tetikleyip titremeye yol açıyor. O değer `.gecikme-0` … `.gecikme-9` sınıflarıyla, sayfa çözümlenirken uygulanıyor (kart sayısı sınırsız olabilsin diye 10'lu döngüyle: `i % 10`).
+
 Tarayıcıda ölçüldü: nonce'suz bir `<script>` enjekte edildiğinde çalışmıyor ve konsola *"Executing inline script violates the following Content Security Policy directive"* hatası düşüyor. Aynı sayfada jQuery, Bootstrap, `site.js` ve Google Fonts normal şekilde yükleniyor.
 
 ### Veritabanı bütünlüğü
@@ -436,8 +442,8 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut). Bu yüzden ödeme 15 dakikalık uzatılmış kilidi de aşarsa para alınmış olmasına rağmen bilet verilemez; durum loglanır ve kullanıcı uyarılır, iade elle yapılır.
-- Bildirim gönderimi **en az bir kez** (at-least-once) garantisi verir. Kayıt sahiplenilip e-posta gönderildikten hemen sonra süreç çökerse, kira süresi dolduğunda aynı bildirim tekrar gönderilebilir. Tam olarak bir kez garantisi, e-posta gönderimiyle veritabanı yazmasının aynı işlemde olmasını gerektirir; bu da dış bir servisle mümkün değildir.
-- CSP **stiller için** henüz sıkı değil (`style-src 'unsafe-inline'`). Arayüzde çok sayıda satır içi `style="..."` var; bunları dışarı taşımak geniş bir dokunuş gerektirir. Enjekte edilen stil kod çalıştıramaz, yalnızca görüntüyü bozabilir.
+- Bildirim gönderimi **en az bir kez** (at-least-once) garantisi verir. Tekrar gönderim penceresi tek kayda indirildi (her e-postadan sonra ayrı yazma), ama sıfırlanamaz. Kayıt sahiplenilip e-posta gönderildikten hemen sonra süreç çökerse, kira süresi dolduğunda aynı bildirim tekrar gönderilebilir. Tam olarak bir kez garantisi, e-posta gönderimiyle veritabanı yazmasının aynı işlemde olmasını gerektirir; bu da dış bir servisle mümkün değildir.
+- Arayüzde Google Fonts dışında dış kaynak yoktur; CSP bu iki alan adı dışında her şeyi kendi sunucusuyla sınırlar.
 - Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.
 - Site içinde kamera açan QR okuyucu yok; görevli telefonun kendi kamera uygulamasını kullanır.
 - Arayüzdeki filtreler (arama, kategori, şehir, fiyat, sıralama) istemci tarafında çalışır. Tüm etkinlikler tek sayfada render edildiği için etkinlik sayısı büyüdüğünde sunucu tarafı filtreleme ve sayfalama gerekir.

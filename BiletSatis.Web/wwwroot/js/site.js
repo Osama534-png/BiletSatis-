@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initCountUp();
   initScrollReveal();
   initEventSearch();
+  initDinamikStiller();
   initVenueMap();
   initSeatSelection();
   initFormDavranislari();
@@ -422,6 +423,33 @@ function initFormDavranislari() {
       dugme.disabled = true;
       dugme.textContent = form.dataset.tekGonderim;
     });
+  });
+}
+
+// Not: giriş animasyonunun kademeli gecikmesi buradan atanmıyor. Kart "opacity: 0"
+// ile animasyona sayfa çözümlenirken başladığı için, gecikmeyi DOMContentLoaded'da
+// vermek animasyonu yeniden tetikleyip titremeye yol açıyordu; o değer .gecikme-N
+// sınıflarıyla veriliyor. Buradakiler animasyona bağlı olmayan, sonradan atanması
+// güvenli olan stiller.
+//
+// Değere göre değişen stiller. Bunlar eskiden style="..." özniteliğiyle yazılıyordu,
+// ama CSP'de style-src için 'unsafe-inline' kaldırıldığı için tarayıcı onları
+// engelliyordu: nonce yalnızca <style> etiketlerinde çalışır, style özniteliğinde değil.
+// JS ile stil atamak (CSSOM) CSP tarafından engellenmez, çünkü sayfaya metin
+// enjekte edilmiyor — bu yüzden değerler data-* özniteliğinden okunup burada uygulanıyor.
+function initDinamikStiller() {
+  document.querySelectorAll("[data-genislik-yuzde]").forEach((el) => {
+    const yuzde = parseFloat(el.dataset.genislikYuzde);
+    if (!Number.isNaN(yuzde)) el.style.width = `${yuzde}%`;
+  });
+
+  document.querySelectorAll("[data-yukseklik-px]").forEach((el) => {
+    const px = parseFloat(el.dataset.yukseklikPx);
+    if (!Number.isNaN(px)) el.style.height = `${px}px`;
+  });
+
+  document.querySelectorAll("[data-arka-plan]").forEach((el) => {
+    el.style.background = el.dataset.arkaPlan;
   });
 }
 

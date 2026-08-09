@@ -3048,3 +3048,57 @@ footer.site-footer a:hover {
 }
 
 .yorum-metin { margin: 0; font-size: 0.94rem; line-height: 1.6; }
+
+/* ---------- Satır içi stillerin yerini alan sınıflar ----------
+   CSP'de style-src için 'unsafe-inline' kaldırıldı. style="..." öznitelikleri
+   nonce ile beyaz listeye alınamaz (nonce yalnızca <style> etiketlerinde çalışır),
+   bu yüzden sabit olanlar buraya taşındı, değere göre değişenler ise JS ile
+   atanıyor (CSSOM üzerinden stil yazmak CSP tarafından engellenmez). */
+
+.durum-ikonu {
+  font-size: 3rem;
+}
+
+.auth-card-genis {
+  max-width: 640px;
+}
+
+.girdi-dar {
+  width: 90px;
+}
+
+.girdi-orta {
+  width: 110px;
+}
+
+.ticket-seat-buyuk {
+  font-size: 1.15rem;
+}
+
+.sira-no-buyuk {
+  font-size: 2.5rem;
+}
+
+.badge-buyuk {
+  font-size: 1rem;
+}
+
+.stat-value.deger-basari { color: var(--success); }
+.stat-value.deger-uyari { color: var(--warning); }
+.stat-value.deger-bilgi { color: var(--info); }
+
+/* Kart giriş animasyonunun kademeli gecikmesi. Bu değer JS ile atanamaz: kart
+   "opacity: 0" ile animasyona sayfa çözümlenirken başlıyor, gecikmeyi sonradan
+   vermek animasyonu yeniden tetikleyip titremeye yol açıyor. Bu yüzden gecikme
+   sınıf olarak, sayfa çözümlenirken uygulanıyor. Sınıflar 10'lu döngüyle
+   kullanılır (i % 10), böylece kart sayısı sınırsız olabilir. */
+.gecikme-0 { animation-delay: 0ms; }
+.gecikme-1 { animation-delay: 60ms; }
+.gecikme-2 { animation-delay: 120ms; }
+.gecikme-3 { animation-delay: 180ms; }
+.gecikme-4 { animation-delay: 240ms; }
+.gecikme-5 { animation-delay: 300ms; }
+.gecikme-6 { animation-delay: 360ms; }
+.gecikme-7 { animation-delay: 420ms; }
+.gecikme-8 { animation-delay: 480ms; }
+.gecikme-9 { animation-delay: 540ms; }

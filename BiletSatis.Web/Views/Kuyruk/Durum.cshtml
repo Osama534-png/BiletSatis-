@@ -30,9 +30,9 @@
                 _ => ("badge-suresidoldu", "⌛")
             };
 
-            <div class="seat-no mb-2" style="font-size:2.5rem;">#@Model.SiraNo</div>
+            <div class="seat-no mb-2 sira-no-buyuk">#@Model.SiraNo</div>
             <p class="text-muted mb-3">Sıra Numaranız</p>
-            <span class="badge @badgeClass mb-3" style="font-size:1rem;">@badgeIcon @Model.Durum</span>
+            <span class="badge @badgeClass mb-3 badge-buyuk">@badgeIcon @Model.Durum</span>
 
             @if (Model.Durum == KuyrukDurumu.HakTanindi)
             {
