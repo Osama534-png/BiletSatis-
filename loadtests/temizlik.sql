@@ -13,6 +13,17 @@
 
 SET NOCOUNT ON;
 
+-- sqlcmd bu iki ayarı varsayılan olarak KAPALI çalıştırır; SSMS ise açık.
+--
+-- QUOTED_IDENTIFIER kapalıyken Identity tablolarındaki filtrelenmiş dizinler
+-- yüzünden DELETE reddediliyor ("SET options have incorrect settings").
+--
+-- XACT_ABORT kapalıyken hata yalnızca o deyimi iptal eder; sonraki deyimler ve
+-- COMMIT çalışmaya devam eder, yani yarım temizlik kalıcı olabilirdi. Açıkken
+-- herhangi bir hata işlemin tamamını geri alır.
+SET QUOTED_IDENTIFIER ON;
+SET XACT_ABORT ON;
+
 DECLARE @TestOneki NVARCHAR(20) = N'yuktest-%';
 
 PRINT '--- Silinecekler ---';
