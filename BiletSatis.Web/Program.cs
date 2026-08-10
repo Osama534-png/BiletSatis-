@@ -135,10 +135,12 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IBiletRezervasyonServisi, BiletRezervasyonServisi>();
 builder.Services.AddScoped<IKuyrukServisi, KuyrukServisi>();
+builder.Services.AddScoped<BiletSatis.Web.Services.Etkinlikler.IEtkinlikSorguServisi, BiletSatis.Web.Services.Etkinlikler.EtkinlikSorguServisi>();
 builder.Services.AddScoped<IDegerlendirmeServisi, DegerlendirmeServisi>();
 builder.Services.AddScoped<BiletSatis.Web.Services.Favoriler.IFavoriServisi, BiletSatis.Web.Services.Favoriler.FavoriServisi>();
 builder.Services.AddHostedService<CartExpiryWorker>();

@@ -5,14 +5,13 @@ document.addEventListener("DOMContentLoaded", () => {
   initNavbarScroll();
   initCountUp();
   initScrollReveal();
-  initEventSearch();
+  initFiyatKaydirici();
   initDinamikStiller();
   initFavoriDugmeleri();
   initVenueMap();
   initSeatSelection();
   initFormDavranislari();
   initShowcaseRail();
-  initCategoryNav();
   initViewToggle();
 });
 
@@ -49,54 +48,6 @@ function initViewToggle() {
   }
 
   if (kayitli === "list") gorunumSec("list", false);
-}
-
-// Kategori şeridindeki vurgu hapını aktif sekmenin altına kaydırır.
-function initCategoryNav() {
-  const nav = document.getElementById("categoryNav");
-  const indicator = document.getElementById("categoryIndicator");
-  if (!nav || !indicator) return;
-
-  const moveIndicator = () => {
-    const active = nav.querySelector(".category-tab.is-active");
-    if (!active) return;
-    indicator.style.width = `${active.offsetWidth}px`;
-    indicator.style.transform = `translateX(${active.offsetLeft}px)`;
-  };
-
-  // Sekmeyi şerit içinde yatay olarak görünür yapar — sayfayı dikey kaydırmaz.
-  const seritteGoster = (tab) => {
-    const solTasma = tab.offsetLeft - nav.scrollLeft;
-    const sagTasma = tab.offsetLeft + tab.offsetWidth - (nav.scrollLeft + nav.clientWidth);
-    if (solTasma < 0) {
-      nav.scrollTo({ left: tab.offsetLeft - 16, behavior: "smooth" });
-    } else if (sagTasma > 0) {
-      nav.scrollTo({ left: nav.scrollLeft + sagTasma + 16, behavior: "smooth" });
-    }
-  };
-
-  // Seçilen kategorinin sonuçları görünsün diye listeye kaydırır.
-  const browseSection = document.querySelector(".browse-layout");
-  const listeyeKaydir = () => {
-    browseSection?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  nav.querySelectorAll(".category-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      moveIndicator();
-      seritteGoster(tab);
-      listeyeKaydir();
-    });
-  });
-
-  // Filtre sıfırlandığında aktif sekme dışarıdan değişebilir.
-  document.getElementById("filterReset")?.addEventListener("click", moveIndicator);
-
-  window.addEventListener("resize", moveIndicator);
-  // Yazı tipi geç yüklenirse sekme genişlikleri değişir.
-  document.fonts?.ready.then(moveIndicator);
-
-  moveIndicator();
 }
 
 function initShowcaseRail() {
@@ -181,193 +132,22 @@ function initScrollReveal() {
   items.forEach((el) => observer.observe(el));
 }
 
-function initEventSearch() {
-  const input = document.getElementById("eventSearch");
-  const rail = document.getElementById("eventRail");
-  if (!input || !rail) return;
+// Filtreleme, arama ve sıralama artık sunucuda yapılıyor (bkz. EtkinlikSorguServisi).
+// Burada kalan tek iş, fiyat kaydırıcısının yanındaki sayıyı sürüklerken güncellemek —
+// asıl filtreleme form gönderildiğinde sunucuda uygulanır.
+function initFiyatKaydirici() {
+  const kaydirici = document.getElementById("priceRange");
+  const etiket = document.getElementById("priceValue");
+  if (!kaydirici || !etiket) return;
 
-  const searchBar = input.closest(".search-bar");
-  const clearBtn = document.getElementById("eventSearchClear");
-  const emptyMsg = document.getElementById("searchEmpty");
-  const countEl = document.getElementById("resultCount");
-  const dateChips = document.getElementById("dateChips");
-  const categoryNav = document.getElementById("categoryNav");
-  const priceRange = document.getElementById("priceRange");
-  const priceValue = document.getElementById("priceValue");
-  const showSoldOut = document.getElementById("showSoldOut");
-  const sortSelect = document.getElementById("sortSelect");
-  const resetBtn = document.getElementById("filterReset");
-  const cityPicker = document.getElementById("cityPicker");
-  const cityCurrent = document.getElementById("cityCurrent");
-  const cards = Array.from(rail.querySelectorAll(".event-card"));
-
-  const SEHIR_ANAHTARI = "biletsatis.sehir";
-
-  let dateRange = "all";
-  let category = "all";
-  let city = "all";
-
-  // Seçilen aralığın son günü — "all" ise sınır yok.
-  const rangeLimit = () => {
-    if (dateRange === "all") return null;
-    const limit = new Date();
-    limit.setHours(23, 59, 59, 999);
-    limit.setDate(limit.getDate() + (dateRange === "week" ? 7 : 30));
-    return limit;
+  const yaz = () => {
+    etiket.textContent = `${Number(kaydirici.value).toLocaleString("tr-TR")} ₺`;
   };
 
-  // Kartları seçilen ölçüte göre yeniden dizer.
-  // Fiyatı olmayan (tükenmiş) etkinlikler her iki yönde de sona atılır.
-  const applySort = () => {
-    if (!sortSelect) return;
-    const olcut = sortSelect.value;
-
-    const siralanmis = [...cards].sort((a, b) => {
-      const fiyatA = Number(a.dataset.price || 0);
-      const fiyatB = Number(b.dataset.price || 0);
-
-      switch (olcut) {
-        case "price-asc":
-        case "price-desc": {
-          if (fiyatA === 0 && fiyatB === 0) return 0;
-          if (fiyatA === 0) return 1;
-          if (fiyatB === 0) return -1;
-          return olcut === "price-asc" ? fiyatA - fiyatB : fiyatB - fiyatA;
-        }
-        case "name":
-          return (a.dataset.name || "").localeCompare(b.dataset.name || "", "tr");
-        default:
-          return new Date(a.dataset.date) - new Date(b.dataset.date);
-      }
-    });
-
-    siralanmis.forEach((card) => rail.appendChild(card));
-  };
-
-  const applyFilter = () => {
-    const term = input.value.trim().toLowerCase();
-    const maxPrice = priceRange ? Number(priceRange.value) : Infinity;
-    const limit = rangeLimit();
-
-    searchBar?.classList.toggle("has-value", term.length > 0);
-    if (priceValue && priceRange) priceValue.textContent = `${priceRange.value} ₺`;
-
-    let visibleCount = 0;
-    cards.forEach((card) => {
-      const nameOk = !term || (card.dataset.name || "").includes(term);
-      const priceOk = Number(card.dataset.price || 0) <= maxPrice;
-      // Varsayılan olarak tükenenler gizli; kutu işaretliyse hepsi görünür.
-      const availableOk = showSoldOut?.checked || Number(card.dataset.available || 0) > 0;
-      const dateOk = !limit || new Date(card.dataset.date) <= limit;
-      const categoryOk = category === "all" || card.dataset.category === category;
-      const cityOk = city === "all" || card.dataset.city === city;
-
-      const matches = nameOk && priceOk && availableOk && dateOk && categoryOk && cityOk;
-      card.classList.toggle("is-filtered-out", !matches);
-      if (matches) visibleCount += 1;
-    });
-
-    if (emptyMsg) emptyMsg.hidden = visibleCount > 0;
-    if (countEl) countEl.textContent = visibleCount;
-  };
-
-  input.addEventListener("input", applyFilter);
-  priceRange?.addEventListener("input", applyFilter);
-  showSoldOut?.addEventListener("change", applyFilter);
-  sortSelect?.addEventListener("change", applySort);
-
-  dateChips?.querySelectorAll(".chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      dateChips.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-active"));
-      chip.classList.add("is-active");
-      dateRange = chip.dataset.range;
-      applyFilter();
-    });
-  });
-
-  categoryNav?.querySelectorAll(".category-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      categoryNav.querySelectorAll(".category-tab").forEach((t) => t.classList.remove("is-active"));
-      tab.classList.add("is-active");
-      category = tab.dataset.category;
-      applyFilter();
-    });
-  });
-
-  // Şehir seçimini uygular; kayitli=true ise tercihi tarayıcıda saklar.
-  const sehriSec = (secim, kaydet = true) => {
-    const secenekler = cityPicker?.querySelectorAll(".city-option");
-    if (!secenekler?.length) return;
-
-    // Kayıtlı şehir artık listede yoksa "Tüm Şehirler"e düş.
-    const gecerli = Array.from(secenekler).some((o) => o.dataset.city === secim);
-    city = gecerli ? secim : "all";
-
-    secenekler.forEach((o) => o.classList.toggle("is-active", o.dataset.city === city));
-    if (cityCurrent) {
-      cityCurrent.textContent = city === "all" ? "Tüm Şehirler" : city;
-    }
-    if (kaydet) {
-      try {
-        localStorage.setItem(SEHIR_ANAHTARI, city);
-      } catch {
-        /* gizli sekmede localStorage kapalı olabilir */
-      }
-    }
-  };
-
-  cityPicker?.querySelectorAll(".city-option").forEach((option) => {
-    option.addEventListener("click", () => {
-      sehriSec(option.dataset.city);
-      cityPicker.open = false;
-      applyFilter();
-    });
-  });
-
-  // Menü dışına tıklanınca kapat.
-  document.addEventListener("click", (olay) => {
-    if (cityPicker?.open && !cityPicker.contains(olay.target)) cityPicker.open = false;
-  });
-
-  clearBtn?.addEventListener("click", () => {
-    input.value = "";
-    applyFilter();
-    input.focus();
-  });
-
-  resetBtn?.addEventListener("click", () => {
-    input.value = "";
-    if (priceRange) priceRange.value = priceRange.max;
-    if (showSoldOut) showSoldOut.checked = false;
-    dateRange = "all";
-    category = "all";
-    categoryNav?.querySelectorAll(".category-tab").forEach((t) => {
-      t.classList.toggle("is-active", t.dataset.category === "all");
-    });
-    dateChips?.querySelectorAll(".chip").forEach((c) => {
-      c.classList.toggle("is-active", c.dataset.range === "all");
-    });
-    sehriSec("all");
-    if (sortSelect) sortSelect.value = "date";
-    applySort();
-    applyFilter();
-  });
-
-  // Önceki ziyaretten kalan şehir tercihini geri yükle.
-  let kayitliSehir = null;
-  try {
-    kayitliSehir = localStorage.getItem(SEHIR_ANAHTARI);
-  } catch {
-    /* localStorage erişilemiyor olabilir */
-  }
-
-  if (kayitliSehir && kayitliSehir !== "all") {
-    sehriSec(kayitliSehir, false);
-  }
-
-  // Varsayılan durumda da tükenenler gizli olmalı; filtre açılışta bir kez çalışır.
-  applyFilter();
+  kaydirici.addEventListener("input", yaz);
+  yaz();
 }
+
 
 function initVenueMap() {
   const map = document.getElementById("venueMap");

@@ -5,6 +5,15 @@ public class Etkinlik
     public int Id { get; set; }
     public string Ad { get; set; } = "";
     public string Mekan { get; set; } = "";
+
+    /// <summary>
+    /// <see cref="Mekan"/> alanının şehir kısmı ("Volkswagen Arena, İstanbul" → "İstanbul").
+    /// Ayrı sütun olarak tutuluyor çünkü metnin içinden ayrıştırılan bir değerle ne
+    /// filtreleme ne de indeksleme yapılabilir; şehir seçici de her istekte bütün
+    /// etkinlikleri okumak zorunda kalırdı. Değer <c>SaveChanges</c> sırasında
+    /// Mekan'dan türetilir, elle set edilmez.
+    /// </summary>
+    public string Sehir { get; set; } = "";
     public EtkinlikKategorisi Kategori { get; set; } = EtkinlikKategorisi.Konser;
 
     /// <summary>Afiş görselinin yolu (örn. "/img/afis/duman.svg"). Boşsa gradyan + emoji gösterilir.</summary>

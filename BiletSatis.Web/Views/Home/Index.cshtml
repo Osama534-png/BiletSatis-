@@ -20,13 +20,10 @@
 
 @{
     ViewData["Title"] = "Etkinlikler";
-    var vitrin = Model.Etkinlikler.Take(8).ToList();
-    // Menüde yalnızca gerçekten etkinliği olan kategoriler görünür.
-    var kategoriSayilari = Model.Etkinlikler
-        .GroupBy(e => e.Kategori)
-        .ToDictionary(g => g.Key, g => g.Count());
-    var enYuksekFiyat = Model.Etkinlikler.Where(e => e.EnDusukFiyat.HasValue).Select(e => e.EnDusukFiyat!.Value).DefaultIfEmpty(1000m).Max();
-    var fiyatTavan = (int)Math.Ceiling(enYuksekFiyat / 100m) * 100;
+    var filtre = Model.Filtre;
+    var sayfa = Model.Sayfa;
+    var fiyatTavan = (int)Model.FiyatTavani;
+    var secilenFiyat = (int)(filtre.EnYuksekFiyat ?? Model.FiyatTavani);
 }
 
 <div class="hero">
@@ -53,14 +50,22 @@
         <details class="city-picker" id="cityPicker">
             <summary>
                 <span class="city-pin">📍</span>
-                <span class="city-current" id="cityCurrent">Tüm Şehirler</span>
+                <span class="city-current" id="cityCurrent">@(string.IsNullOrWhiteSpace(filtre.Sehir) ? "Tüm Şehirler" : filtre.Sehir)</span>
                 <span class="city-caret" aria-hidden="true">▾</span>
             </summary>
             <div class="city-menu" role="listbox">
-                <button type="button" class="city-option is-active" data-city="all" role="option">Tüm Şehirler</button>
+                @{
+                    var sehirsizDegerler = filtre.BaglantiDegerleri(1);
+                    sehirsizDegerler.Remove("sehir");
+                }
+                <a class="city-option @(string.IsNullOrWhiteSpace(filtre.Sehir) ? "is-active" : "")"
+                   asp-action="Index" asp-all-route-data="sehirsizDegerler" role="option">Tüm Şehirler</a>
                 @foreach (var sehir in Model.Sehirler)
                 {
-                    <button type="button" class="city-option" data-city="@sehir" role="option">@sehir</button>
+                    var sehirDegerleri = filtre.BaglantiDegerleri(1);
+                    sehirDegerleri["sehir"] = sehir;
+                    <a class="city-option @(filtre.Sehir == sehir ? "is-active" : "")"
+                       asp-action="Index" asp-all-route-data="sehirDegerleri" role="option">@sehir</a>
                 }
             </div>
         </details>
@@ -68,19 +73,27 @@
     </div>
 }
 
-<nav class="category-nav" id="categoryNav" aria-label="Etkinlik kategorileri">
-    <span class="category-indicator" id="categoryIndicator" aria-hidden="true"></span>
-
-    <button type="button" class="category-tab is-active" data-category="all">
+@* Kategori seçimi artık sunucuda filtreleniyor; her sekme kendi adresine giden
+   bir bağlantı. Böylece seçim paylaşılabilir ve geri düğmesi çalışır. *@
+<nav class="category-nav" aria-label="Etkinlik kategorileri">
+    @{
+        var kategorisizDegerler = filtre.BaglantiDegerleri(1);
+        kategorisizDegerler.Remove("kategori");
+    }
+    <a class="category-tab @(filtre.Kategori is null ? "is-active" : "")"
+       asp-action="Index" asp-all-route-data="kategorisizDegerler">
         <svg viewBox="0 0 24 24" aria-hidden="true">@Html.Raw(KategoriIkonu(null))</svg>
-        <span>Trendler</span>
-    </button>
-    @foreach (var kategori in KategoriMetni.Tumu.Where(k => kategoriSayilari.ContainsKey(k)))
+        <span>Tümü</span>
+    </a>
+    @foreach (var kategori in KategoriMetni.Tumu)
     {
-        <button type="button" class="category-tab" data-category="@kategori">
+        var kategoriDegerleri = filtre.BaglantiDegerleri(1);
+        kategoriDegerleri["kategori"] = kategori.ToString();
+        <a class="category-tab @(filtre.Kategori == kategori ? "is-active" : "")"
+           asp-action="Index" asp-all-route-data="kategoriDegerleri">
             <svg viewBox="0 0 24 24" aria-hidden="true">@Html.Raw(KategoriIkonu(kategori))</svg>
             <span>@KategoriMetni.Ad(kategori)</span>
-        </button>
+        </a>
     }
 </nav>
 
@@ -102,8 +115,9 @@
     </div>
 </div>
 
-@if (vitrin.Any())
+@if (Model.OneCikanlar.Any())
 {
+    var vitrin = Model.OneCikanlar;
     <section class="showcase">
         <div class="section-head">
             <h2>Günün Öne Çıkanları</h2>
@@ -131,7 +145,13 @@
 }
 
 <div class="browse-layout">
-    <aside class="filter-panel">
+    @* Filtreler artık sunucuda uygulanıyor: form GET ile gönderilir, seçimler
+       adres çubuğunda durur. Böylece hem paylaşılabilir hem de tarayıcı geçmişiyle
+       uyumlu olur — ve sunucu her istekte yalnızca ilgili sayfayı okur. *@
+    <form class="filter-panel" method="get" asp-action="Index" id="filtrePaneli">
+        <input type="hidden" name="kategori" value="@(filtre.Kategori?.ToString() ?? "")" />
+        <input type="hidden" name="sehir" value="@filtre.Sehir" />
+
         <div class="filter-group">
             <h3>Ara</h3>
             <div class="search-bar">
@@ -139,28 +159,27 @@
                     <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6"/>
                     <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
                 </svg>
-                <input type="text" id="eventSearch" placeholder="Etkinlik adı..." autocomplete="off" />
-                <button type="button" id="eventSearchClear" class="search-clear" aria-label="Aramayı temizle">✕</button>
+                <input type="text" name="arama" value="@filtre.Arama" placeholder="Etkinlik adı..." autocomplete="off" />
             </div>
         </div>
 
         <div class="filter-group">
             <h3>Sırala</h3>
-            <select id="sortSelect" class="form-select form-select-sm">
-                <option value="date">Yaklaşan tarih</option>
-                <option value="price-asc">Fiyat: düşükten yükseğe</option>
-                <option value="price-desc">Fiyat: yüksekten düşüğe</option>
-                <option value="name">İsim: A–Z</option>
+            <select name="siralama" class="form-select form-select-sm">
+                <option value="tarih" selected="@(filtre.Siralama == "tarih")">Yaklaşan tarih</option>
+                <option value="fiyat-artan" selected="@(filtre.Siralama == "fiyat-artan")">Fiyat: düşükten yükseğe</option>
+                <option value="fiyat-azalan" selected="@(filtre.Siralama == "fiyat-azalan")">Fiyat: yüksekten düşüğe</option>
+                <option value="isim" selected="@(filtre.Siralama == "isim")">İsim: A–Z</option>
             </select>
         </div>
 
         <div class="filter-group">
             <h3>Tarih</h3>
-            <div class="chip-row" id="dateChips">
-                <button type="button" class="chip is-active" data-range="all">Tümü</button>
-                <button type="button" class="chip" data-range="week">Bu Hafta</button>
-                <button type="button" class="chip" data-range="month">Bu Ay</button>
-            </div>
+            <select name="tarih" class="form-select form-select-sm">
+                <option value="tumu" selected="@(filtre.Tarih == "tumu")">Tümü</option>
+                <option value="hafta" selected="@(filtre.Tarih == "hafta")">Bu Hafta</option>
+                <option value="ay" selected="@(filtre.Tarih == "ay")">Bu Ay</option>
+            </select>
         </div>
 
         <div class="filter-group">
@@ -171,29 +190,40 @@
                     <span data-yukseklik-px="@(18 + (i * 37 % 26))"></span>
                 }
             </div>
-            <input type="range" id="priceRange" class="price-slider" min="0" max="@fiyatTavan" step="50" value="@fiyatTavan" />
+            <input type="range" name="enYuksekFiyat" id="priceRange" class="price-slider"
+                   min="0" max="@fiyatTavan" step="50" value="@secilenFiyat" />
             <div class="price-readout">
                 <span>0 ₺</span>
-                <strong id="priceValue">@fiyatTavan ₺</strong>
+                <strong id="priceValue">@secilenFiyat ₺</strong>
             </div>
         </div>
 
         <div class="filter-group">
             <h3>Durum</h3>
             <label class="check-row">
-                <input type="checkbox" id="showSoldOut" />
+                <input type="checkbox" name="tukenenleriGoster" value="true" checked="@filtre.TukenenleriGoster" />
                 <span>Tükenenleri göster</span>
             </label>
         </div>
 
-        <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="filterReset">Filtreleri Temizle</button>
-    </aside>
+        <button type="submit" class="btn btn-primary btn-sm w-100 mb-2">Filtrele</button>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm w-100">Filtreleri Temizle</a>
+    </form>
 
     <section class="browse-main">
         <div class="section-head">
             <h2>Tüm Etkinlikler</h2>
             <div class="section-tools">
-                <span class="result-count"><span id="resultCount">@Model.Etkinlikler.Count</span> sonuç</span>
+                <span class="result-count">
+                    @if (sayfa.ToplamKayit == 0)
+                    {
+                        <text>0 sonuç</text>
+                    }
+                    else
+                    {
+                        <text>@sayfa.ToplamKayit sonuçtan @sayfa.IlkSira–@sayfa.SonSira</text>
+                    }
+                </span>
                 <div class="view-toggle" id="viewToggle" role="group" aria-label="Görünüm">
                     <button type="button" class="view-btn is-active" data-view="grid" title="Izgara görünümü" aria-label="Izgara görünümü">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -212,28 +242,23 @@
             </div>
         </div>
 
-        @if (!Model.Etkinlikler.Any())
+        @if (!sayfa.Ogeler.Any())
         {
-            <p class="text-muted">Henüz etkinlik yok.</p>
+            <p class="text-muted">🔍 @(filtre.FiltreVarMi ? "Filtrelerinize uyan etkinlik bulunamadı." : "Henüz etkinlik yok.")</p>
         }
         else
         {
             <div class="event-grid" id="eventRail">
-                @for (int i = 0; i < Model.Etkinlikler.Count; i++)
+                @for (int i = 0; i < sayfa.Ogeler.Count; i++)
                 {
-                    var e = Model.Etkinlikler[i];
-                    <div class="event-card gecikme-@(i % 10)"
-                         data-name="@e.Ad.ToLowerInvariant()"
-                         data-category="@e.Kategori"
-                         data-city="@e.Sehir"
-                         data-date="@e.Tarih.ToString("yyyy-MM-dd")"
-                         data-price="@(e.EnDusukFiyat?.ToString("0", System.Globalization.CultureInfo.InvariantCulture) ?? "0")"
-                         data-available="@e.MusaitKoltukSayisi">
+                    var e = sayfa.Ogeler[i];
+                    var sira = ((sayfa.Sayfa - 1) * sayfa.SayfaBoyutu) + i + 1;
+                    <div class="event-card gecikme-@(i % 10)">
                         <div class="poster">
                             <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
                                  alt="@e.Ad afişi" loading="lazy" />
                             <span class="poster-category">@KategoriMetni.Ad(e.Kategori)</span>
-                            <span class="poster-index">#@((i + 1).ToString("00"))</span>
+                            <span class="poster-index">#@(sira.ToString("00"))</span>
                             <span class="poster-countdown @(e.YaklasanEtkinlik ? "is-yakin" : "")">⏳ @e.GeriSayimMetni</span>
                         </div>
                         <div class="body">
@@ -280,7 +305,64 @@
                     </div>
                 }
             </div>
-            <p class="text-muted search-empty" id="searchEmpty" hidden>🔍 Filtrelerinize uyan etkinlik bulunamadı.</p>
+
+            @if (sayfa.ToplamSayfa > 1)
+            {
+                <nav class="sayfalama" aria-label="Sayfalar">
+                    @if (sayfa.OncekiVarMi)
+                    {
+                        <a class="sayfa-baglantisi" asp-action="Index"
+                           asp-all-route-data="filtre.BaglantiDegerleri(sayfa.Sayfa - 1)" rel="prev">‹ Önceki</a>
+                    }
+                    else
+                    {
+                        <span class="sayfa-baglantisi is-pasif">‹ Önceki</span>
+                    }
+
+                    @{
+                        // Uzun listelerde tüm sayfa numaralarını basmak anlamsız;
+                        // geçerli sayfanın çevresinde dar bir pencere gösteriliyor.
+                        var ilk = Math.Max(1, sayfa.Sayfa - 2);
+                        var son = Math.Min(sayfa.ToplamSayfa, ilk + 4);
+                        ilk = Math.Max(1, son - 4);
+                    }
+
+                    @if (ilk > 1)
+                    {
+                        <a class="sayfa-baglantisi" asp-action="Index" asp-all-route-data="filtre.BaglantiDegerleri(1)">1</a>
+                        <span class="sayfa-ara">…</span>
+                    }
+
+                    @for (var s = ilk; s <= son; s++)
+                    {
+                        if (s == sayfa.Sayfa)
+                        {
+                            <span class="sayfa-baglantisi is-aktif" aria-current="page">@s</span>
+                        }
+                        else
+                        {
+                            <a class="sayfa-baglantisi" asp-action="Index" asp-all-route-data="filtre.BaglantiDegerleri(s)">@s</a>
+                        }
+                    }
+
+                    @if (son < sayfa.ToplamSayfa)
+                    {
+                        <span class="sayfa-ara">…</span>
+                        <a class="sayfa-baglantisi" asp-action="Index"
+                           asp-all-route-data="filtre.BaglantiDegerleri(sayfa.ToplamSayfa)">@sayfa.ToplamSayfa</a>
+                    }
+
+                    @if (sayfa.SonrakiVarMi)
+                    {
+                        <a class="sayfa-baglantisi" asp-action="Index"
+                           asp-all-route-data="filtre.BaglantiDegerleri(sayfa.Sayfa + 1)" rel="next">Sonraki ›</a>
+                    }
+                    else
+                    {
+                        <span class="sayfa-baglantisi is-pasif">Sonraki ›</span>
+                    }
+                </nav>
+            }
         }
     </section>
 </div>

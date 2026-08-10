@@ -3226,3 +3226,58 @@ footer.site-footer a:hover {
   margin-bottom: 0.6rem;
 }
 
+
+/* ---------- Sayfalama ---------- */
+
+.sayfalama {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 1.75rem;
+}
+
+.sayfa-baglantisi {
+  display: grid;
+  place-items: center;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--neutral-text);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease),
+    background-color 0.15s var(--ease);
+}
+
+.sayfa-baglantisi:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+}
+
+.sayfa-baglantisi.is-aktif {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.sayfa-baglantisi.is-pasif {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.sayfa-ara {
+  padding: 0 0.15rem;
+  color: var(--neutral-text);
+}
+
+/* Kategori sekmeleri artık bağlantı; hap göstergesi kaldırıldığı için
+   aktif sekme doğrudan vurgulanıyor. */
+.category-tab {
+  text-decoration: none;
+}

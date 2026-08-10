@@ -24,6 +24,34 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
     public DbSet<Degerlendirme> Degerlendirmeler => Set<Degerlendirme>();
     public DbSet<Favori> Favoriler => Set<Favori>();
 
+    /// <summary>
+    /// Etkinliğin <c>Sehir</c> alanı <c>Mekan</c>'dan türetilir. Bunu kaydetme anında
+    /// tek yerden yapmak, alanın kaynağı ne olursa olsun (admin paneli, seeder, test)
+    /// tutarlı kalmasını garanti eder — her çağıran yerin hatırlamasına bırakılmaz.
+    /// </summary>
+    private void SehirleriGuncelle()
+    {
+        foreach (var giris in ChangeTracker.Entries<Etkinlik>())
+        {
+            if (giris.State is EntityState.Added or EntityState.Modified)
+            {
+                giris.Entity.Sehir = MekanBilgisi.Sehir(giris.Entity.Mekan);
+            }
+        }
+    }
+
+    public override int SaveChanges()
+    {
+        SehirleriGuncelle();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken ct = default)
+    {
+        SehirleriGuncelle();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, ct);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -31,6 +59,13 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
         modelBuilder.Entity<Etkinlik>(e =>
         {
             e.Property(x => x.Mekan).HasMaxLength(200).HasDefaultValue("");
+            e.Property(x => x.Sehir).HasMaxLength(100).HasDefaultValue("");
+
+            // Ana sayfa filtreleri ve sıralaması bu sütunlara göre çalışır.
+            // Dizinsiz hâlde her filtreleme tüm etkinlik tablosunu tarardı.
+            e.HasIndex(x => x.Tarih);
+            e.HasIndex(x => new { x.Sehir, x.Tarih });
+            e.HasIndex(x => new { x.Kategori, x.Tarih });
             e.Property(x => x.AfisUrl).HasMaxLength(400).HasDefaultValue("");
             e.Property(x => x.Aciklama).HasMaxLength(2000).HasDefaultValue("");
 
@@ -38,8 +73,6 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
                 .HasConversion<string>()
                 .HasMaxLength(40)
                 .HasDefaultValue(EtkinlikKategorisi.Konser);
-
-            e.HasIndex(x => x.Kategori);
 
             e.Property(x => x.BiletModeli)
                 .HasConversion<string>()
@@ -74,6 +107,11 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
 
             // Admin panelindeki giriş sayacı etkinlik bazında bu alanı sayar.
             b.HasIndex(x => new { x.EtkinlikId, x.GirisYapildi });
+
+            // Etkinlik kartlarında her etkinlik için "kaç koltuk müsait" ve "en düşük
+            // fiyat" hesaplanır. Fiyat sütunu dizine dahil edilince bu iki değer
+            // yalnızca dizinden okunur, bilet tablosuna hiç gidilmez.
+            b.HasIndex(x => new { x.EtkinlikId, x.Durum }).IncludeProperties(x => x.Fiyat);
 
             // Aynı etkinlikte aynı koltuk numarası iki kez bulunamaz. Bilet ekleme
             // "kaç tane var" sayıp numara üretiyor; iki eşzamanlı ekleme aynı numarayı

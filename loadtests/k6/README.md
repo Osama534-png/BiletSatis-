@@ -75,6 +75,21 @@ Projenin çekirdek iddiası ilk kez gerçek eşzamanlı yük altında doğruland
 
 p95'in 3,67 saniye olması tek makinede 200 eşzamanlı kullanıcının uygulama, veritabanı ve k6 ile aynı CPU'yu paylaşmasından kaynaklanıyor; doğruluk ölçümünü etkilemez.
 
+## Ana sayfa ölçümü (2026-08-10)
+
+`anasayfa-test.js`, 10 sanal kullanıcının ana sayfayı sürekli açtığı senaryo. Sunucu tarafı sayfalama öncesi ve sonrası, **aynı veriyle** (2019 etkinlik, 202.367 bilet):
+
+| Ölçüm | Sayfalama öncesi | Sayfalama sonrası | Kazanç |
+|---|---|---|---|
+| Sayfa boyutu | 5.347 KB | **48 KB** | 110× küçük |
+| Yanıt süresi (p95) | 759 ms | **68 ms** | 11× hızlı |
+| Yanıt süresi (medyan) | 576 ms | **41 ms** | 14× hızlı |
+| İstek/saniye | 12 | **147** | 12× fazla |
+
+Karşılaştırma için: sayfalama öncesi **19 etkinlikle** sayfa 70 KB ve p95 22 ms idi. Yani sayfalamadan sonra 2000 etkinlikli sayfa, eskiden 19 etkinlikle üretilen sayfadan bile **daha küçük** (48 KB < 70 KB) — çünkü artık ne kadar etkinlik olursa olsun yalnızca bir sayfalık kart basılıyor.
+
+Ölçüm yöntemi: `YUKTEST-` önekli 2000 sahte etkinlik ve her birine 100 bilet eklendi, ölçüm alındı, sonra tek sorguyla silindi.
+
 ## Yük testinden önce: iki korumayı kapatın
 
 Yük testleri her sanal kullanıcı için tek kullanımlık bir hesap açıp hemen giriş yapar. İki güvenlik önlemi bu senaryoyu engeller:

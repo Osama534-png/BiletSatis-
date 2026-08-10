@@ -18,7 +18,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Favoriler** — etkinlik kartlarındaki ve detay sayfasındaki ♡ düğmesiyle etkinlik favoriye alınır, "Favorilerim" sayfasında listelenir. Kalp tıklaması sayfayı yenilemez; istek arka planda gidip yalnızca düğmeyi günceller (JavaScript kapalıysa normal form gönderimine düşer). Kullanıcı ile etkinlik arasındaki çoka-çok ilişki, bileşik birincil anahtarlı bir ara tabloyla kurulur.
 - **Bilet devretme** — bilete gidemeyen kullanıcı biletini başka bir kullanıcıya devredebilir. Devir sonrası eski sahibin QR kodu geçersizleşir (imzaya sürüm eklenmiştir) ve yeni sahibe yeni QR'lı bilet e-postası gider. Kapıda okutulmuş ya da etkinliği geçmiş bilet devredilemez.
 - **Genel giriş etkinlikleri** — her etkinlik salonlu değildir. Festival ve ayakta konserlerde koltuk seçimi yerine yalnızca adet seçilir; sistem müsait biletlerden o kadarını tek atomik sorguyla ayırır. Yeterli bilet yoksa hiçbiri ayrılmaz.
-- **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, canlı arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü; tümü sayfa yenilemeden çalışır ve tercihler tarayıcıda saklanır.
+- **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü. Filtreleme, sıralama ve **sayfalama tamamen veritabanında** yapılır; seçimler adres çubuğunda durduğu için filtrelenmiş liste paylaşılabilir ve geri düğmesi çalışır.
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
 - **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
 - **E-posta bildirimleri** — kuyrukta sırası gelene "sıran geldi", bilet satın alana QR kodlu "biletin hazır" e-postası gönderilir. Gönderim, kuyruk ve ödeme işlemlerinden ayrı bir arka plan görevinde yapılır; hata olursa bildirim kaybolmaz, tekrar denenir.
@@ -298,6 +298,22 @@ Bunun bir bedeli var: `onclick="..."` / `onsubmit="..."` gibi satır içi olay �
 
 Tarayıcıda ölçüldü: nonce'suz bir `<script>` enjekte edildiğinde çalışmıyor ve konsola *"Executing inline script violates the following Content Security Policy directive"* hatası düşüyor. Aynı sayfada jQuery, Bootstrap, `site.js` ve Google Fonts normal şekilde yükleniyor.
 
+### Ana sayfa neden sunucuda sayfalanıyor?
+
+Ana sayfa başlangıçta **tüm etkinlikleri** çekip tarayıcıya gönderiyor, filtreleme ve sıralamayı JavaScript yapıyordu. 19 etkinlikle bu fark edilmiyordu; ölçünce görüldü ki 2000 etkinlikte sayfa **5,3 MB**'a çıkıyor ve yanıt süresi 22 ms'den 759 ms'ye tırmanıyor (rakamlar: `loadtests/k6/README.md`).
+
+Filtreleme, sıralama ve sayfalama artık tamamen SQL'de. Sunucu her istekte yalnızca gösterilecek 12 kartı okuyor. Sonuç: aynı 2000 etkinlikle sayfa **48 KB**, p95 **68 ms** — yani 2000 etkinlikli sayfa, eskiden 19 etkinlikle üretilen sayfadan bile küçük.
+
+Bunun üç yan etkisi oldu:
+
+**1. Şehir ayrı sütuna çıktı.** Şehir, `Mekan` metninin son virgülinden sonrası olarak C#'ta ayrıştırılıyordu. Metnin içinden türetilen bir değerle ne `WHERE` yazılabilir ne dizin kurulabilir; şehir seçici de her istekte bütün etkinlikleri okumak zorunda kalırdı. `Etkinlik.Sehir` artık gerçek bir sütun ve değeri `SaveChanges` sırasında `Mekan`'dan türetiliyor — böylece kaydı kim yazarsa yazsın (admin paneli, seeder, test) tutarlı kalıyor, her çağıranın hatırlamasına bırakılmıyor.
+
+**2. Filtreler adres çubuğuna taşındı.** Kategori sekmeleri ve şehir seçenekleri artık düğme değil bağlantı; filtre paneli bir GET formu. Kazanç yalnızca performans değil: filtrelenmiş bir liste paylaşılabiliyor ve tarayıcının geri düğmesi beklendiği gibi çalışıyor.
+
+**3. Sayaçlar önbelleğe alındı.** Üstteki üç sayaç ve şehir listesi her sayfa görüntülemesinde tüm tabloyu tarıyordu. İkisi de nadiren değiştiği için 30 saniyelik bellek önbelleğinden okunuyor.
+
+Bilinen sınır: arama `LIKE '%...%'` kullanır ve dizin kullanamaz. Etkinlik sayısı çok daha büyürse tam metin arama (full-text index) gerekir.
+
 ### Veritabanı bütünlüğü
 
 Şema denetiminde iki eksik bulundu ve kapatıldı:
@@ -507,6 +523,7 @@ Kapsanan alanlar:
 | `KuyrukBildirimServisiTests` | Bildirim gönderimi, tekrar gönderim engeli, hata sonrası yeniden deneme |
 | `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
 | `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
+| `EtkinlikSorguServisiTests` | Ana sayfa filtreleri (kategori, şehir, fiyat, tarih, tükenenler), sıralama ve sayfalama |
 | `FavoriServisiTests` | Favori ekleme/çıkarma, kullanıcı ayrımı, cascade silme, eşzamanlı isteklerde mükerrer kayıt olmaması |
 | `BiletDevirServisiTests` | Bilet devri: eski QR'ın geçersizleşmesi, kapıda okutulmuş biletin devredilememesi, eşzamanlı devir denemeleri |
 | `KimlikEpostaServisiTests` | Doğrulama ve şifre sıfırlama e-postalarının içeriği, gönderim hatasının yukarı taşınması |

@@ -1,66 +1,91 @@
 using System.Diagnostics;
-using BiletSatis.Web.Data;
 using BiletSatis.Web.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using BiletSatis.Web.Models;
 using BiletSatis.Web.Services;
+using BiletSatis.Web.Services.Etkinlikler;
 using BiletSatis.Web.Services.Favoriler;
 
 namespace BiletSatis.Web.Controllers;
 
 public class HomeController : Controller
 {
-    private readonly BiletSatisDbContext _db;
+    /// <summary>Üstteki "öne çıkanlar" şeridinde gösterilen etkinlik sayısı.</summary>
+    private const int OneCikanSayisi = 8;
+
+    private readonly IEtkinlikSorguServisi _sorgu;
     private readonly IFavoriServisi _favori;
     private readonly ICurrentUserService _currentUser;
 
-    public HomeController(BiletSatisDbContext db, IFavoriServisi favori, ICurrentUserService currentUser)
+    public HomeController(
+        IEtkinlikSorguServisi sorgu,
+        IFavoriServisi favori,
+        ICurrentUserService currentUser)
     {
-        _db = db;
+        _sorgu = sorgu;
         _favori = favori;
         _currentUser = currentUser;
     }
 
-    public async Task<IActionResult> Index()
+    /// <summary>
+    /// Filtreleme, sıralama ve sayfalama adres çubuğundan okunur ve veritabanında
+    /// uygulanır. Böylece sunucu her istekte yalnızca görüntülenen sayfayı okur;
+    /// filtrelenmiş liste paylaşılabilir ve geri düğmesi beklendiği gibi çalışır.
+    /// </summary>
+    public async Task<IActionResult> Index(
+        string? arama,
+        EtkinlikKategorisi? kategori,
+        string? sehir,
+        string tarih = "tumu",
+        decimal? enYuksekFiyat = null,
+        bool tukenenleriGoster = false,
+        string siralama = "tarih",
+        int sayfa = 1)
     {
-        var etkinlikler = await _db.Etkinlikler
-            .OrderBy(e => e.Tarih)
-            .Select(e => new EtkinlikKartVm
-            {
-                Id = e.Id,
-                Ad = e.Ad,
-                Mekan = e.Mekan,
-                AfisUrl = e.AfisUrl,
-                Kategori = e.Kategori,
-                Tarih = e.Tarih,
-                MusaitKoltukSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Satista),
-                EnDusukFiyat = e.Biletler
-                    .Where(b => b.Durum == BiletDurumu.Satista)
-                    .Select(b => (decimal?)b.Fiyat)
-                    .Min()
-            })
-            .ToListAsync();
+        var filtre = new EtkinlikFiltresi
+        {
+            Arama = arama,
+            Kategori = kategori,
+            Sehir = sehir,
+            Tarih = tarih,
+            EnYuksekFiyat = enYuksekFiyat,
+            TukenenleriGoster = tukenenleriGoster,
+            Siralama = siralama,
+            Sayfa = sayfa
+        };
 
-        var kuyruktaBekleyen = await _db.RezervasyonKuyrugu
-            .CountAsync(k => k.Durum == KuyrukDurumu.Beklemede);
+        var sonuc = await _sorgu.AraAsync(filtre);
+
+        // İstenen sayfa son sayfanın ötesindeyse (ör. filtre daraldıktan sonra eski
+        // bağlantıya dönüldüyse) boş liste göstermek yerine son sayfaya götürüyoruz.
+        if (sonuc.ToplamKayit > 0 && filtre.GecerliSayfa > sonuc.ToplamSayfa)
+        {
+            var degerler = filtre.BaglantiDegerleri(sonuc.ToplamSayfa);
+            return RedirectToAction(nameof(Index), degerler);
+        }
+
+        var istatistik = await _sorgu.IstatistikAsync();
 
         var vm = new AnaSayfaVm
         {
-            Etkinlikler = etkinlikler,
-            ToplamEtkinlik = etkinlikler.Count,
-            ToplamSatistaBilet = etkinlikler.Sum(e => e.MusaitKoltukSayisi),
-            ToplamKuyruktaBekleyen = kuyruktaBekleyen,
-            Sehirler = etkinlikler
-                .Select(e => e.Sehir)
-                .Where(s => !string.IsNullOrWhiteSpace(s))
-                .Distinct()
-                .OrderBy(s => s, StringComparer.CurrentCulture)
-                .ToList()
+            Sayfa = sonuc,
+            Filtre = filtre,
+            ToplamEtkinlik = istatistik.ToplamEtkinlik,
+            ToplamSatistaBilet = istatistik.SatistakiBilet,
+            ToplamKuyruktaBekleyen = istatistik.KuyruktaBekleyen,
+            Sehirler = await _sorgu.SehirlerAsync(),
+            FiyatTavani = await _sorgu.FiyatTavaniAsync(),
+            FavoriEtkinlikIdleri = await _favori.FavoriIdleriAsync(_currentUser.GetKullaniciId())
         };
 
-        vm.FavoriEtkinlikIdleri = await _favori.FavoriIdleriAsync(_currentUser.GetKullaniciId());
+        // Öne çıkanlar şeridi filtreden bağımsızdır ve yalnızca ilk sayfada gösterilir;
+        // her sayfada tekrar sorgulamanın anlamı yok.
+        if (filtre.GecerliSayfa == 1 && !filtre.FiltreVarMi)
+        {
+            var oneCikanFiltre = new EtkinlikFiltresi { Sayfa = 1, SayfaBoyutu = OneCikanSayisi };
+            vm.OneCikanlar = (await _sorgu.AraAsync(oneCikanFiltre)).Ogeler;
+        }
 
         return View(vm);
     }

@@ -293,6 +293,112 @@ public class UctanUcaAkisTests : IClassFixture<UygulamaFabrikasi>
         finally { await Temizle(etkinlikId); }
     }
 
+    // ---------- Ana sayfa: sayfalama ve filtreler ----------
+
+    // Ana sayfa eskiden tüm etkinlikleri tek sayfada basıyordu. Bu test sayfanın
+    // gerçekten sınırlandığını doğrular; sayfalama bozulursa sunucu yeniden tüm
+    // tabloyu okumaya başlar ve sayfa boyutu patlar.
+    [Fact]
+    public async Task AnaSayfa_YalnizcaBirSayfalikEtkinlikBasmali()
+    {
+        var etkinlikIdleri = new List<int>();
+        for (var i = 0; i < 15; i++)
+        {
+            var (id, _) = await EtkinlikVeBiletlerOlustur(koltukSayisi: 2);
+            etkinlikIdleri.Add(id);
+        }
+
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("anasayfa"));
+
+            var html = await istemci.GetStringAsync("/");
+
+            // Varsayılan sayfa boyutu 12; 15 etkinlik oluşturduğumuza göre kart
+            // sayısı sayfa boyutunu aşmamalı.
+            var kartSayisi = System.Text.RegularExpressions.Regex.Matches(html, "class=\"event-card").Count;
+            Assert.InRange(kartSayisi, 1, BiletSatis.Web.Models.EtkinlikFiltresi.VarsayilanSayfaBoyutu);
+
+            // Sayfalama gezinme çubuğu görünmeli.
+            Assert.Contains("sayfalama", html);
+            Assert.Contains("sayfa=2", html);
+        }
+        finally
+        {
+            foreach (var id in etkinlikIdleri) await Temizle(id);
+        }
+    }
+
+    [Fact]
+    public async Task AnaSayfa_IkinciSayfaFarkliEtkinlikleriGostermeli()
+    {
+        var etkinlikIdleri = new List<int>();
+        for (var i = 0; i < 15; i++)
+        {
+            var (id, _) = await EtkinlikVeBiletlerOlustur(koltukSayisi: 2);
+            etkinlikIdleri.Add(id);
+        }
+
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("anasayfa2"));
+
+            var ilk = await istemci.GetStringAsync("/?sayfa=1");
+            var ikinci = await istemci.GetStringAsync("/?sayfa=2");
+
+            Assert.NotEqual(ilk, ikinci);
+
+            // İkinci sayfada "Önceki" bağlantısı aktif olmalı.
+            Assert.Contains("sayfa=1", ikinci);
+        }
+        finally
+        {
+            foreach (var id in etkinlikIdleri) await Temizle(id);
+        }
+    }
+
+    [Fact]
+    public async Task AnaSayfa_FiltreAdresCubugundaKorunmali()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("filtre"));
+
+            var html = await istemci.GetStringAsync("/?kategori=Tiyatro&siralama=isim");
+
+            // Seçili sıralama formda korunmalı ki kullanıcı sayfa değiştirince kaybolmasın.
+            Assert.Contains("value=\"isim\" selected", html);
+            Assert.Contains("value=\"Tiyatro\"", html);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    [Fact]
+    public async Task AnaSayfa_SonSayfaninOtesiIstenirse_SonSayfayaYonlendirmeli()
+    {
+        var etkinlikIdleri = new List<int>();
+        for (var i = 0; i < 3; i++)
+        {
+            var (id, _) = await EtkinlikVeBiletlerOlustur(koltukSayisi: 2);
+            etkinlikIdleri.Add(id);
+        }
+
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("sayfa-tasma"));
+
+            var cevap = await istemci.GetAsync("/?sayfa=999");
+
+            Assert.Equal(HttpStatusCode.Found, cevap.StatusCode);
+            Assert.DoesNotContain("sayfa=999", cevap.Headers.Location?.OriginalString ?? "");
+        }
+        finally
+        {
+            foreach (var id in etkinlikIdleri) await Temizle(id);
+        }
+    }
+
     // ---------- Favoriler ----------
 
     [Fact]
