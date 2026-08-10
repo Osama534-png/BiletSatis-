@@ -233,13 +233,15 @@
                             <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
                                  alt="@e.Ad afişi" loading="lazy" />
                             <span class="poster-category">@KategoriMetni.Ad(e.Kategori)</span>
-                            <partial name="_FavoriDugmesi" model="@((e.Id, Model.FavoriEtkinlikIdleri.Contains(e.Id)))" />
                             <span class="poster-index">#@((i + 1).ToString("00"))</span>
                             <span class="poster-countdown @(e.YaklasanEtkinlik ? "is-yakin" : "")">⏳ @e.GeriSayimMetni</span>
                         </div>
                         <div class="body">
                             <div class="card-main">
-                            <h2>@e.Ad</h2>
+                            <div class="kart-baslik-satiri">
+                                <h2>@e.Ad</h2>
+                                <partial name="_FavoriDugmesi" model="@((e.Id, Model.FavoriEtkinlikIdleri.Contains(e.Id)))" />
+                            </div>
                             <div class="meta">
                                 <span class="date-pill">📅 @e.Tarih.ToString("dd.MM.yyyy · HH:mm")</span>
                                 @if (!string.IsNullOrWhiteSpace(e.Mekan))
