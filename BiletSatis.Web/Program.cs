@@ -35,12 +35,28 @@ builder.Host.UseSerilog((context, services, config) => config
     .WriteTo.Console()
     .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day));
 
+// Arayüz tamamen Türkçe, ama kültür hiçbir yerde ayarlanmıyordu: biçimlendirme
+// işletim sisteminin kültürüne kalıyordu. Türkçe bir Windows'ta doğru görünen
+// fiyat ve tarihler, projenin desteklediği Docker (Linux) kurulumunda bozuluyordu —
+// "1.500 ₺" yerine "1,500", "12 Eyl 2026" yerine "12 Sep 2026".
+// Kültürü açıkça sabitlemek, uygulamanın nerede çalıştığından bağımsız olarak
+// aynı çıktıyı vermesini sağlar.
+var uygulamaKulturu = new CultureInfo("tr-TR");
+CultureInfo.DefaultThreadCurrentCulture = uygulamaKulturu;
+CultureInfo.DefaultThreadCurrentUICulture = uygulamaKulturu;
+
 builder.Services.AddControllersWithViews(options =>
 {
     var policy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
     options.Filters.Add(new AuthorizeFilter(policy));
+
+    // Ondalıklı sayılar formdan noktayla gelir (HTML number alanı standardı),
+    // ama Türkçe kültürde nokta binlik ayracıdır: "250.50" değeri 25050 olarak
+    // okunuyordu. Bu bağlayıcı yalnızca okuma tarafını kültürden bağımsız yapar;
+    // gösterim Türkçe kalır.
+    options.ModelBinderProviders.Insert(0, new OndalikModelBaglayiciSaglayicisi());
 });
 builder.Services.AddDbContext<BiletSatisDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));

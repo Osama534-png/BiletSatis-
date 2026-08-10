@@ -320,6 +320,75 @@ public class DenetimBulgulariTests : IClassFixture<UygulamaFabrikasi>
             $"{bozukSayisi} biletin kod sürümü sıfır — bu biletlerin QR kodları kapıda geçersiz görünür.");
     }
 
+    // ---------- Bulgu 6: kültür ayarı yoktu ----------
+
+    /// <summary>
+    /// HTML'de <c>&lt;input type="number" step="0.01"&gt;</c> alanı, tarayıcının dili ne
+    /// olursa olsun değeri <b>noktayla</b> gönderir ("250.50") — bu standartta böyle.
+    /// Türkçe kültürde ise nokta binlik ayracıdır. Model bağlama sunucunun kültürünü
+    /// kullandığı için "250.50" değeri 25050 olarak okunuyordu: yönetici 250,50 TL'lik
+    /// bilet eklemek isterken 25.050 TL'lik bilet oluşuyordu.
+    /// </summary>
+    [Fact]
+    public async Task BiletEkleme_OndalikliFiyat_DogruOkunmali()
+    {
+        var etkinlikId = await EtkinlikOlustur(koltuk: 0);
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("fiyat"), rol: "Admin");
+
+            var panel = await istemci.GetStringAsync("/Admin");
+
+            var cevap = await istemci.PostAsync("/Admin/BiletEkle", new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["etkinlikId"] = etkinlikId.ToString(),
+                    ["koltukOnEki"] = "F",
+                    ["adet"] = "1",
+                    // Tarayıcının number alanının gönderdiği biçim: her zaman nokta.
+                    ["fiyat"] = "250.50",
+                    ["__RequestVerificationToken"] = UygulamaFabrikasi.AntiforgeryJetonu(panel)
+                }));
+
+            Assert.Equal(HttpStatusCode.Found, cevap.StatusCode);
+
+            using var db = DatabaseFixture.CreateContext();
+            var bilet = await db.Biletler.AsNoTracking().FirstOrDefaultAsync(b => b.EtkinlikId == etkinlikId);
+
+            Assert.NotNull(bilet);
+            Assert.Equal(250.50m, bilet!.Fiyat);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    /// <summary>
+    /// Arayüz tamamen Türkçe ama uygulama kültürü hiçbir yerde ayarlanmıyordu; biçimlendirme
+    /// işletim sisteminin kültürüne kalıyordu. Türkçe bir Windows'ta doğru görünen fiyat ve
+    /// tarihler, projenin desteklediği Docker (Linux) kurulumunda bozuluyordu:
+    /// "1.500 ₺" yerine "1,500", "12 Eyl 2026" yerine "12 Sep 2026".
+    /// </summary>
+    [Fact]
+    public async Task Sayfalar_TurkceBicimdeGostermeli()
+    {
+        var etkinlikId = await EtkinlikOlustur(koltuk: 4);
+        try
+        {
+            using (var db = DatabaseFixture.CreateContext())
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync(
+                    $"UPDATE Biletler SET Fiyat = 1500 WHERE EtkinlikId = {etkinlikId}");
+            }
+
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("bicim"));
+            var html = await istemci.GetStringAsync($"/Biletler/Index?etkinlikId={etkinlikId}");
+
+            // Binlik ayracı nokta olmalı (Türkçe), virgül değil (İngilizce).
+            Assert.Contains("1.500", html);
+            Assert.DoesNotContain("1,500", html);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     // ---------- Bulgu 4: genel giriş ucu bilet modelini doğrulamıyordu ----------
 
     /// <summary>

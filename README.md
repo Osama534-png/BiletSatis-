@@ -3,7 +3,7 @@
 [![CI](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml/badge.svg)](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml)
 ![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
-![Test](https://img.shields.io/badge/test-201%20ge%C3%A7iyor-2ea44f)
+![Test](https://img.shields.io/badge/test-203%20ge%C3%A7iyor-2ea44f)
 ![Lisans](https://img.shields.io/badge/lisans-MIT-blue)
 
 **Aynı bileti aynı anda 200 kişi isterse ne olur?** Bu proje o soruya kod yazarak değil, **ölçerek** cevap veriyor.
@@ -20,7 +20,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
 |---|---|
 | **Mühendislik kalitesini görmek istiyorum** | [Mimari Kararlar](#mimari-kararlar) — her kararın gerekçesi ve reddedilen alternatifi |
 | **İddialar doğru mu?** | [Ölçülmüş sonuçlar](#ölçülmüş-sonuçlar) · [Beş dakikada doğrulayın](#beş-dakikada-kendiniz-doğrulayın) |
-| **Hata bulup düzeltebiliyor mu?** | [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek) — bulunan 8 hata ve kanıtları |
+| **Hata bulup düzeltebiliyor mu?** | [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek) — bulunan 10 hata ve kanıtları |
 | **Çalıştırmak istiyorum** | [Kurulum](#kurulum) · [Docker ile](#docker-ile-çalıştırma) |
 | **Ne yapmıyor?** | [Bilinen kapsam dışı konular](#bilinen-kapsam-dışı-konular) |
 
@@ -72,7 +72,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
 | CSP enjekte script'i durduruyor | Tarayıcıda script ve satır içi stil enjeksiyonu | İkisi de engellendi |
 | Veri tutarlı | 23 maddelik SQL bütünlük taraması | 22 temiz, 1 kalıntı (aşağıda) |
 
-**201 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
+**203 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
 
 ### Beş dakikada kendiniz doğrulayın
 
@@ -116,17 +116,6 @@ sequenceDiagram
 
 Aynı ilke sistemin her yerinde tekrarlanır: kapıda giriş onayı (`WHERE GirisYapildi = 0`), bilet devri (`WHERE RezerveEdenKullaniciId = @devreden`), kuyruğa katılım (`WHERE NOT EXISTS ... WITH (UPDLOCK, HOLDLOCK)`). Uygulama belleğinde tutulan hiçbir kilit yok — bu yüzden ikinci bir kopya açıldığında da doğru çalışır.
 
-### Arayüz
-
-| Salon haritası | Sepet ve ödeme |
-|---|---|
-| ![Salon haritası](docs/gorseller/salon-haritasi.png) | ![Sepet](docs/gorseller/sepet.png) |
-| Koltuk numarası önekinden türetilen blok haritası; tek seferde 6 koltuğa kadar seçim, canlı toplam | 5 dakikalık kilit sayacı, çok kalemli tek Stripe oturumu |
-
-| Etkinlik keşfi | Kapı kontrolü |
-|---|---|
-| ![Ana sayfa](docs/gorseller/ana-sayfa.png) | ![Kapı kontrolü](docs/gorseller/kapi-kontrolu.png) |
-| Kategori, şehir, tarih ve fiyat filtreleri — sunucuda çalışır, sayfa yenilenmez | Görevli QR'ı okutur; imza doğrulanır, bilet tek kullanımlıktır |
 
 <details>
 <summary><b>Bileti alan kullanıcının izlediği yol</b></summary>
@@ -597,7 +586,7 @@ dotnet user-secrets set "Yonetici:Sifre" "guclu-bir-sifre"
 
 ## Kendi kodunu denetlemek
 
-Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, arayüz çalışıyordu. Sonra kod baştan sona, satır satır okundu ve **sekiz gerçek hata** çıktı. Hiçbiri derleyici uyarısı vermiyordu, hiçbiri mevcut testleri kırmıyordu, birkaçı da README'nin çalıştığını iddia ettiği korumalardı.
+Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, arayüz çalışıyordu. Sonra kod baştan sona okundu, veritabanı bağımsız sorgularla tarandı ve uygulama yük altında ölçüldü — **on gerçek hata** çıktı. Hiçbiri derleyici uyarısı vermiyordu, hiçbiri mevcut testleri kırmıyordu, birkaçı da README'nin çalıştığını iddia ettiği korumalardı.
 
 Bu bölüm, bulunanları ve her birinin **nasıl kanıtlandığını** anlatıyor. Yöntem her seferinde aynı: önce hatayı gösteren testi yaz, kırıldığını gör, sonra düzelt. Testler `BiletSatis.Tests/DenetimBulgulariTests.cs` içinde.
 
@@ -654,6 +643,20 @@ Kaybolan bir garanti yok: eski hâlde de gönderim hatası yalnızca loglanıyor
 
 `WaitlistWorker` her 15 saniyede bütün etkinlikleri listeleyip her biri için ayrı sorgu çalıştırıyordu. 19 etkinlikte fark edilmiyordu; 2000 etkinlikte **her turda 4000'den fazla sorgu** demek — üstelik turların neredeyse tamamında yapacak iş yok. Tarama tek küme sorgusuna indirildi; devretme yalnızca gerçekten yeri boşalan etkinlikler için çalışıyor.
 
+### 9. Yönetici 250,50 TL'lik bilet eklerken 25.050 TL'lik bilet oluşuyordu
+
+HTML'de `<input type="number">` alanı, tarayıcının dili ne olursa olsun değeri **noktayla** gönderir — standart böyle. Türkçe kültürde ise nokta binlik ayracıdır. Model bağlama sunucunun kültürünü kullandığı için `250.50` değeri **25050** olarak okunuyordu: yüz kat fiyat hatası, hiçbir hata mesajı vermeden.
+
+Düzeltme, kültürü tamamen değiştirmek değil: yalnızca **okuma** tarafı kültürden bağımsız hâle getirildi (`OndalikModelBaglayici`). Gösterim Türkçe kalır ("1.500 ₺"), giriş standarda uyar.
+
+### 10. Docker kurulumunda bütün fiyatlar ve tarihler bozuk görünürdü
+
+Arayüz tamamen Türkçe ama uygulama kültürü hiçbir yerde ayarlanmamıştı; biçimlendirme işletim sisteminin kültürüne bırakılmıştı. Türkçe bir Windows'ta doğru görünen sayfalar, projenin README'de anlattığı **Docker (Linux) kurulumunda** bozuluyordu: "1.500 ₺" yerine `1,500`, "12 Eyl 2026" yerine `12 Sep 2026`.
+
+Bu hatayı bir insan değil **CI bulldu**: testler ilk kez Türkçe olmayan bir makinede çalıştırıldığında biçim beklentileri tutmadı. Geliştirme makinesi Türkçe olduğu için hata orada hiçbir zaman görünmezdi.
+
+Kültür artık `Program.cs` içinde açıkça sabitleniyor; uygulama nerede çalışırsa çalışsın aynı çıktıyı veriyor.
+
 ### Ayrıca düzeltilenler
 
 - **Tarih karşılaştırmaları** yerel saat ve UTC arasında karışıktı; "bu hafta" filtresi sunucunun saat dilimi kadar kayıyordu. Hepsi UTC'ye birleştirildi.
@@ -664,9 +667,23 @@ Kaybolan bir garanti yok: eski hâlde de gönderim hatası yalnızca loglanıyor
 
 ### Bu bölümden çıkan ders
 
-Sekiz hatanın ortak yanı, hiçbirinin görünür olmaması. Test paketi yeşildi, arayüz çalışıyordu, loglar temizdi. Ortaya çıkaran şeyler sırasıyla: kodun satır satır okunması, veritabanının bağımsız sorgularla taranması ve **yük altında ölçülmesi**. Üçü de "çalışıyor mu" değil "gerçekten iddia ettiğini mi yapıyor" sorusunu soruyor.
+On hatanın ortak yanı, hiçbirinin görünür olmaması. Test paketi yeşildi, arayüz çalışıyordu, loglar temizdi. Her birini farklı bir yöntem ortaya çıkardı:
 
-En öğretici olanı 1 numara: koruma vardı, testi vardı, dokümantasyonu vardı — ve çalışmıyordu. Test, korumanın kendisini değil EF'in davranışını doğruluyordu. Bir testin geçmesi, test ettiğini sandığınız şeyi test ettiği anlamına gelmiyor.
+| Yöntem | Bulduğu |
+|---|---|
+| Kodu satır satır okumak | Kayıp güncelleme, e-posta kilitlenmesi, sayfa taşması, genel giriş ucu, kuyruk taraması |
+| Veritabanını bağımsız sorgularla taramak | Sıfır kod sürümü — 66 biletin QR'ı kapıda geçersizdi |
+| Yük altında ölçmek | İstek yolundaki SMTP beklemesi (8,6 kat yavaşlık) |
+| Testi başka bir makinede çalıştırmak (CI) | Kültür ayarının hiç yapılmamış olması |
+| Başka bir hata için yazılan test | Boş açıklamanın reddedilmesi, ondalıklı fiyatın 100 katına çıkması |
+
+Dördü de "çalışıyor mu" değil, "**gerçekten iddia ettiğini mi yapıyor**" sorusunu soruyor.
+
+İki tanesi özellikle öğretici:
+
+**1 numara** — koruma vardı, testi vardı, dokümantasyonu vardı ve çalışmıyordu. Test, korumanın kendisini değil EF'in davranışını doğruluyordu. Bir testin geçmesi, test ettiğini sandığınız şeyi test ettiği anlamına gelmiyor.
+
+**10 numara** — hata yalnızca geliştirme makinesinin Türkçe olması sayesinde gizleniyordu. Kendi makinenizde çalışan kod, "her yerde çalışıyor" demek değil; CI'ın asıl değeri hız değil, **farklı bir ortam** olması.
 
 ### Koltuk blokları nereden geliyor?
 
@@ -813,7 +830,7 @@ Gmail dışında herhangi bir SMTP sağlayıcısı da çalışır (Brevo, Mailtr
 
 ## Test
 
-**201 test**, hepsi geçiyor. Testler gerçek SQL Server semantiğine (`DATEADD`, `GETUTCDATE()`, atomik `UPDATE...WHERE`, `rowversion`) dayandığı için in-memory sahte bir veritabanı **kullanılmaz** — ayrı bir test veritabanına (`BiletSatisDb_Test`) karşı çalışırlar. Sahte veritabanı, tam da doğrulanmak istenen eşzamanlılık davranışını taklit edemezdi.
+**203 test**, hepsi geçiyor. Testler gerçek SQL Server semantiğine (`DATEADD`, `GETUTCDATE()`, atomik `UPDATE...WHERE`, `rowversion`) dayandığı için in-memory sahte bir veritabanı **kullanılmaz** — ayrı bir test veritabanına (`BiletSatisDb_Test`) karşı çalışırlar. Sahte veritabanı, tam da doğrulanmak istenen eşzamanlılık davranışını taklit edemezdi.
 
 ```bash
 dotnet test BiletSatis.Tests
@@ -846,7 +863,7 @@ Kapsanan alanlar:
 | `EtkinlikEsZamanliDuzenlemeTests` | İki yöneticinin aynı etkinliği düzenlemesi (EF seviyesinde kayıp güncelleme koruması) |
 | `GirisServisiTests` | Kapı kontrolü: tek kullanım, 20 eşzamanlı okutmada tek giriş, satılmamış bilet reddi |
 | `DegerlendirmeServisiTests` | Değerlendirme hakkı (okutulmamış bilet reddi), geçersiz puan, tek kayıt kuralı, eşzamanlı istek, ortalama ve dağılım hesabı |
-| `DenetimBulgulariTests` | Kod denetiminde bulunan sekiz hatanın kapandığını doğrulayan testler (bkz. [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek)) |
+| `DenetimBulgulariTests` | Kod denetiminde bulunan on hatanın kapandığını doğrulayan testler (bkz. [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek)) |
 | `UctanUcaAkisTests` | Giriş yapmış kullanıcı olarak tüm akışlar (aşağıya bakınız) |
 
 ### Uçtan uca testler
