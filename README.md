@@ -15,7 +15,7 @@ Projenin ayırt edici yanı özellik listesi değil, **iddiaların ölçülmüş
 | Kuyrukta kimse sırasını atlamaz | k6, 30 kullanıcı sıraya girip 10 kişiye hak tanınıyor | Hak tanınanlar en küçük 10 sıra numarası |
 | Kapıda bir bilet bir kez geçer | 20 eşzamanlı QR okutma | 1 giriş kaydı |
 | Sahte QR üretilemez | İmza, bilet no ve anahtar kurcalama testleri | Hepsi reddedildi |
-| Ana sayfa ölçekleniyor | k6, 10 kullanıcı 20 sn boyunca | 45,7 KB sayfa · **p95 21 ms** · 605 istek/s |
+| Ana sayfa 2000 etkinlikte ölçekleniyor | k6, 2019 etkinlik + 202.367 bilet yüklenip ölçüldü | 48 KB sayfa · **p95 68 ms** · 147 istek/s (sayfalama öncesi: 5.347 KB / 759 ms) |
 | İstek yolunda dış servis beklemesi yok | k6, 200 kullanıcı (e-posta kuyruğa alındıktan sonra) | **257,9 istek/s**, p95 2,59 sn |
 | CSP enjekte script'i durduruyor | Tarayıcıda script ve satır içi stil enjeksiyonu | İkisi de engellendi |
 | Veri tutarlı | 23 maddelik SQL bütünlük taraması | 22 temiz, 1 kalıntı (aşağıda) |
