@@ -104,13 +104,20 @@ public class DegerlendirmeServisi : IDegerlendirmeServisi
 
     public async Task<DegerlendirmeOzeti> OzetAsync(int etkinlikId, CancellationToken ct = default)
     {
-        var puanlar = await _db.Degerlendirmeler
+        // Puanların tamamını belleğe çekmek yerine dağılımı veritabanında hesaplıyoruz.
+        // Önceki hâlde çok yorum alan bir etkinlikte her sayfa görüntülemesi tüm
+        // değerlendirme satırlarını ağdan geçiriyordu; oysa gereken tek şey her
+        // puandan kaç tane olduğu — en fazla beş satır.
+        var sayimlar = await _db.Degerlendirmeler
             .AsNoTracking()
             .Where(d => d.EtkinlikId == etkinlikId)
-            .Select(d => d.Puan)
+            .GroupBy(d => d.Puan)
+            .Select(g => new { Puan = g.Key, Adet = g.Count() })
             .ToListAsync(ct);
 
-        if (puanlar.Count == 0)
+        var toplamAdet = sayimlar.Sum(s => s.Adet);
+
+        if (toplamAdet == 0)
         {
             return new DegerlendirmeOzeti { Adet = 0, Ortalama = null };
         }
@@ -134,14 +141,19 @@ public class DegerlendirmeServisi : IDegerlendirmeServisi
             })
             .ToListAsync(ct);
 
+        // Range(baslangic, adet) alıyor: puan aralığının uzunluğu, en yüksek puanın
+        // kendisi değil. Aralık 1-5 olduğu için eski hâli tesadüfen doğru sonuç
+        // veriyordu; alt sınır değişseydi dağılım sessizce bozulurdu.
+        var puanAraligi = Degerlendirme.EnYuksekPuan - Degerlendirme.EnDusukPuan + 1;
+
         var dagilim = Enumerable
-            .Range(Degerlendirme.EnDusukPuan, Degerlendirme.EnYuksekPuan)
-            .ToDictionary(puan => puan, puan => puanlar.Count(p => p == puan));
+            .Range(Degerlendirme.EnDusukPuan, puanAraligi)
+            .ToDictionary(puan => puan, puan => sayimlar.FirstOrDefault(s => s.Puan == puan)?.Adet ?? 0);
 
         return new DegerlendirmeOzeti
         {
-            Adet = puanlar.Count,
-            Ortalama = Math.Round((decimal)puanlar.Average(), 1),
+            Adet = toplamAdet,
+            Ortalama = Math.Round(sayimlar.Sum(s => (decimal)s.Puan * s.Adet) / toplamAdet, 1),
             Dagilim = dagilim,
             Satirlar = satirlar
         };

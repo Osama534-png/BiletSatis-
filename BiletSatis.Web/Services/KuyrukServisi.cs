@@ -80,12 +80,41 @@ public class KuyrukServisi : IKuyrukServisi
 
         if (suresiDolan > 0)
         {
-            _logger.LogInformation("Süresi dolan {Sayi} kuyruk hakkı sıradakilere devredildi: EtkinlikId={EtkinlikId}", suresiDolan, etkinlikId);
-            await AllocateWaitlistBatchAsync(etkinlikId, suresiDolan, ct);// AllocateWaitlistBatchAsync kac kisinin suresi dolduysa o kadar kisiye hak tanir
-             
-		}
+            _logger.LogInformation(
+                "Süresi dolan {Sayi} kuyruk hakkı sıradakilere devredildi: EtkinlikId={EtkinlikId}",
+                suresiDolan, etkinlikId);
+
+            // Kaç kişinin hakkı düştüyse sıradaki o kadar kişiye hak tanınır.
+            await AllocateWaitlistBatchAsync(etkinlikId, suresiDolan, ct);
+        }
 
         return suresiDolan;
+    }
+
+    public async Task<int> PromoteExpiredAndFillAllAsync(CancellationToken ct = default)
+    {
+        // Tek tarama: hangi etkinlikte olursa olsun süresi dolan bütün haklar aynı
+        // sorguda kapanır. OUTPUT, kapananların hangi etkinliğe ait olduğunu söyler;
+        // devretme yalnızca o etkinlikler için çalışır.
+        var bosalanEtkinlikler = await _db.Database.SqlQuery<int>($"""
+            UPDATE RezervasyonKuyrugu
+            SET Durum = {KuyrukDurumMetni.SuresiDoldu}
+            OUTPUT DELETED.EtkinlikId AS Value
+            WHERE Durum = {KuyrukDurumMetni.HakTanindi} AND HakBitisZamani < GETUTCDATE()
+            """).ToListAsync(ct);
+
+        if (bosalanEtkinlikler.Count == 0) return 0;
+
+        foreach (var grup in bosalanEtkinlikler.GroupBy(id => id))
+        {
+            _logger.LogInformation(
+                "Süresi dolan {Sayi} kuyruk hakkı sıradakilere devredildi: EtkinlikId={EtkinlikId}",
+                grup.Count(), grup.Key);
+
+            await AllocateWaitlistBatchAsync(grup.Key, grup.Count(), ct);
+        }
+
+        return bosalanEtkinlikler.Count;
     }
 
     public async Task<bool> CompleteQueueEntryAsync(int siraNo, string kullaniciId, CancellationToken ct = default)

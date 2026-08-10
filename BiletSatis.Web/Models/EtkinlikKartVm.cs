@@ -9,7 +9,7 @@ public class EtkinlikKartVm
     public string Sehir => BiletSatis.Web.Domain.MekanBilgisi.Sehir(Mekan);
 
     /// <summary>Etkinliğe kalan gün; geçmiş etkinliklerde negatif.</summary>
-    public int KalanGun => (Tarih.Date - DateTime.Now.Date).Days;
+    public int KalanGun => (Tarih.Date - DateTime.UtcNow.Date).Days;
 
     /// <summary>Bir haftadan az kaldıysa geri sayım vurgulanır.</summary>
     public bool YaklasanEtkinlik => KalanGun >= 0 && KalanGun <= 7;

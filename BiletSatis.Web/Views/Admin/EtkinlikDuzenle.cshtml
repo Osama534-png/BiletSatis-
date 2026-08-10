@@ -14,6 +14,11 @@
             <input type="hidden" asp-for="Id" />
             <input type="hidden" asp-for="MevcutAfisUrl" />
 
+            @* Satırın form açıldığı andaki sürümü. Kaydetme sırasında güncel sürümle
+               karşılaştırılır; arada başka bir yönetici kaydettiyse bu form reddedilir
+               ve onun değişikliği ezilmez. *@
+            <input type="hidden" asp-for="SatirSurumu" />
+
             <div class="mb-3">
                 <label asp-for="Ad" class="form-label"></label>
                 <input asp-for="Ad" class="form-control" />

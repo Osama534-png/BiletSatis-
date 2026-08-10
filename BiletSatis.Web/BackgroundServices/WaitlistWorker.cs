@@ -1,6 +1,4 @@
-using BiletSatis.Web.Data;
 using BiletSatis.Web.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace BiletSatis.Web.BackgroundServices;
 
@@ -24,14 +22,12 @@ public class WaitlistWorker : BackgroundService
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<BiletSatisDbContext>();
                 var kuyruk = scope.ServiceProvider.GetRequiredService<IKuyrukServisi>();
 
-                var etkinlikIdler = await db.Etkinlikler.Select(e => e.Id).ToListAsync(stoppingToken);
-                foreach (var etkinlikId in etkinlikIdler)
-                {
-                    await kuyruk.PromoteExpiredAndFillAsync(etkinlikId, stoppingToken);
-                }
+                // Önce bütün etkinlikler listelenip her biri için ayrı sorgu
+                // çalıştırılıyordu; 2000 etkinlikte bu, her 15 saniyede 4000'den fazla
+                // sorgu demekti ve turların neredeyse tamamında yapacak iş yoktu.
+                await kuyruk.PromoteExpiredAndFillAllAsync(stoppingToken);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

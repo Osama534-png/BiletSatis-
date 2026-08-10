@@ -68,7 +68,8 @@ public class AdminController : Controller
             Aciklama = etkinlik.Aciklama,
             YasSiniri = etkinlik.YasSiniri,
             Tarih = etkinlik.Tarih,
-            MevcutAfisUrl = etkinlik.AfisUrl
+            MevcutAfisUrl = etkinlik.AfisUrl,
+            SatirSurumu = etkinlik.SatirSurumu
         });
     }
 
@@ -82,6 +83,12 @@ public class AdminController : Controller
 
         model.MevcutAfisUrl = etkinlik.AfisUrl;
         if (!ModelState.IsValid) return View(model);
+
+        // Karşılaştırılacak sürüm, satırın az önce okunan hâli değil kullanıcının
+        // formu AÇTIĞI andaki hâli olmalı. Bu satır olmadan EF, güncelleme sorgusuna
+        // "WHERE SatirSurumu = az önce okuduğum" koşulunu koyar; bu koşul her zaman
+        // tutar ve araya giren kayıt sessizce ezilir.
+        _db.Entry(etkinlik).Property(e => e.SatirSurumu).OriginalValue = model.SatirSurumu;
 
         // Yeni dosya yüklenmediyse mevcut afiş korunur.
         if (model.AfisDosyasi is { Length: > 0 })
@@ -99,7 +106,7 @@ public class AdminController : Controller
         etkinlik.Mekan = model.Mekan;
         etkinlik.Kategori = model.Kategori;
         etkinlik.BiletModeli = model.BiletModeli;
-        etkinlik.Aciklama = model.Aciklama;
+        etkinlik.Aciklama = model.Aciklama ?? "";
         etkinlik.YasSiniri = model.YasSiniri;
         etkinlik.Tarih = model.Tarih;
 
@@ -132,7 +139,11 @@ public class AdminController : Controller
                 Aciklama = guncel.Aciklama,
                 YasSiniri = guncel.YasSiniri,
                 Tarih = guncel.Tarih,
-                MevcutAfisUrl = guncel.AfisUrl
+                MevcutAfisUrl = guncel.AfisUrl,
+
+                // Yeni sürüm forma yazılıyor: kullanıcı değişikliğini tekrar
+                // yaptığında bu kez güncel satırın üstüne kaydedebilsin.
+                SatirSurumu = guncel.SatirSurumu
             });
         }
 
@@ -219,7 +230,7 @@ public class AdminController : Controller
             Mekan = model.Mekan,
             Kategori = model.Kategori,
             BiletModeli = model.BiletModeli,
-            Aciklama = model.Aciklama,
+            Aciklama = model.Aciklama ?? "",
             YasSiniri = model.YasSiniri,
             AfisUrl = afisUrl,
             Tarih = model.Tarih
@@ -286,9 +297,22 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> BiletEkle(int etkinlikId, string koltukOnEki, int adet, decimal fiyat)
     {
-        if (adet < 1 || adet > 1000 || string.IsNullOrWhiteSpace(koltukOnEki) || fiyat <= 0)
+        // Önek uzunluğu da sınırlı: KoltukNo sütunu nvarchar(450) ve üzerinde benzersiz
+        // dizin var. Sınırsız bırakıldığında uzun bir önek, kesme hatasını "koltuk
+        // numaraları çakıştı" mesajına çeviriyordu — yöneticiye yanlış sebep gösteriliyordu.
+        if (adet < 1 || adet > 1000 || fiyat <= 0 ||
+            string.IsNullOrWhiteSpace(koltukOnEki) || koltukOnEki.Trim().Length > 20)
         {
-            TempData["Hata"] = "Geçersiz bilet ekleme bilgisi.";
+            TempData["Hata"] = "Geçersiz bilet ekleme bilgisi. Önek en fazla 20 karakter, " +
+                               "adet 1-1000 arası ve fiyat sıfırdan büyük olmalı.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        // Var olmayan etkinlik id'si foreign key hatasına düşüyor ve yine "çakışma"
+        // mesajı gösteriliyordu; sebebi burada net söylüyoruz.
+        if (!await _db.Etkinlikler.AnyAsync(e => e.Id == etkinlikId))
+        {
+            TempData["Hata"] = "Bilet eklenecek etkinlik bulunamadı.";
             return RedirectToAction(nameof(Index));
         }
 

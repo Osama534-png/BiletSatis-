@@ -1,0 +1,16 @@
+@{
+    ViewData["Title"] = "Onay Bağlantısı Geçersiz";
+}
+
+<div class="card auth-card">
+    <div class="card-body text-center">
+        <div class="durum-ikonu">⚠️</div>
+        <h1 class="h3 mb-2">Bağlantı geçersiz</h1>
+        <p class="text-muted mb-4">
+            Onay bağlantısı hatalı, süresi dolmuş ya da daha önce kullanılmış olabilir.
+            Adresiniz değişmedi — profil sayfasından değişikliği yeniden başlatıp
+            yeni bir bağlantı isteyebilirsiniz.
+        </p>
+        <a asp-action="Index" class="btn btn-primary">Profilime Dön</a>
+    </div>
+</div>

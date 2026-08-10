@@ -1,12 +1,11 @@
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Models;
-using Microsoft.AspNetCore.Authorization;
+using BiletSatis.Web.Services;
 using BiletSatis.Web.Services.Eposta;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.WebUtilities;
-using System.Text;
 
 namespace BiletSatis.Web.Controllers;
 
@@ -16,12 +15,16 @@ public class AccountController : Controller
     /// <summary>Program.cs'te tanımlı hız sınırı politikasının adı.</summary>
     public const string HizSiniri = "giris";
 
-    private readonly UserManager<ApplicationUser> _userManager;//kullanıcı OLUŞTURMA/yönetme
-	private readonly SignInManager<ApplicationUser> _signInManager;//giriş/çıkış YAPTIRMA cookıs
-	private readonly IKimlikEpostaServisi _kimlikEposta;
+    /// <summary>Kullanıcı oluşturma, jeton üretme ve hesap bilgisi güncelleme.</summary>
+    private readonly UserManager<ApplicationUser> _userManager;
+
+    /// <summary>Giriş/çıkış ve oturum çerezinin yönetimi.</summary>
+    private readonly SignInManager<ApplicationUser> _signInManager;
+
+    private readonly IKimlikEpostaServisi _kimlikEposta;
     private readonly ILogger<AccountController> _logger;
 
-	public AccountController(
+    public AccountController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IKimlikEpostaServisi kimlikEposta,
@@ -286,22 +289,11 @@ public class AccountController : Controller
     }
 
     // Identity jetonları "+" ve "/" içerebilir; adres satırında bozulmamaları için
-    // Base64Url ile kodlanıp öyle taşınır.
-    private static string JetonuKodla(string jeton) =>
-        WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(jeton));
+    // Base64Url ile kodlanıp öyle taşınır. Kodlama, e-posta değişikliği akışıyla
+    // ortak (JetonKodlayici): biri kodlayıp diğeri farklı çözerse jeton geçersiz görünür.
+    private static string JetonuKodla(string jeton) => JetonKodlayici.Kodla(jeton);
 
-    private static string JetonuCoz(string kodlanmis)
-    {
-        try
-        {
-            return Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(kodlanmis));
-        }
-        catch (FormatException)
-        {
-            // Bozuk bağlantı: geçersiz jeton olarak ele alınır, doğrulama başarısız olur.
-            return "";
-        }
-    }
+    private static string JetonuCoz(string kodlanmis) => JetonKodlayici.Coz(kodlanmis);
 
     private void HatalariEkle(IdentityResult sonuc)
     {

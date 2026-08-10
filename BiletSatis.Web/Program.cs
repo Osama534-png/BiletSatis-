@@ -82,10 +82,16 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.LoginPath = "/Account/GirisYap"; // giri? yapmam?? biri korumal? sayfaya girerse buraya at
-	options.AccessDeniedPath = "/Account/ErisimEngellendi";// yetkisi olmayan biri buraya at
-	options.ExpireTimeSpan = TimeSpan.FromDays(14); // 14 g�n sonra �erez ge�ersiz olur, tekrar giri? gerekir
-	options.SlidingExpiration = true;
+    // Giriş yapmamış biri korumalı bir sayfaya girmeye çalışırsa buraya yönlendirilir.
+    options.LoginPath = "/Account/GirisYap";
+
+    // Girişi var ama yetkisi yoksa (ör. normal kullanıcı yönetim paneline girerse).
+    options.AccessDeniedPath = "/Account/ErisimEngellendi";
+
+    // 14 gün sonra çerez geçersiz olur; SlidingExpiration sayesinde aktif kullanan
+    // kullanıcının süresi her istekte tazelenir, yalnızca uzun süre uğramayan düşer.
+    options.ExpireTimeSpan = TimeSpan.FromDays(14);
+    options.SlidingExpiration = true;
 
     // Çerez yalnızca sunucuya gitsin, JavaScript okuyamasın (XSS'te oturum çalınmasın).
     options.Cookie.HttpOnly = true;

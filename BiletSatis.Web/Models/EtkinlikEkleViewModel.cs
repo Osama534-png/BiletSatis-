@@ -21,9 +21,13 @@ public class EtkinlikEkleViewModel
     [Display(Name = "Bilet modeli")]
     public BiletModeli BiletModeli { get; set; } = BiletModeli.KoltukSecmeli;
 
+    // Alan gerçekten isteğe bağlı ve bu yüzden nullable: ASP.NET, null kabul etmeyen
+    // bir string özelliğini kendiliğinden zorunlu sayar. Tip `string` bırakıldığında
+    // açıklaması boş bırakılan etkinlik "The Açıklama field is required." diyerek
+    // reddediliyordu — hem etiketle çelişiyordu hem de mesaj İngilizceydi.
     [StringLength(2000)]
     [Display(Name = "Açıklama (isteğe bağlı)")]
-    public string Aciklama { get; set; } = "";
+    public string? Aciklama { get; set; }
 
     [Range(0, 21, ErrorMessage = "Yaş sınırı 0 ile 21 arasında olmalıdır.")]
     [Display(Name = "Yaş Sınırı (0 = sınır yok)")]

@@ -1,0 +1,313 @@
+using System.Net;
+using BiletSatis.Web.Data;
+using BiletSatis.Web.Domain;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace BiletSatis.Tests;
+
+/// <summary>
+/// Kod denetiminde bulunan açıkların gerçekten kapandığını kanıtlayan testler.
+/// Her biri düzeltmeden önce kırılıyordu; bulgular README'de "Denetim" başlığında.
+///
+/// Servis testlerinden farkı, hepsinin gerçek HTTP boru hattından geçmesi: bu
+/// bulguların bir kısmı yalnızca controller katmanında görünüyordu, servisler
+/// tek başına doğru çalışıyordu.
+/// </summary>
+[Collection("Veritabanı")]
+public class DenetimBulgulariTests : IClassFixture<UygulamaFabrikasi>
+{
+    private readonly UygulamaFabrikasi _fabrika;
+
+    public DenetimBulgulariTests(UygulamaFabrikasi fabrika) => _fabrika = fabrika;
+
+    private static string BenzersizEposta(string on) => $"{on}-{Guid.NewGuid():N}@test.local";
+
+    private static async Task<int> EtkinlikOlustur(BiletModeli model = BiletModeli.KoltukSecmeli, int koltuk = 3)
+    {
+        using var db = DatabaseFixture.CreateContext();
+        var etkinlik = new Etkinlik
+        {
+            Ad = $"ZZ Denetim {Guid.NewGuid():N}",
+            Mekan = "Test Salonu, İzmir",
+            Tarih = DateTime.UtcNow.AddDays(15),
+            BiletModeli = model
+        };
+
+        for (var i = 1; i <= koltuk; i++)
+        {
+            etkinlik.Biletler.Add(new Bilet { KoltukNo = $"A-{i:00}", Fiyat = 300m, Durum = BiletDurumu.Satista });
+        }
+
+        db.Etkinlikler.Add(etkinlik);
+        await db.SaveChangesAsync();
+        return etkinlik.Id;
+    }
+
+    private static async Task Temizle(int etkinlikId)
+    {
+        using var db = DatabaseFixture.CreateContext();
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM Etkinlikler WHERE Id = {etkinlikId}");
+    }
+
+    // ---------- Bulgu 1: kayıp güncelleme koruması controller'a bağlanmamıştı ----------
+
+    /// <summary>
+    /// Satır sürümü (rowversion) şemada vardı ve EF seviyesinde çalışıyordu, ama
+    /// düzenleme ekranı POST'ta satırı veritabanından yeniden okuyup üstüne yazıyordu:
+    /// karşılaştırılan sürüm "az önce okuduğum" sürüm olduğu için çakışma hiç oluşmuyordu.
+    /// Yani koruma yalnızca testte vardı, gerçek akışta yoktu.
+    /// </summary>
+    [Fact]
+    public async Task EtkinlikDuzenleme_FormAcikkenBaskasiKaydettiyse_UstuneYazmamali()
+    {
+        var etkinlikId = await EtkinlikOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("yonetici"), rol: "Admin");
+
+            // Birinci yönetici formu açıyor.
+            var form = await istemci.GetStringAsync($"/Admin/EtkinlikDuzenle?id={etkinlikId}");
+            var jeton = UygulamaFabrikasi.AntiforgeryJetonu(form);
+
+            // Form açıkken ikinci yönetici kaydediyor.
+            using (var db = DatabaseFixture.CreateContext())
+            {
+                var etkinlik = await db.Etkinlikler.FirstAsync(e => e.Id == etkinlikId);
+                etkinlik.Ad = "İkinci yöneticinin kaydettiği ad";
+                await db.SaveChangesAsync();
+            }
+
+            // Birinci yönetici şimdi kendi (artık eski) formunu gönderiyor.
+            var cevap = await istemci.PostAsync("/Admin/EtkinlikDuzenle", new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["Id"] = etkinlikId.ToString(),
+                    ["Ad"] = "Birinci yöneticinin eski formu",
+                    ["Mekan"] = "Test Salonu, İzmir",
+                    ["Kategori"] = nameof(EtkinlikKategorisi.Konser),
+                    ["BiletModeli"] = nameof(BiletModeli.KoltukSecmeli),
+                    ["Aciklama"] = "",
+                    ["YasSiniri"] = "0",
+                    ["Tarih"] = DateTime.UtcNow.AddDays(15).ToString("yyyy-MM-ddTHH:mm"),
+                    ["SatirSurumu"] = SatirSurumuAlani(form),
+                    ["__RequestVerificationToken"] = jeton
+                }));
+
+            // Kayıt kabul edilmemeli: başarılı kayıt Index'e yönlendiriyor.
+            Assert.Equal(HttpStatusCode.OK, cevap.StatusCode);
+
+            // Razor ASCII dışı harfleri HTML varlığına çevirir ("ş" → "&#x15F;"),
+            // bu yüzden mesajın yalnızca ASCII parçası aranıyor.
+            Assert.Contains("biri taraf", await cevap.Content.ReadAsStringAsync());
+
+            // İkinci yöneticinin değişikliği sessizce ezilmemiş olmalı.
+            using var kontrol = DatabaseFixture.CreateContext();
+            var guncel = await kontrol.Etkinlikler.AsNoTracking().FirstAsync(e => e.Id == etkinlikId);
+            Assert.Equal("İkinci yöneticinin kaydettiği ad", guncel.Ad);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    [Fact]
+    public async Task EtkinlikDuzenleme_ArayaKimseGirmezse_NormalKaydetmeli()
+    {
+        var etkinlikId = await EtkinlikOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("yonetici"), rol: "Admin");
+
+            var form = await istemci.GetStringAsync($"/Admin/EtkinlikDuzenle?id={etkinlikId}");
+
+            var cevap = await istemci.PostAsync("/Admin/EtkinlikDuzenle", new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["Id"] = etkinlikId.ToString(),
+                    ["Ad"] = "Tek yönetici kaydetti",
+                    ["Mekan"] = "Test Salonu, İzmir",
+                    ["Kategori"] = nameof(EtkinlikKategorisi.Konser),
+                    ["BiletModeli"] = nameof(BiletModeli.KoltukSecmeli),
+                    ["Aciklama"] = "",
+                    ["YasSiniri"] = "0",
+                    ["Tarih"] = DateTime.UtcNow.AddDays(15).ToString("yyyy-MM-ddTHH:mm"),
+                    ["SatirSurumu"] = SatirSurumuAlani(form),
+                    ["__RequestVerificationToken"] = UygulamaFabrikasi.AntiforgeryJetonu(form)
+                }));
+
+            Assert.Equal(HttpStatusCode.Found, cevap.StatusCode);
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var guncel = await kontrol.Etkinlikler.AsNoTracking().FirstAsync(e => e.Id == etkinlikId);
+            Assert.Equal("Tek yönetici kaydetti", guncel.Ad);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    /// <summary>Formdaki gizli satır sürümü alanını okur; alan yoksa koruma bağlanmamış demektir.</summary>
+    private static string SatirSurumuAlani(string html)
+    {
+        var eslesme = System.Text.RegularExpressions.Regex.Match(
+            html, """name="SatirSurumu"[^>]*value="([^"]*)""");
+
+        Assert.True(eslesme.Success, "Düzenleme formunda gizli SatirSurumu alanı yok — kayıp güncelleme koruması bağlanmamış.");
+
+        var deger = eslesme.Groups[1].Value;
+
+        // Alan base64 taşımalı. byte[] düz ToString() ile basılırsa "System.Byte[]"
+        // yazılır ve geri bağlanamaz; koruma her kaydetmede çakışma sanır.
+        Assert.True(
+            deger.Length > 0 && !deger.Contains("Byte", StringComparison.OrdinalIgnoreCase),
+            $"SatirSurumu alanı base64 taşımıyor: '{deger}'");
+
+        return deger;
+    }
+
+    // ---------- Bulgu 2: e-posta değiştiren kullanıcı hesabından kilitleniyordu ----------
+
+    /// <summary>
+    /// Identity'nin <c>SetEmailAsync</c> metodu adresi değiştirirken doğrulama
+    /// bayrağını da sıfırlar. Profil ekranı bunu yapıp doğrulama e-postası
+    /// göndermiyordu: e-posta doğrulaması zorunlu olduğu için kullanıcı çıkış
+    /// yaptığı anda hesabına bir daha giremiyordu. Üstelik adres hemen değiştiği
+    /// için yanlış yazılan bir adres hesabı kalıcı olarak erişilemez yapardı.
+    ///
+    /// Doğru davranış: adres onaylanana kadar değişmez.
+    /// </summary>
+    [Fact]
+    public async Task EpostaDegistirme_OnaylananaKadar_HesapErisilebilirKalmali()
+    {
+        var eskiEposta = BenzersizEposta("profil");
+        var yeniEposta = BenzersizEposta("profil-yeni");
+
+        var istemci = await _fabrika.GirisYapmisIstemciAsync(eskiEposta);
+
+        var sayfa = await istemci.GetStringAsync("/Profil");
+        var cevap = await istemci.PostAsync("/Profil/BilgileriGuncelle", new FormUrlEncodedContent(
+            new Dictionary<string, string>
+            {
+                ["Bilgiler.Ad"] = "Test Kullanıcı",
+                ["Bilgiler.Email"] = yeniEposta,
+                ["__RequestVerificationToken"] = UygulamaFabrikasi.AntiforgeryJetonu(sayfa)
+            }));
+
+        Assert.Equal(HttpStatusCode.Found, cevap.StatusCode);
+
+        using var kapsam = _fabrika.Services.CreateScope();
+        var kullaniciYoneticisi = kapsam.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        // Adres henüz değişmemeli ve hesap doğrulanmış kalmalı — aksi halde
+        // kullanıcı bir sonraki girişte kapıda kalırdı.
+        var kullanici = await kullaniciYoneticisi.FindByEmailAsync(eskiEposta);
+        Assert.NotNull(kullanici);
+        Assert.True(kullanici!.EmailConfirmed, "Adres onaylanmadan doğrulama bayrağı düşürülmüş — kullanıcı giriş yapamaz hâle gelir.");
+        Assert.Equal(eskiEposta, kullanici.UserName);
+
+        // Yeni adres henüz kimseye ait olmamalı.
+        Assert.Null(await kullaniciYoneticisi.FindByEmailAsync(yeniEposta));
+    }
+
+    /// <summary>Onay bağlantısı kullanılınca adres gerçekten değişmeli.</summary>
+    [Fact]
+    public async Task EpostaDegistirme_OnayBaglantisiKullanilinca_AdresDegismeli()
+    {
+        var eskiEposta = BenzersizEposta("profil-onay");
+        var yeniEposta = BenzersizEposta("profil-onay-yeni");
+
+        var istemci = await _fabrika.GirisYapmisIstemciAsync(eskiEposta);
+
+        string kullaniciId;
+        string jeton;
+        using (var kapsam = _fabrika.Services.CreateScope())
+        {
+            var yonetici = kapsam.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var kullanici = await yonetici.FindByEmailAsync(eskiEposta);
+            kullaniciId = kullanici!.Id;
+            jeton = await yonetici.GenerateChangeEmailTokenAsync(kullanici, yeniEposta);
+        }
+
+        var adres = "/Profil/EpostaDegisikliginiOnayla" +
+                    $"?kullaniciId={Uri.EscapeDataString(kullaniciId)}" +
+                    $"&yeniEposta={Uri.EscapeDataString(yeniEposta)}" +
+                    $"&jeton={Uri.EscapeDataString(Base64Url(jeton))}";
+
+        var cevap = await istemci.GetAsync(adres);
+        Assert.Equal(HttpStatusCode.OK, cevap.StatusCode);
+
+        using var kontrolKapsami = _fabrika.Services.CreateScope();
+        var kullaniciYoneticisi = kontrolKapsami.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var guncel = await kullaniciYoneticisi.FindByIdAsync(kullaniciId);
+        Assert.Equal(yeniEposta, guncel!.Email);
+        Assert.Equal(yeniEposta, guncel.UserName);
+        Assert.True(guncel.EmailConfirmed);
+    }
+
+    private static string Base64Url(string metin) =>
+        Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(
+            System.Text.Encoding.UTF8.GetBytes(metin));
+
+    // ---------- Bulgu 3: sayfa numarası taşması sunucuyu 500'e düşürüyordu ----------
+
+    /// <summary>
+    /// Sayfa numarası adres çubuğundan geliyor ve sınırlanmıyordu.
+    /// <c>(sayfa - 1) * sayfaBoyutu</c> çarpımı int sınırını aşınca negatife
+    /// dönüyor, SQL Server "OFFSET negatif olamaz" diyerek isteği düşürüyordu.
+    /// Kimlik doğrulaması gerektirdiği için dışarıdan sömürülemezdi, ama giriş
+    /// yapmış herkes tek adresle 500 üretebiliyordu.
+    /// </summary>
+    [Theory]
+    [InlineData(2000000000)]
+    [InlineData(int.MaxValue)]
+    [InlineData(-5)]
+    public async Task AnaSayfa_AsiriSayfaNumarasi_SunucuyuDusurmemeli(int sayfa)
+    {
+        var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("sayfalama"));
+
+        var cevap = await istemci.GetAsync($"/?sayfa={sayfa}");
+
+        Assert.True(
+            cevap.StatusCode is HttpStatusCode.OK or HttpStatusCode.Found,
+            $"Beklenmeyen durum kodu: {(int)cevap.StatusCode}");
+    }
+
+    // ---------- Bulgu 4: genel giriş ucu bilet modelini doğrulamıyordu ----------
+
+    /// <summary>
+    /// Genel giriş ucu "hangisi olursa olsun N bilet ver" diyor. Etkinliğin
+    /// gerçekten genel giriş olup olmadığı kontrol edilmediği için, koltuk seçmeli
+    /// bir etkinlikte de doğrudan POST edilerek koltuklar rastgele kaptırılabiliyordu:
+    /// kullanıcı salon haritasını hiç görmeden istediği sayıda koltuk alabiliyordu.
+    /// </summary>
+    [Fact]
+    public async Task GenelGirisUcu_KoltukSecmeliEtkinlikte_Reddedilmeli()
+    {
+        var etkinlikId = await EtkinlikOlustur(BiletModeli.KoltukSecmeli);
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("genelgiris"));
+
+            var sayfa = await istemci.GetStringAsync($"/Biletler/Index?etkinlikId={etkinlikId}");
+
+            var cevap = await istemci.PostAsync("/Biletler/GenelGirisSepeteEkle", new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["etkinlikId"] = etkinlikId.ToString(),
+                    ["adet"] = "2",
+                    ["__RequestVerificationToken"] = UygulamaFabrikasi.AntiforgeryJetonu(sayfa)
+                }));
+
+            Assert.Equal(HttpStatusCode.Found, cevap.StatusCode);
+            Assert.DoesNotContain("Sepetim", cevap.Headers.Location?.OriginalString ?? "");
+
+            // Hiçbir koltuk sepete girmemiş olmalı.
+            using var db = DatabaseFixture.CreateContext();
+            var sepettekiler = await db.Biletler
+                .AsNoTracking()
+                .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum != BiletDurumu.Satista);
+
+            Assert.Equal(0, sepettekiler);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+}

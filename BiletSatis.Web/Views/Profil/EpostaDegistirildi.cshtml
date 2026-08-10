@@ -1,0 +1,15 @@
+@{
+    ViewData["Title"] = "E-posta Adresi Değiştirildi";
+}
+
+<div class="card auth-card">
+    <div class="card-body text-center">
+        <div class="durum-ikonu">✅</div>
+        <h1 class="h3 mb-2">Adresiniz güncellendi</h1>
+        <p class="text-muted mb-4">
+            Hesabınızın e-posta adresi artık <strong>@ViewData["YeniEposta"]</strong>.
+            Bundan sonra bu adresle giriş yapacaksınız; bildirimler de buraya gelecek.
+        </p>
+        <a asp-action="Index" class="btn btn-primary">Profilime Dön</a>
+    </div>
+</div>

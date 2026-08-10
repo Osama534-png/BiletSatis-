@@ -1,5 +1,6 @@
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Domain;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace BiletSatis.Web.Services.Favoriler;
@@ -40,9 +41,12 @@ public class FavoriServisi : IFavoriServisi
                 )
                 """, ct);
         }
-        catch (DbUpdateException ex)
+        // 2627/2601: birincil anahtar ya da benzersiz dizin ihlali. Ham SQL çalıştığı
+        // için hata SqlException olarak gelir — DbUpdateException yalnızca SaveChanges
+        // yolunda fırlar, o yüzden buradaki eski catch hiçbir zaman devreye girmiyordu.
+        catch (SqlException ex) when (ex.Number is 2627 or 2601)
         {
-            _logger.LogWarning(ex, "Favori eklenemedi: EtkinlikId={EtkinlikId}", etkinlikId);
+            _logger.LogWarning(ex, "Favori zaten ekliydi: EtkinlikId={EtkinlikId}", etkinlikId);
         }
 
         return FavoriDurumu.Eklendi;

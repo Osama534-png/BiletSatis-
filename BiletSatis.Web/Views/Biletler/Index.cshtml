@@ -5,7 +5,7 @@
     var onSira = Model.Bloklar.Where(b => b.OnSira).ToList();
     var arkaSira = Model.Bloklar.Where(b => !b.OnSira).ToList();
     var ilkSecili = Model.Bloklar.FirstOrDefault(b => b.MusaitKoltuk > 0) ?? Model.Bloklar.FirstOrDefault();
-    var kalanGun = (Model.Tarih.Date - DateTime.Now.Date).Days;
+    var kalanGun = (Model.Tarih.Date - DateTime.UtcNow.Date).Days;
 }
 
 <div class="event-header">

@@ -223,6 +223,77 @@ public class KuyrukServisiTests
         finally { await Temizle(etkinlikId); }
     }
 
+    // Arka plan görevi önce bütün etkinlikleri listeleyip her biri için ayrı sorgu
+    // çalıştırıyordu; 2000 etkinlikte her turda 4000'den fazla sorgu demekti. Tarama
+    // artık tek sorgu, ama davranış aynı kalmalı: birden çok etkinlikte süresi dolan
+    // haklar aynı anda kapanmalı ve her etkinlikte sıradaki kişiye devredilmeli.
+    [Fact]
+    public async Task PromoteExpiredAndFillAllAsync_BirdenCokEtkinlikte_HepsiniDevretmeli()
+    {
+        var birinciEtkinlik = await YeniEtkinlikId();
+        var ikinciEtkinlik = await YeniEtkinlikId();
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+
+            var birinciHakli = await servis.EnqueueWaitlistAsync(birinciEtkinlik, "birinci-hakli");
+            var birinciBekleyen = await servis.EnqueueWaitlistAsync(birinciEtkinlik, "birinci-bekleyen");
+            var ikinciHakli = await servis.EnqueueWaitlistAsync(ikinciEtkinlik, "ikinci-hakli");
+            var ikinciBekleyen = await servis.EnqueueWaitlistAsync(ikinciEtkinlik, "ikinci-bekleyen");
+
+            // İki etkinlikte de hak tanınan kişinin süresi dolmuş olsun.
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE RezervasyonKuyrugu
+                SET Durum = N'HakTanindi', HakBitisZamani = DATEADD(MINUTE, -1, GETUTCDATE())
+                WHERE SiraNo IN ({birinciHakli}, {ikinciHakli})
+                """);
+
+            var devredilen = await servis.PromoteExpiredAndFillAllAsync();
+
+            Assert.Equal(2, devredilen);
+
+            var kayitlar = await db.RezervasyonKuyrugu.AsNoTracking()
+                .Where(k => k.EtkinlikId == birinciEtkinlik || k.EtkinlikId == ikinciEtkinlik)
+                .ToDictionaryAsync(k => k.SiraNo, k => k.Durum);
+
+            Assert.Equal(KuyrukDurumu.SuresiDoldu, kayitlar[birinciHakli!.Value]);
+            Assert.Equal(KuyrukDurumu.SuresiDoldu, kayitlar[ikinciHakli!.Value]);
+
+            // Her etkinlikte boşalan yer kendi sırasındaki kişiye gitmeli — biri
+            // diğerinin yerini almamalı.
+            Assert.Equal(KuyrukDurumu.HakTanindi, kayitlar[birinciBekleyen!.Value]);
+            Assert.Equal(KuyrukDurumu.HakTanindi, kayitlar[ikinciBekleyen!.Value]);
+        }
+        finally
+        {
+            await Temizle(birinciEtkinlik);
+            await Temizle(ikinciEtkinlik);
+        }
+    }
+
+    [Fact]
+    public async Task PromoteExpiredAndFillAllAsync_SuresiDolanYoksa_HicbirSeyDegistirmemeli()
+    {
+        var etkinlikId = await YeniEtkinlikId();
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+
+            var siraNo = await servis.EnqueueWaitlistAsync(etkinlikId, "bekleyen");
+            await servis.AllocateWaitlistBatchAsync(etkinlikId, 1);
+
+            var devredilen = await servis.PromoteExpiredAndFillAllAsync();
+
+            Assert.Equal(0, devredilen);
+
+            var kayit = await db.RezervasyonKuyrugu.AsNoTracking().FirstAsync(k => k.SiraNo == siraNo);
+            Assert.Equal(KuyrukDurumu.HakTanindi, kayit.Durum);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     [Fact]
     public async Task CompleteQueueEntryAsync_DogruKullaniciIcin_TamamlandiYapmali()
     {

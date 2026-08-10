@@ -39,6 +39,23 @@ public class KimlikEpostaServisi : IKimlikEpostaServisi
             null,
             ct);
 
+    public Task DegisiklikGonderAsync(string alici, string ad, string onayAdresi, CancellationToken ct = default) =>
+        _gonderici.GonderAsync(
+            alici,
+            "Yeni e-posta adresinizi onaylayın",
+            Govde(
+                baslik: "Yeni adresinizi onaylayın",
+                selamlama: Selamlama(ad),
+                metin: "Hesabınızın e-posta adresini bu adresle değiştirmek istediniz. " +
+                       "Değişiklik, siz onaylayana kadar uygulanmaz — böylece yanlış yazılan " +
+                       "bir adres yüzünden hesabınıza erişimi kaybetmezsiniz.",
+                dugmeMetni: "Yeni adresimi onayla",
+                adres: onayAdresi,
+                dipnot: "Bu değişikliği siz istemediyseniz hiçbir şey yapmanıza gerek yok; " +
+                        "hesabınızın adresi olduğu gibi kalır."),
+            null,
+            ct);
+
     private static string Selamlama(string ad) =>
         string.IsNullOrWhiteSpace(ad) ? "Merhaba" : $"Merhaba {ad}";
 

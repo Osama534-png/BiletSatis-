@@ -82,6 +82,24 @@ public class BiletlerController : Controller
             return RedirectToAction(nameof(Index), new { etkinlikId });
         }
 
+        // Bu uç "hangisi olursa olsun N bilet ver" diyor; yalnızca koltuk numarası
+        // olmayan etkinlikler için anlamlı. Model kontrol edilmediğinde koltuk seçmeli
+        // bir etkinliğe de doğrudan POST edilebiliyordu: kullanıcı salon haritasını
+        // hiç açmadan rastgele koltukları kaptırıyordu.
+        var model = await _db.Etkinlikler
+            .AsNoTracking()
+            .Where(e => e.Id == etkinlikId)
+            .Select(e => (BiletModeli?)e.BiletModeli)
+            .FirstOrDefaultAsync();
+
+        if (model == null) return NotFound();
+
+        if (model != BiletModeli.GenelGiris)
+        {
+            TempData["Hata"] = "Bu etkinlikte koltuk seçmeniz gerekiyor.";
+            return RedirectToAction(nameof(Index), new { etkinlikId });
+        }
+
         var kullaniciId = _currentUser.GetKullaniciId();
         var sonuc = await _rezervasyon.TryClaimAnyAsync(etkinlikId, adet, kullaniciId);
 

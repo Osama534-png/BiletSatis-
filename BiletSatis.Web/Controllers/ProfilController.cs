@@ -1,6 +1,8 @@
 using BiletSatis.Web.Data;
 using BiletSatis.Web.Domain;
 using BiletSatis.Web.Models;
+using BiletSatis.Web.Services;
+using BiletSatis.Web.Services.Eposta;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -13,16 +15,22 @@ public class ProfilController : Controller
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly IKimlikEpostaServisi _kimlikEposta;
     private readonly BiletSatisDbContext _db;
+    private readonly ILogger<ProfilController> _logger;
 
     public ProfilController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
-        BiletSatisDbContext db)
+        IKimlikEpostaServisi kimlikEposta,
+        BiletSatisDbContext db,
+        ILogger<ProfilController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
+        _kimlikEposta = kimlikEposta;
         _db = db;
+        _logger = logger;
     }
 
     public async Task<IActionResult> Index()
@@ -70,32 +78,94 @@ public class ProfilController : Controller
                 return View(nameof(Index), await ProfilOlusturAsync(kullanici, form));
             }
 
-            var epostaSonucu = await _userManager.SetEmailAsync(kullanici, form.Email);
-            if (!epostaSonucu.Succeeded)
-            {
-                HatalariEkle(epostaSonucu);
-                return View(nameof(Index), await ProfilOlusturAsync(kullanici, form));
-            }
+            // Adres burada DEĞİŞTİRİLMİYOR; yalnızca yeni adrese onay bağlantısı gidiyor.
+            //
+            // Önceden SetEmailAsync doğrudan çağrılıyordu. Identity bu metotta adresi
+            // değiştirirken doğrulama bayrağını da sıfırlar; e-posta doğrulaması zorunlu
+            // olduğu için kullanıcı çıkış yaptığı anda hesabına bir daha giremiyordu.
+            // Üstelik yanlış yazılan bir adres hesabı kalıcı olarak erişilemez yapıyordu:
+            // eski adres gitmiş, yeni adrese ulaşılamıyor.
+            //
+            // Doğru sıra: önce yeni adresin kullanıcıya ait olduğunu kanıtla, sonra değiştir.
+            await DegisiklikOnayiGonderAsync(kullanici, form.Email);
 
-            // Kayıt sırasında kullanıcı adı e-posta olarak atanıyor ve giriş bununla
-            // yapılıyor; e-posta değişince kullanıcı adı da güncellenmeli.
-            var kullaniciAdiSonucu = await _userManager.SetUserNameAsync(kullanici, form.Email);
-            if (!kullaniciAdiSonucu.Succeeded)
-            {
-                HatalariEkle(kullaniciAdiSonucu);
-                return View(nameof(Index), await ProfilOlusturAsync(kullanici, form));
-            }
+            TempData["Bilgi"] = $"{form.Email} adresine bir onay bağlantısı gönderdik. " +
+                                "Bağlantıya tıklayana kadar hesabınızın adresi değişmez ve " +
+                                "mevcut adresinizle giriş yapmaya devam edersiniz.";
 
-            // Kullanıcı adı değişince güvenlik damgası yenilenir; çerez tazelenmezse
-            // kullanıcı bir sonraki istekte oturumdan düşer.
-            await _signInManager.RefreshSignInAsync(kullanici);
+            return RedirectToAction(nameof(Index));
         }
 
-        TempData["Bilgi"] = epostaDegisti
-            ? "Bilgileriniz güncellendi. Bundan sonra yeni e-posta adresinizle giriş yapacaksınız."
-            : "Bilgileriniz güncellendi.";
-
+        TempData["Bilgi"] = "Bilgileriniz güncellendi.";
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Yeni adrese gönderilen onay bağlantısının açtığı sayfa. Jeton yalnızca bu
+    /// kullanıcı ve bu adres için üretildiğinden, bağlantıyı ele geçiren biri onu
+    /// başka bir adrese çeviremez.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> EpostaDegisikliginiOnayla(string? kullaniciId, string? yeniEposta, string? jeton)
+    {
+        var kullanici = await _userManager.GetUserAsync(User);
+        if (kullanici == null) return Challenge();
+
+        // Bağlantı başka bir hesap için üretilmişse kabul edilmez: oturumu açık olan
+        // kullanıcı, eline geçen bir bağlantıyla başkasının adresini değiştiremesin.
+        if (string.IsNullOrEmpty(kullaniciId) || string.IsNullOrEmpty(yeniEposta) ||
+            string.IsNullOrEmpty(jeton) || kullaniciId != kullanici.Id)
+        {
+            return View("EpostaDegisikligiGecersiz");
+        }
+
+        var sonuc = await _userManager.ChangeEmailAsync(kullanici, yeniEposta, JetonKodlayici.Coz(jeton));
+        if (!sonuc.Succeeded)
+        {
+            _logger.LogWarning(
+                "E-posta değişikliği onaylanamadı: KullaniciId={KullaniciId} Hatalar={Hatalar}",
+                kullanici.Id, string.Join(", ", sonuc.Errors.Select(h => h.Description)));
+
+            return View("EpostaDegisikligiGecersiz");
+        }
+
+        // Giriş kullanıcı adıyla yapılıyor ve kayıtta kullanıcı adı e-posta olarak
+        // atanıyor; adres değişince kullanıcı adı da değişmeli.
+        var kullaniciAdiSonucu = await _userManager.SetUserNameAsync(kullanici, yeniEposta);
+        if (!kullaniciAdiSonucu.Succeeded)
+        {
+            HatalariEkle(kullaniciAdiSonucu);
+            return View("EpostaDegisikligiGecersiz");
+        }
+
+        // Kullanıcı adı ve adres değişince güvenlik damgası yenilenir; çerez
+        // tazelenmezse kullanıcı bir sonraki istekte oturumdan düşer.
+        await _signInManager.RefreshSignInAsync(kullanici);
+
+        _logger.LogInformation("E-posta adresi değiştirildi: KullaniciId={KullaniciId}", kullanici.Id);
+
+        ViewData["YeniEposta"] = yeniEposta;
+        return View("EpostaDegistirildi");
+    }
+
+    private async Task DegisiklikOnayiGonderAsync(ApplicationUser kullanici, string yeniEposta)
+    {
+        var jeton = await _userManager.GenerateChangeEmailTokenAsync(kullanici, yeniEposta);
+
+        var adres = Url.Action(nameof(EpostaDegisikliginiOnayla), "Profil",
+            new { kullaniciId = kullanici.Id, yeniEposta, jeton = JetonKodlayici.Kodla(jeton) },
+            protocol: Request.Scheme)!;
+
+        try
+        {
+            await _kimlikEposta.DegisiklikGonderAsync(yeniEposta, kullanici.Ad, adres);
+        }
+        catch (Exception ex)
+        {
+            // Gönderim hatası akışı kesmemeli: hesapta hiçbir şey değişmedi,
+            // kullanıcı formu tekrar gönderip yeni bir bağlantı isteyebilir.
+            _logger.LogError(ex, "E-posta değişikliği onayı gönderilemedi: {Alici}", yeniEposta);
+        }
     }
 
     [HttpPost]

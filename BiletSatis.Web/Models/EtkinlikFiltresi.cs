@@ -28,6 +28,15 @@ public class EtkinlikFiltresi
     /// <summary>"tarih" | "fiyat-artan" | "fiyat-azalan" | "isim"</summary>
     public string Siralama { get; set; } = "tarih";
 
+    /// <summary>
+    /// Sayfa numarasının üst sınırı. Sayfa adres çubuğundan geldiği için sınırsız
+    /// olamaz: <c>(sayfa - 1) * sayfaBoyutu</c> çarpımı int sınırını aşınca sessizce
+    /// negatife dönüyor ve SQL Server "OFFSET negatif olamaz" diyerek isteği
+    /// düşürüyordu. Sınır, en büyük sayfa boyutuyla çarpıldığında bile taşmayacak
+    /// kadar küçük; gerçek bir listede bu kadar sayfa zaten olmaz.
+    /// </summary>
+    public const int AzamiSayfa = 1_000_000;
+
     public int Sayfa { get; set; } = 1;
 
     private int _sayfaBoyutu = VarsayilanSayfaBoyutu;
@@ -37,7 +46,7 @@ public class EtkinlikFiltresi
         set => _sayfaBoyutu = value is > 0 and <= AzamiSayfaBoyutu ? value : VarsayilanSayfaBoyutu;
     }
 
-    public int GecerliSayfa => Sayfa < 1 ? 1 : Sayfa;
+    public int GecerliSayfa => Math.Clamp(Sayfa, 1, AzamiSayfa);
 
     public bool FiltreVarMi =>
         !string.IsNullOrWhiteSpace(Arama)
