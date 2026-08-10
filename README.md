@@ -1,4 +1,4 @@
-# 🎟️ BiletSatış
+﻿# 🎟️ BiletSatış
 
 [![CI](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml/badge.svg)](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml)
 ![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)
@@ -173,39 +173,6 @@ Süre dolumunu `CartExpiryWorker`, kuyruk devrini `WaitlistWorker`, e-postaları
 
 </details>
 
-<details>
-<summary><b>Katmanlar ve veri akışı</b></summary>
-
-```mermaid
-flowchart TD
-    subgraph Tarayıcı
-        UI[Razor görünümleri<br/>+ site.js]
-    end
-
-    subgraph Uygulama[ASP.NET Core]
-        C[Controllers]
-        SRV[Servisler<br/>atomik SQL]
-        BG[Arka plan görevleri]
-        SEC[CSP · nonce · rate limit<br/>global Authorize]
-    end
-
-    subgraph Dış[Dış servisler]
-        STRIPE[Stripe Checkout]
-        SMTP[SMTP]
-    end
-
-    DB[(SQL Server)]
-
-    UI -->|HTTP| SEC --> C
-    C --> SRV --> DB
-    BG --> DB
-    C -->|ödeme oturumu| STRIPE
-    BG -->|kuyruğa alınmış e-posta| SMTP
-    DB -.->|DataProtection anahtarları<br/>çoklu kopya için| Uygulama
-```
-
-</details>
-
 ## Öne çıkan özellikler
 
 Zor olanlar — her birinin gerekçesi [Mimari kararlar](#mimari-kararlar) bölümünde:
@@ -219,30 +186,6 @@ Zor olanlar — her birinin gerekçesi [Mimari kararlar](#mimari-kararlar) böl�
 | **İmzalı QR ile kapı kontrolü** | HMAC imza + sabit süreli karşılaştırma + tek kullanım garantisi |
 | **Doğrulanmış değerlendirme** | Yorum için bilet almak yetmez; biletin kapıda okutulmuş olması gerekir |
 | **Yatay ölçeklenebilirlik** | Migration/seed dağıtık kilitle, bildirim gönderimi sahiplenmeyle korunur |
-
-<details>
-<summary><b>Tüm özellikler (18 madde)</b></summary>
-
-- **Race-condition güvenli satın alma** — "sepete ekle" işlemi, okuma-sonra-yazma yerine tek bir atomik `UPDATE ... WHERE Durum='Satışta'` sorgusuyla yapılır. Aynı bilete aynı anda 1000 istek gelse bile SQL Server garantisiyle sadece biri başarılı olur.
-- **5 dakikalık sepet kilidi + otomatik temizlik** — bir bilet sepete eklendiğinde 5 dakika rezerve edilir; ödeme yapılmazsa arka planda çalışan bir servis (`CartExpiryWorker`) 10 saniyede bir süresi dolanları otomatik olarak tekrar satışa açar.
-- **Adil FIFO bekleme kuyruğu** — biletler henüz satışa açılmadan önce kullanıcılar sıraya girebilir. Sıra numarası SQL Server'ın `IDENTITY` sütunu tarafından üretilir, böylece eşzamanlı katılımlarda bile sıralama hatasız garanti edilir. Satış açıldığında en düşük sıra numaralı N kişiye otomatik hak tanınır; hakkını kullanmayanların yeri arka planda (`WaitlistWorker`) sıradakine devredilir.
-- **Gerçek kullanıcı girişi** — ASP.NET Core Identity ile kayıt/giriş/çıkış, rol tabanlı yönetici yetkilendirmesi. Kayıt sonrası **e-posta doğrulaması zorunludur**; doğrulanmamış hesap giriş yapamaz. Şifresini unutan kullanıcı e-postayla gelen bağlantıdan yeni şifre belirleyebilir.
-- **Gerçek ödeme entegrasyonu** — Stripe Checkout ile PCI-uyumlu ödeme akışı; kart bilgisi hiçbir zaman kendi sunucumuza gelmez.
-- **Yapılandırılmış loglama** — Serilog ile her kritik karar noktası (sepete ekleme sonucu, ödeme sonucu, kuyruk terfi, arka plan servis hataları) structured log olarak kaydedilir.
-- **Otomatik test kapsamı** — hem gerçek SQL Server'a karşı çalışan xUnit entegrasyon testleri hem de k6 ile gerçek eşzamanlı yük testleri.
-- **İnteraktif salon haritası** — koltuk numarası önekinden (`A-01` → A blok) türetilen blok haritası, sahne yayı, doluluğa göre renklendirme.
-- **Çoklu koltuk seçimi** — haritadan tek seferde 6 koltuğa kadar seçilir, seçim çubuğu toplamı canlı gösterir ve tamamı tek istekte rezerve edilir. Koltuklardan biri bile araya girilirse hiçbiri alınmaz (bkz. Mimari Kararlar). Sepetin tamamı tek bir Stripe oturumunda, çok kalemli olarak ödenir.
-- **Favoriler** — etkinlik kartlarındaki ve detay sayfasındaki ♡ düğmesiyle etkinlik favoriye alınır, "Favorilerim" sayfasında listelenir. Kalp tıklaması sayfayı yenilemez; istek arka planda gidip yalnızca düğmeyi günceller (JavaScript kapalıysa normal form gönderimine düşer). Kullanıcı ile etkinlik arasındaki çoka-çok ilişki, bileşik birincil anahtarlı bir ara tabloyla kurulur.
-- **Bilet devretme** — bilete gidemeyen kullanıcı biletini başka bir kullanıcıya devredebilir. Devir sonrası eski sahibin QR kodu geçersizleşir (imzaya sürüm eklenmiştir) ve yeni sahibe yeni QR'lı bilet e-postası gider. Kapıda okutulmuş ya da etkinliği geçmiş bilet devredilemez.
-- **Genel giriş etkinlikleri** — her etkinlik salonlu değildir. Festival ve ayakta konserlerde koltuk seçimi yerine yalnızca adet seçilir; sistem müsait biletlerden o kadarını tek atomik sorguyla ayırır. Yeterli bilet yoksa hiçbiri ayrılmaz.
-- **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü. Filtreler yazarken/seçerken anında uygulanır ve sayfa yenilenmez; yalnızca sonuç listesi yeniden çekilir. Filtreleme, sıralama ve **sayfalama tamamen veritabanında** yapılır; seçimler adres çubuğunda durduğu için filtrelenmiş liste paylaşılabilir ve geri düğmesi çalışır.
-- **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür. E-posta değişikliği **onaya bağlıdır**: adres, yeni adrese giden bağlantıya tıklanana kadar değişmez, böylece yanlış yazılan bir adres hesabı erişilemez hâle getirmez.
-- **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
-- **E-posta bildirimleri** — kuyrukta sırası gelene "sıran geldi", bilet satın alana QR kodlu "biletin hazır" e-postası gönderilir. Gönderim, kuyruk ve ödeme işlemlerinden ayrı bir arka plan görevinde yapılır; hata olursa bildirim kaybolmaz, tekrar denenir. Kayıt doğrulama, şifre sıfırlama ve adres değişikliği e-postaları da isteğin dışında, kuyruk üzerinden gönderilir — kullanıcı SMTP sunucusunu beklemez (ölçüm: 4–17 sn → 110–130 ms).
-- **Doğrulanmış değerlendirme** — etkinlik sayfasında puan ortalaması, yıldız dağılımı ve yorumlar gösterilir. Değerlendirme bırakabilmek için bilet almak yetmez, biletin **kapıda okutulmuş** olması gerekir; böylece her yorumun arkasında gerçek bir katılım vardır. Bir kullanıcı bir etkinliği yalnızca bir kez değerlendirir, sonradan güncelleyebilir.
-- **Kapı kontrolü** — görevli biletteki QR'ı okutur, mobil öncelikli doğrulama sayfası bileti kontrol eder. QR kodu HMAC ile imzalıdır (sahte bilet üretilemez), bir bilet yalnızca bir kez giriş sağlar ve eşzamanlı okutmalarda tek atomik `UPDATE` ile yalnızca biri kaydedilir.
-
-</details>
 
 ## Mimari kararlar
 
@@ -358,15 +301,9 @@ WHERE NOT EXISTS (
 
 Kayıt açılmadıysa sıra numarası dönmez (`null`). `UPDLOCK, HOLDLOCK` aralığı kilitleyerek ikinci isteğin araya kayıt sokmasını engeller.
 
+Sıranın kendisi de uygulamada üretilmez: `SiraNo` sütunu SQL Server `IDENTITY`'dir. Aynı milisaniyede gelen yüzlerce istek bile veritabanı tarafından sıraya dizilip benzersiz, artan numara alır — kuyruk adaleti buna dayanır.
+
 Bu hata, testler gerçekten eşzamanlı hâle getirilene kadar görünmüyordu: istekler `Task.WhenAll` ile başlatılsa bile biri diğerinden önce bitiyordu. Testler artık ortak bir "kapı" kullanıyor — her görev önce bağlantısını açıp ısınıyor, sonra hep birlikte serbest bırakılıyor. Eski kodla test 3/3 kırılıyor, yeni kodla 4/4 geçiyor.
-
-### Satılmış bileti olan etkinlik silme kontrolü neden SQL içinde?
-
-Önce "satılmış bilet var mı" diye sorup sonra silmek yetmiyordu: tam aradaki anda bir ödeme tamamlanırsa satılmış bilet cascade ile yok olurdu. Koşul artık `DELETE`'in kendi içinde (`WHERE NOT EXISTS (...)`) ve etkilenen satır sayısına bakılıyor; kuyruk kayıtlarının temizliğiyle birlikte tek bir işlem (transaction) içinde yapılıyor.
-
-### Koltuk numarası çakışması
-
-Bilet ekleme "bu blokta kaç bilet var" sayıp numarayı ondan üretiyor. İki eşzamanlı ekleme aynı numarayı üretebilirdi; `(EtkinlikId, KoltukNo)` üzerindeki **benzersiz dizin** bunu veritabanı seviyesinde imkânsız kılar. Çakışma olursa hiçbir bilet yazılmaz ve yöneticiye tekrar denemesi söylenir.
 
 ### Etkinlik düzenlemede `RowVersion` (optimistic concurrency)
 
@@ -386,6 +323,8 @@ Bu tek satır olmadan koruma şemada durur ama gerçek akışta hiçbir şey yap
 
 Korumanın gerçekten çalıştığı ölçüldü: yukarıdaki satır kaldırıldığında çakışan kayıt sessizce başarılı oluyor (302, "kaydedildi") ve ikinci yöneticinin değişikliği eziliyor; satır geri konduğunda istek reddediliyor.
 
+**Biletlerde satır sürümü yok** — orada oku-değiştir-kaydet akışı hiç bulunmadığı için karşılığı da yok. Optimistic concurrency yalnızca form tabanlı düzenlemede anlamlıdır. Koltuk numarası çakışmasını da satır sürümü değil, `(EtkinlikId, KoltukNo)` üzerindeki benzersiz dizin engeller.
+
 ### Zamanın iki türü: "an" ve "takvim saati"
 
 Projede iki farklı zaman kavramı var ve karıştırıldıklarında hata sessizce geliyor:
@@ -403,19 +342,19 @@ Ters yönde de bir hata vardı: bilet devri `EtkinlikTarihi <= DateTime.UtcNow` 
 
 Sonuç: karşılaştırmanın iki tarafı da **aynı türde** olmalı. "Tutarlılık" adına hepsini UTC yapmak yanlıştı; doğru olan hangi değerin hangi tür olduğunu ayırmaktı.
 
-### Neden biletlerde `RowVersion` yok?
-
-Bilet satın alma tek atomik UPDATE ile yapılır; okuma-sonra-yazma olmadığı için orada satır sürümü tutmanın bir karşılığı yoktur. Optimistic concurrency yalnızca yukarıdaki gibi form tabanlı düzenleme akışlarında anlamlıdır.
-
-### Kuyruk adaleti nasıl garanti ediliyor?
-
-`RezervasyonKuyrugu` tablosundaki `SiraNo` sütunu SQL Server `IDENTITY` — yani sıra numarasını uygulama kodu değil, veritabanının kendisi üretiyor. Aynı milisaniyede gelen yüzlerce "sıraya gir" isteği bile SQL Server tarafından sıraya dizilip benzersiz, artan numaralar alır.
-
 ### Satılmış bileti olan etkinlik neden silinemiyor?
 
-Yönetim panelinden etkinlik silinebilir, ancak **satılmış bileti olan etkinlikler silinemez**. Satılmış bilet gerçek bir satın alma kaydıdır; etkinlik silinirse `Biletler` tablosundaki satırlar cascade ile gider ve kullanıcıların bilet geçmişi yok olur. Kontrol yalnızca arayüzde butonu gizlemekle yapılmaz, `EtkinlikSil` action'ının içindedir.
+Satılmış bilet gerçek bir satın alma kaydıdır; etkinlik silinirse `Biletler` tablosundaki satırlar cascade ile gider ve kullanıcıların bilet geçmişi yok olur. Kontrol yalnızca arayüzde butonu gizlemekle yapılmaz.
 
-Silinebilir etkinliklerde biletler foreign key üzerinden cascade ile silinir; `RezervasyonKuyrugu`'nun `Etkinlik`'e foreign key'i **olmadığı** için o kayıtlar ayrıca temizlenir — aksi halde öksüz satır kalırdı.
+Ama "önce sor, sonra sil" de yetmiyor: tam aradaki anda bir ödeme tamamlanırsa satılmış bilet yine yok olurdu. Koşul bu yüzden `DELETE`'in kendi içinde:
+
+```sql
+DELETE FROM Etkinlikler
+WHERE Id = @id
+  AND NOT EXISTS (SELECT 1 FROM Biletler WHERE EtkinlikId = @id AND Durum = 'Satıldı')
+```
+
+Etkilenen satır sayısı 0 ise silme reddedilmiş demektir. Bilet, kuyruk ve değerlendirme kayıtları foreign key'ler üzerinden cascade ile temizlenir.
 
 ### Bildirim e-postası neden hak tanıma anında gönderilmiyor?
 
@@ -426,12 +365,6 @@ Bunun yerine `RezervasyonKuyrugu` tablosuna `BildirimGonderildi` bayrağı eklen
 Aynı desen satın alma bildirimi için de kullanılır: `Biletler` tablosundaki `BildirimGonderildi`, ödeme tamamlandığında sıfırlanır ve worker "satılmış ama bildirilmemiş" biletleri tarar. Bayrak her ödeme tamamlanışında sıfırlandığı için, iptal edilip tekrar satılan bilette yeni alıcıya da bildirim gider.
 
 Bu özellik eklendiğinde veritabanında zaten satılmış biletler vardı; migration bunları "bildirilmiş" olarak işaretler, aksi halde özellik açılır açılmaz tüm geçmiş satışlara toplu e-posta giderdi.
-
-### QR kodu e-postaya nasıl gömülüyor?
-
-Gmail gibi istemciler `data:` URI'li görselleri engeller. Bu yüzden QR kodu MailKit'in `LinkedResources` özelliğiyle e-postaya iliştirilir ve HTML içinde `cid:biletqr` ile referans verilir. Geliştirme modunda (SMTP yokken) dosyaya yazan gönderici, önizleme tarayıcıda açılacağı için `cid:` referanslarını `data:` URI'ye çevirir.
-
-QR kodu, kapı görevlisinin okutunca açacağı imzalı doğrulama adresini taşır (bkz. aşağıdaki bölüm).
 
 ### Kapı kontrolü QR kodu neden imzalı?
 
@@ -581,16 +514,6 @@ Bu tarama bir kez de gerçek bir hata yakaladı; ayrıntısı [Kendi kodunu dene
 
 **Kullanıcı tablosuna foreign key neden yok?** `Biletler.RezerveEdenKullaniciId`, `Degerlendirmeler.KullaniciId` ve `Favoriler.KullaniciId` alanları `AspNetUsers`'a foreign key ile bağlı değil. Uygulamada hesap silme özelliği bulunmadığı için bugün öksüz kayıt oluşmuyor (tarama da bunu doğruluyor), ama hesap silme eklenirse bu bağların kurulması gerekir. Bilerek bırakılmış bir boşluk, gözden kaçmış değil.
 
-### Üretime çıkarken
-
-`appsettings.json` içindeki `AllowedHosts` değeri `*`'dır. Bu, uygulamanın hangi alan adıyla çağrılırsa çağrılsın cevap vermesi demektir; üretimde Host başlığı manipülasyonuna kapı aralar. Yayına çıkarken gerçek alan adıyla değiştirin:
-
-```json
-"AllowedHosts": "biletsatis.com;www.biletsatis.com"
-```
-
-`Eposta:SiteAdresi` de aynı şekilde gerçek adresle güncellenmelidir — doğrulama ve şifre sıfırlama bağlantıları bu adresi kullanır.
-
 ### Güvenlik önlemleri
 
 | Önlem | Neden |
@@ -606,6 +529,7 @@ Bu tarama bir kez de gerçek bir hata yakaladı; ayrıntısı [Kendi kodunu dene
 | `Stripe:SecretKey` üretimde zorunlu | Anahtarsız uygulama ayağa kalkıp ödeme adımında patlıyordu |
 | Giriş hatasında tek mesaj | "E-posta veya şifre hatalı" — hangi adresin kayıtlı olduğu ele verilmez |
 | E-posta değişikliği onaya bağlı | Adres, yeni adrese giden bağlantıya tıklanana kadar değişmez |
+| Afiş yüklemede dört katmanlı doğrulama | Uzantı allowlist'i, 4 MB sınırı, **dosya imzası** (uzantısı değiştirilmiş dosya reddedilir) ve sunucuda üretilen GUID dosya adı |
 | Uygulama genelinde `[Authorize]` | Yetki varsayılan olarak kapalı; bir action'a öznitelik koymayı unutmak açık yaratmaz |
 
 Son madde bilinçli bir tercih: yetkilendirme filtresi global olarak eklenir, herkese açık olması gereken sayfalar (`giriş`, `kayıt`, `şifremi unuttum`, hata sayfası) `[AllowAnonymous]` ile işaretlenir. Tersi kurulumda yeni yazılan her action'ın korunması geliştiricinin hatırlamasına kalırdı. Doğrulandı: 18 rota anonim olarak tarandı, korumalı olması gereken 15'i istisnasız giriş sayfasına yönlendi.
@@ -622,112 +546,46 @@ dotnet user-secrets set "Yonetici:Sifre" "guclu-bir-sifre"
 
 ## Kendi kodunu denetlemek
 
-Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, arayüz çalışıyordu. Sonra kod baştan sona okundu, veritabanı bağımsız sorgularla tarandı ve uygulama yük altında ölçüldü — **on gerçek hata** çıktı. Hiçbiri derleyici uyarısı vermiyordu, hiçbiri mevcut testleri kırmıyordu, birkaçı da README'nin çalıştığını iddia ettiği korumalardı.
+Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, arayüz çalışıyordu. Sonra dört ayrı yöntemle üstünden geçildi — kod satır satır okundu, veritabanı bağımsız SQL sorgularıyla tarandı, uygulama yük altında ölçüldü ve testler farklı bir makinede (CI) çalıştırıldı.
 
-Bu bölüm, bulunanları ve her birinin **nasıl kanıtlandığını** anlatıyor. Yöntem her seferinde aynı: önce hatayı gösteren testi yaz, kırıldığını gör, sonra düzelt. Testler `BiletSatis.Tests/DenetimBulgulariTests.cs` içinde.
+**On gerçek hata çıktı.** Hiçbiri derleyici uyarısı vermiyordu, hiçbiri mevcut testleri kırmıyordu, üçü de README'nin çalıştığını iddia ettiği korumalardı. Her biri için önce hatayı gösteren test yazıldı, kırıldığı görüldü, sonra düzeltildi — testler `BiletSatis.Tests/DenetimBulgulariTests.cs` içinde.
 
-### 1. Kayıp güncelleme koruması gerçek akışta yoktu
+| # | Hata | Nasıl bulundu |
+|---|---|---|
+| 1 | Kayıp güncelleme koruması gerçek akışta hiç çalışmıyordu | Kod okuma |
+| 2 | E-posta değiştiren kullanıcı hesabından kalıcı olarak kilitleniyordu | Kod okuma |
+| 3 | `/?sayfa=2147483647` sunucuyu 500'e düşürüyordu (int taşması → negatif OFFSET) | Kod okuma |
+| 4 | 66 satılmış biletin QR'ı kapıda "sahte" diye reddediliyordu | **Veritabanı taraması** |
+| 5 | Genel giriş ucu bilet modelini doğrulamıyordu; koltuklar haritasız kaptırılabiliyordu | Kod okuma |
+| 6 | Açıklaması boş bırakılan etkinlik kaydedilemiyordu (hata mesajı da İngilizceydi) | Başka bir test |
+| 7 | Kayıt isteği SMTP'yi bekliyordu: 200 kullanıcıda 4–17 saniye | **Yük ölçümü** |
+| 8 | Kuyruk görevi 2000 etkinlikte turda 4000+ sorgu çalıştırıyordu | Kod okuma |
+| 9 | Yönetici 250,50 TL girerken 25.050 TL'lik bilet oluşuyordu (yüz kat) | **CI** |
+| 10 | Docker kurulumunda bütün fiyat ve tarihler bozuk görünürdü | **CI** |
 
-`rowversion` sütunu şemadaydı, testi vardı, README'de anlatılıyordu. Ama düzenleme ekranı POST'ta satırı veritabanından **yeniden okuyup** üstüne yazıyordu; karşılaştırılan sürüm hep güncel çıkıyor, çakışma hiç oluşmuyordu. Mevcut test iki `DbContext` üzerinden EF'in kendi davranışını doğruluyordu — controller'a hiç dokunmuyordu.
+Ayrıca: tarih karşılaştırmalarındaki UTC/yerel karışıklığı, hiç çalışmayan bir `catch` bloğu (ham SQL `SqlException` fırlatır, `DbUpdateException` değil), değerlendirme özetinin bütün puanları belleğe çekmesi, bilet ekleme doğrulamalarının eksikliği.
 
-**Kanıt:** İki yöneticinin gerçek HTTP akışı test edildi. Düzeltmeden önce ikinci kayıt sessizce başarılı oluyor (302) ve ilkinin değişikliği yok oluyordu. Düzeltmeden sonra istek reddediliyor. Tek satırlık düzeltme geçici olarak geri alındığında test yine kırılıyor.
+### Üçü neden öğretici
 
-### 2. E-posta değiştiren kullanıcı hesabından kilitleniyordu
+**Koruma vardı, testi vardı, dokümanı vardı — ve çalışmıyordu.** Satır sürümü (`rowversion`) şemadaydı ve testi geçiyordu. Ama test iki `DbContext` üzerinden EF'in kendi davranışını doğruluyordu; gerçek akış controller'dan geçiyordu ve orada sürüm formda taşınmadığı için karşılaştırma hep kendi kendine eşitti. Kayıp güncelleme koruması bir yıl boyunca hiçbir şey yapmadan durabilirdi. **Bir testin geçmesi, test ettiğini sandığın şeyi test ettiği anlamına gelmiyor.**
 
-Profil ekranı `SetEmailAsync` çağırıyordu. Identity bu metotta adresi değiştirirken **doğrulama bayrağını da sıfırlar** — ve doğrulama e-postası gönderilmiyordu. E-posta doğrulaması zorunlu olduğu için kullanıcı çıkış yaptığı anda hesabına bir daha giremiyordu. Daha kötüsü: adres anında değiştiği için yanlış yazılan bir harf hesabı kalıcı olarak erişilemez yapıyordu — eski adres gitmiş, yenisine ulaşılamıyor.
+**Kodu okuyarak görülemeyen hata.** `KodSurumu` sütunu migration ile `defaultValue: 0` eklenmişti; o güne kadarki bütün biletler sıfır kaldı. Kod çözücü sıfırı geçersiz sayıyor — yani sistem kendi ürettiği QR'ı kapıda reddediyordu. Kodun her satırı doğruydu; yanlış olan verinin kendisiydi. Ancak veritabanına bağımsız sorularla bakınca göründü, ve gerçek hayatta ancak etkinlik günü kapıda fark edilirdi.
 
-**Düzeltme:** Adres artık onaylanana kadar değişmiyor. Yeni adrese onay bağlantısı gidiyor, tıklanınca `ChangeEmailAsync` ile değişiklik uygulanıyor. Yanlış adres yazıldığında hiçbir şey olmuyor, kullanıcı tekrar deniyor.
+**Kendi makinende çalışması bir şey kanıtlamıyor.** 9 ve 10 numaralı hatalar yalnızca geliştirme makinesinin Türkçe olması sayesinde gizleniyordu. HTML'de `<input type="number">` alanı, tarayıcının dili ne olursa olsun değeri noktayla gönderir; Türkçe kültürde nokta binlik ayracıdır. CI'ın asıl değeri hız değil, **farklı bir ortam** olması.
 
-### 3. Tek bir adres sunucuyu 500'e düşürüyordu
+### Ölçüm ne gösterdi
 
-`/?sayfa=2147483647`. Sayfa numarası adres çubuğundan geliyor ve sınırlanmıyordu; `(sayfa - 1) * sayfaBoyutu` çarpımı `int` sınırını aşınca sessizce negatife dönüyor, SQL Server "OFFSET negatif olamaz" diyerek isteği düşürüyordu. Giriş gerektirdiği için dışarıdan sömürülemezdi, ama giriş yapmış herkes tek bağlantıyla hata üretebiliyordu.
-
-**Kanıt:** `?sayfa=2000000000` ve `?sayfa=int.MaxValue` için HTTP 500. Düzeltmeden sonra ikisi de normal cevap veriyor.
-
-### 4. Kod sürümü sıfır kalan biletlerin QR'ı kapıda reddediliyordu
-
-Bu, veritabanı bütünlük taramasında çıktı — kod okuyarak görülemezdi. `KodSurumu` sütunu migration ile `defaultValue: 0` olarak eklenmişti; o güne kadarki **bütün biletler sıfırla kaldı**. Kod çözücü ise sıfır sürümü geçersiz sayıyor. Yani sistem kendi ürettiği QR'ı kapıda "sahte bilet" diye reddediyordu. Geliştirme veritabanında 66 satılmış bilet bu durumdaydı; hata ancak etkinlik günü, kapıda fark edilirdi.
-
-**Düzeltme:** Migration hem kalan kayıtları 1'e çekiyor hem de sütunun varsayılanını 1 yapıyor (EF dışından eklenen satırlar da geçerli olsun diye). Testlerden biri veritabanında sıfır sürümlü bilet kalmadığını sürekli doğruluyor.
-
-### 5. Genel giriş ucu bilet modelini doğrulamıyordu
-
-"Hangisi olursa olsun N bilet ver" ucu, etkinliğin gerçekten genel giriş olup olmadığına bakmıyordu. Koltuk seçmeli bir etkinliğe doğrudan POST edilerek salon haritası hiç açılmadan rastgele koltuklar kaptırılabiliyordu.
-
-### 6. Açıklaması boş bırakılan etkinlik kaydedilemiyordu
-
-Alan "isteğe bağlı" diye etiketliydi ama `null` kabul etmeyen bir `string` olduğu için ASP.NET onu kendiliğinden zorunlu sayıyordu. Üstelik hata mesajı İngilizceydi: `The Açıklama field is required.` Bu hatayı bir insan değil, başka bir hata için yazılan test buldu.
-
-### 7. Kimlik e-postaları isteğin içinde gönderiliyordu
-
-Projenin kendi README'si "bildirim e-postası neden hak tanıma anında gönderilmiyor?" diye bir bölümle dış servis beklemesinin isteğe bindirilmemesi gerektiğini savunuyor. Kayıt ve şifre sıfırlama akışı tam da bunu yapıyordu: kullanıcı "Kayıt Ol"a bastığında cevabı SMTP sunucusu dönene kadar bekliyordu.
-
-**Ölçüm:** 200 eşzamanlı kullanıcıda `POST /Account/KayitOl` **4–17 saniye** sürüyordu. E-postalar süreç içi bir kanala alınıp arka planda gönderilmeye başlandıktan sonra aynı istek **110–130 ms**. Uçtan uca yük testi:
+Yedi numaralı hata yalnızca yük altında görünürdü: tek kullanıcıda 300 ms'lik bir SMTP beklemesi kimsenin dikkatini çekmez. E-postalar isteğin dışına, arka plan kuyruğuna alındıktan sonra aynı senaryo:
 
 | Ölçüt | Öncesi | Sonrası |
 |---|---|---|
-| Test süresi | 60,6 sn | **7,0 sn** |
-| İstek/sn | 29,8 | **257,9** |
+| İstek/saniye | 29,8 | **257,9** |
 | p95 yanıt süresi | 4,94 sn | **2,59 sn** |
 | En yavaş istek | 59,99 sn | **3,94 sn** |
+| `POST /Account/KayitOl` | 4–17 sn | **110–130 ms** |
 | Başarısız istek | %0,05 | **%0,00** |
-| Oversell | yok | yok |
 
-Kaybolan bir garanti yok: eski hâlde de gönderim hatası yalnızca loglanıyordu, yani zaten kaybolabilen bir gönderimdi. Kullanıcı bağlantıyı arayüzden yeniden isteyebiliyor.
-
-### 8. Arka plan görevi ölçeklenmiyordu
-
-`WaitlistWorker` her 15 saniyede bütün etkinlikleri listeleyip her biri için ayrı sorgu çalıştırıyordu. 19 etkinlikte fark edilmiyordu; 2000 etkinlikte **her turda 4000'den fazla sorgu** demek — üstelik turların neredeyse tamamında yapacak iş yok. Tarama tek küme sorgusuna indirildi; devretme yalnızca gerçekten yeri boşalan etkinlikler için çalışıyor.
-
-### 9. Yönetici 250,50 TL'lik bilet eklerken 25.050 TL'lik bilet oluşuyordu
-
-HTML'de `<input type="number">` alanı, tarayıcının dili ne olursa olsun değeri **noktayla** gönderir — standart böyle. Türkçe kültürde ise nokta binlik ayracıdır. Model bağlama sunucunun kültürünü kullandığı için `250.50` değeri **25050** olarak okunuyordu: yüz kat fiyat hatası, hiçbir hata mesajı vermeden.
-
-Düzeltme, kültürü tamamen değiştirmek değil: yalnızca **okuma** tarafı kültürden bağımsız hâle getirildi (`OndalikModelBaglayici`). Gösterim Türkçe kalır ("1.500 ₺"), giriş standarda uyar.
-
-### 10. Docker kurulumunda bütün fiyatlar ve tarihler bozuk görünürdü
-
-Arayüz tamamen Türkçe ama uygulama kültürü hiçbir yerde ayarlanmamıştı; biçimlendirme işletim sisteminin kültürüne bırakılmıştı. Türkçe bir Windows'ta doğru görünen sayfalar, projenin README'de anlattığı **Docker (Linux) kurulumunda** bozuluyordu: "1.500 ₺" yerine `1,500`, "12 Eyl 2026" yerine `12 Sep 2026`.
-
-Bu hatayı bir insan değil **CI bulldu**: testler ilk kez Türkçe olmayan bir makinede çalıştırıldığında biçim beklentileri tutmadı. Geliştirme makinesi Türkçe olduğu için hata orada hiçbir zaman görünmezdi.
-
-Kültür artık `Program.cs` içinde açıkça sabitleniyor; uygulama nerede çalışırsa çalışsın aynı çıktıyı veriyor.
-
-### Ayrıca düzeltilenler
-
-- **Tarih karşılaştırmaları** yerel saat ve UTC arasında karışıktı; "bu hafta" filtresi sunucunun saat dilimi kadar kayıyordu. Hepsi UTC'ye birleştirildi.
-- **Favori ekleme yanlış istisna tipini yakalıyordu.** Ham SQL `SqlException` fırlatır; `DbUpdateException` yalnızca `SaveChanges` yolunda gelir. Eski `catch` hiçbir zaman çalışmıyordu.
-- **Değerlendirme özeti** bütün puanları belleğe çekip ortalamayı orada hesaplıyordu; artık dağılım SQL'de gruplanıyor (en fazla beş satır dönüyor).
-- **Bilet ekleme** koltuk öneki uzunluğunu ve etkinliğin varlığını doğrulamıyordu; her iki hata da yöneticiye "koltuk numaraları çakıştı" diye gösteriliyordu.
-- **Yük testi gerçek e-posta gönderiyordu.** SMTP tanımlıysa 200 kullanıcılık bir koşu, var olmayan adreslere 200 gerçek e-posta demekti. `yuktest` profili artık SMTP'yi kapatıyor; e-postalar diske yazılıyor.
-
-### Bu bölümden çıkan ders
-
-On hatanın ortak yanı, hiçbirinin görünür olmaması. Test paketi yeşildi, arayüz çalışıyordu, loglar temizdi. Her birini farklı bir yöntem ortaya çıkardı:
-
-| Yöntem | Bulduğu |
-|---|---|
-| Kodu satır satır okumak | Kayıp güncelleme, e-posta kilitlenmesi, sayfa taşması, genel giriş ucu, kuyruk taraması |
-| Veritabanını bağımsız sorgularla taramak | Sıfır kod sürümü — 66 biletin QR'ı kapıda geçersizdi |
-| Yük altında ölçmek | İstek yolundaki SMTP beklemesi (8,6 kat yavaşlık) |
-| Testi başka bir makinede çalıştırmak (CI) | Kültür ayarının hiç yapılmamış olması |
-| Başka bir hata için yazılan test | Boş açıklamanın reddedilmesi, ondalıklı fiyatın 100 katına çıkması |
-
-Dördü de "çalışıyor mu" değil, "**gerçekten iddia ettiğini mi yapıyor**" sorusunu soruyor.
-
-İki tanesi özellikle öğretici:
-
-**1 numara** — koruma vardı, testi vardı, dokümantasyonu vardı ve çalışmıyordu. Test, korumanın kendisini değil EF'in davranışını doğruluyordu. Bir testin geçmesi, test ettiğini sandığınız şeyi test ettiği anlamına gelmiyor.
-
-**10 numara** — hata yalnızca geliştirme makinesinin Türkçe olması sayesinde gizleniyordu. Kendi makinenizde çalışan kod, "her yerde çalışıyor" demek değil; CI'ın asıl değeri hız değil, **farklı bir ortam** olması.
-
-### Koltuk blokları nereden geliyor?
-
-Ayrı bir "blok" tablosu yok. Blok bilgisi koltuk numarasının önekinden türetilir (`A-01`, `B-33` → A ve B blokları). Kategori sırası fiyata göre belirlenir: en pahalı blok "1. Kategori" olur ve salon haritasında sahneye en yakın konuma yerleşir.
-
-### Şehir neden ayrı bir sütun?
-
-Şehir başlangıçta `Mekan` alanındaki `"Salon Adı, Şehir"` metninden C# tarafında ayrıştırılıyordu (`MekanBilgisi` sınıfı). Bu, ek bir migration gerektirmeden şehir filtresi eklemeyi mümkün kıldı — ama metnin içinden türetilen bir değerle ne `WHERE` yazılabilir ne dizin kurulabilir. Sunucu tarafı filtreleme eklenirken `Etkinlik.Sehir` gerçek bir sütuna dönüştürüldü; değer `SaveChanges` sırasında `Mekan`'dan türetiliyor, böylece kaydı kim yazarsa yazsın (admin paneli, seeder, test) tutarlı kalıyor. `MekanBilgisi` ayrıştırma işini yapmaya devam ediyor, ama artık sorgu zamanında değil kayıt zamanında çalışıyor.
+Her iki ölçümde de sepete ekleme sayısı tam olarak 1 — sorun doğrulukta değil, verimdeydi.
 
 ## Teknoloji yığını
 
@@ -768,170 +626,112 @@ BiletSatis/
   .env.example             # Docker için gerekli ortam değişkenleri şablonu
 ```
 
-### Etkinlik alanları
-
-| Alan | Açıklama |
-|---|---|
-| `Ad`, `Tarih` | Temel bilgiler |
-| `Mekan` | `"Salon Adı, Şehir"` biçiminde; şehir buradan ayrıştırılır |
-| `Kategori` | Konser, Tiyatro, Sinema, Festival, StandUp, ElektronikMuzik, CocukAktiviteleri, Eglence |
-| `Aciklama` | Detay sayfasındaki tanıtım metni |
-| `YasSiniri` | Asgari yaş; `0` = sınır yok |
-| `AfisUrl` | Afiş görselinin yolu; boşsa varsayılan afiş kullanılır |
-
-### Afiş görselleri
-
-`wwwroot/img/afis/` altındaki afişler harici bağımlılığı olmayan yerel SVG dosyalarıdır. Yönetim panelinden yeni afiş yüklenebilir; yükleme dört katmanlı doğrulamadan geçer:
-
-1. Uzantı allowlist'i (JPG, PNG, WEBP)
-2. Boyut sınırı (4 MB)
-3. Dosya imzası (magic bytes) kontrolü — uzantısı değiştirilmiş dosyalar reddedilir
-4. Dosya adı istemciden alınmaz, sunucuda GUID olarak üretilir
-
-Yüklenen dosyalar `img/afis/yuklenen/` altına kaydedilir ve `.gitignore` ile depoya girmez.
-
 ## Kurulum
 
-### Gereksinimler
-- .NET 9 SDK
-- SQL Server (LocalDB veya tam sürüm — `appsettings.json` içindeki `ConnectionStrings:DefaultConnection` bağlantı dizesini ortamınıza göre düzenleyin)
-
-### Çalıştırma
+**Gereksinim:** .NET 9 SDK ve SQL Server (LocalDB yeterli). Bağlantı dizesi `appsettings.json` → `ConnectionStrings:DefaultConnection`.
 
 ```bash
-git clone <bu-repo>
-cd BiletSatis
+git clone https://github.com/Osama534-png/BiletSatis-.git
+cd BiletSatis-
 dotnet run --project BiletSatis.Web
 ```
 
-İlk çalıştırmada veritabanı otomatik oluşturulur, migration'lar uygulanır ve örnek etkinlik/bilet verisi seed edilir. Ayrıca aşağıdaki admin hesabı otomatik oluşturulur:
+İlk çalıştırmada veritabanı oluşturulur, migration'lar uygulanır, örnek etkinlik ve bilet verisi yazılır. Yönetici hesabı da açılır: `admin@biletsatis.local` / `Admin123!`
 
-- **E-posta:** `admin@biletsatis.local`
-- **Şifre:** `Admin123!`
+> ⚠️ Bu şifre yalnızca geliştirme içindir ve koda gömülüdür. Üretimde `Yonetici:Sifre` tanımlı değilse hesap **hiç açılmaz** ve uyarı loglanır.
 
 ### Docker ile çalıştırma
 
-.NET SDK veya yerel SQL Server kurmadan, tek komutla hem uygulamayı hem de kendi SQL Server veritabanını ayağa kaldırabilirsiniz:
+.NET SDK ya da yerel SQL Server kurmadan:
 
 ```bash
-cp .env.example .env
-# .env dosyasını açıp DB_SA_PASSWORD ve STRIPE_SECRET_KEY değerlerini girin
+cp .env.example .env      # DB_SA_PASSWORD ve STRIPE_SECRET_KEY doldurun
 docker compose up --build
 ```
 
-Uygulama `http://localhost:8080` adresinde açılır. `docker-compose.yml`, uygulama container'ı (`web`) ile ayrı bir SQL Server container'ını (`db`) birlikte başlatır; veritabanı bağlantısı Windows Authentication yerine SQL Server kimlik doğrulaması (kullanıcı/şifre) ile ortam değişkenleri üzerinden yapılandırılır — bu yüzden yerel geliştirme (`appsettings.json`) ile Docker yapılandırması birbirinden bağımsızdır.
+Uygulama `http://localhost:8080` adresinde açılır. `docker-compose.yml` uygulama container'ını (`web`) kendi SQL Server container'ıyla (`db`) birlikte başlatır; bağlantı Windows Authentication yerine kullanıcı/şifre ile kurulur, bu yüzden yerel geliştirme yapılandırmasından tamamen bağımsızdır.
 
-> ⚠️ Bu, sadece yerel geliştirme için hardcoded bir seed hesabıdır — gerçek bir dağıtımda bu yaklaşım değiştirilmelidir.
+### Gizli anahtarlar
 
-### Stripe (ödeme) yapılandırması
-
-Stripe secret key'i **asla appsettings.json'a yazılmaz** — `dotnet user-secrets` ile saklanır:
+Hiçbiri `appsettings.json`'a yazılmaz; `dotnet user-secrets` ile saklanır:
 
 ```bash
 cd BiletSatis.Web
-dotnet user-secrets set "Stripe:SecretKey" "sk_test_..."
-```
-
-Test kartı: `4242 4242 4242 4242`, herhangi bir gelecek son kullanma tarihi, herhangi 3 haneli CVC.
-
-### Kapı kontrolü imza anahtarı
-
-Bilet QR kodları bu anahtarla imzalanır. Geliştirmede tanımlı değilse sabit bir geçici anahtar kullanılır; **üretimde tanımlı değilse uygulama başlamaz** — anahtarsız imza tahmin edilebilir olur ve sahte bilet üretilebilir.
-
-```bash
-cd BiletSatis.Web
+dotnet user-secrets set "Stripe:SecretKey"   "sk_test_..."
 dotnet user-secrets set "Giris:ImzaAnahtari" "uzun-ve-rastgele-bir-deger"
+dotnet user-secrets set "Yonetici:Eposta"    "siz@ornek.com"
+dotnet user-secrets set "Yonetici:Sifre"     "guclu-bir-sifre"
 ```
 
-Anahtar değiştirilirse önceden gönderilmiş biletlerin QR kodları geçersiz olur.
+| Anahtar | Tanımlı değilse |
+|---|---|
+| `Stripe:SecretKey` | Geliştirmede uygulama çalışır, ödeme adımı patlar. **Üretimde uygulama başlamaz.** |
+| `Giris:ImzaAnahtari` | Geliştirmede sabit geçici anahtar. **Üretimde uygulama başlamaz** — anahtarsız imza tahmin edilebilir olur, sahte bilet üretilebilirdi. Anahtar değişirse önceden gönderilmiş QR kodları geçersizleşir. |
+| `Yonetici:Sifre` | Geliştirmede varsayılan hesap açılır; üretimde hiç açılmaz. |
+| `Eposta:*` | E-posta gönderilmez, `logs/eposta/` altına `.html` yazılır — içerik tarayıcıda kontrol edilebilir. |
 
-### E-posta bildirimi yapılandırması
+Ödeme testi için Stripe test kartı: `4242 4242 4242 4242`, gelecek bir son kullanma tarihi, herhangi 3 haneli CVC.
 
-Proje **SMTP hesabı olmadan da çalışır**. `Eposta:SmtpSunucu` boşsa e-postalar gönderilmez, `logs/eposta/` klasörüne `.html` dosyası olarak yazılır — bildirimlerin içeriği tarayıcıda açılıp kontrol edilebilir.
-
-Gerçek gönderim için SMTP bilgilerini girin (şifre `appsettings.json`'a **yazılmaz**, user-secrets'ta saklanır):
+### E-posta gönderimi
 
 ```bash
-cd BiletSatis.Web
-dotnet user-secrets set "Eposta:SmtpSunucu" "smtp.gmail.com"
+dotnet user-secrets set "Eposta:SmtpSunucu"  "smtp.gmail.com"
 dotnet user-secrets set "Eposta:KullaniciAdi" "hesabiniz@gmail.com"
-dotnet user-secrets set "Eposta:Sifre" "uygulama-sifreniz"
+dotnet user-secrets set "Eposta:Sifre"        "uygulama-sifreniz"
 ```
 
-`appsettings.json` içindeki `Eposta:SiteAdresi` değerini de sitenin gerçek adresiyle güncelleyin — e-postadaki bağlantılar bu adresi kullanır, göreli adres e-posta istemcilerinde çalışmaz.
+`appsettings.json` içindeki `Eposta:SiteAdresi` sitenin gerçek adresi olmalı — e-postadaki bağlantılar bunu kullanır, göreli adres e-posta istemcilerinde çalışmaz.
 
-> **Gmail kullanacaksanız:** Uygulama şifresi almadan **önce** iki adımlı doğrulamayı açın. 2FA kapalıyken üretilen şifreleri Google kabul etmez ve `535 Username and Password not accepted` hatası alırsınız. Şifreyi `abcd efgh ijkl mnop` biçiminde boşluklu yapıştırabilirsiniz; kod boşlukları temizler.
+> **Gmail:** uygulama şifresi almadan **önce** iki adımlı doğrulamayı açın. 2FA kapalıyken üretilen şifreleri Google kabul etmez ve `535 Username and Password not accepted` alırsınız. Şifreyi boşluklu yapıştırabilirsiniz, kod temizler.
 
-Gmail dışında herhangi bir SMTP sağlayıcısı da çalışır (Brevo, Mailtrap, kurumsal sunucu). Yalnızca `Eposta:SmtpSunucu`, `KullaniciAdi` ve `Sifre` değerlerini değiştirmek yeterlidir; kodda değişiklik gerekmez.
+Herhangi bir SMTP sağlayıcısı çalışır (Brevo, Mailtrap, kurumsal sunucu); kodda değişiklik gerekmez.
 
 ## Test
 
-**203 test**, hepsi geçiyor. Testler gerçek SQL Server semantiğine (`DATEADD`, `GETUTCDATE()`, atomik `UPDATE...WHERE`, `rowversion`) dayandığı için in-memory sahte bir veritabanı **kullanılmaz** — ayrı bir test veritabanına (`BiletSatisDb_Test`) karşı çalışırlar. Sahte veritabanı, tam da doğrulanmak istenen eşzamanlılık davranışını taklit edemezdi.
+**203 test**, hepsi geçiyor — her push'ta CI'da da.
 
 ```bash
 dotnet test BiletSatis.Tests
 ```
 
-### Entegrasyon testleri (xUnit)
+**Sahte (in-memory) veritabanı kullanılmaz.** Testler gerçek SQL Server semantiğine dayanıyor: atomik `UPDATE ... WHERE`, `rowversion`, `UPDLOCK`, `GETUTCDATE()`. Sahte bir sağlayıcı tam da doğrulanmak istenen davranışı taklit edemezdi. Bu yüzden ayrı bir test veritabanına (`BiletSatisDb_Test`) karşı çalışırlar.
 
-En kritik test, projenin tüm iddiasını kanıtlar: 50 ayrı bağlantıdan aynı bilete gerçek eşzamanlı istek gönderilir ve tam olarak birinin başarılı olduğu doğrulanır (`TryAddToCartAsync_ElliEsZamanliIstek_SadeceBiriBasariliOlmali`).
+**Eşzamanlılık testi nasıl gerçekten eşzamanlı yapılır?** `Task.WhenAll` ile başlatmak yetmiyor: görevlerden biri diğeri başlamadan bitiyor ve yarış durumu hiç oluşmuyor. Testler ortak bir kapı kullanır — her görev önce bağlantısını açıp ısınır (`SELECT 1`), sonra hepsi aynı `TaskCompletionSource` üzerinde bekler ve birlikte serbest bırakılır. Kuyruktaki mükerrer kayıt hatası ancak bu yöntemle görünür oldu; kapısız hâlde altı koşuda da gözden kaçıyordu.
 
-**Eşzamanlılık testi nasıl gerçekten eşzamanlı yapılır?** `Task.WhenAll` ile başlatmak yetmiyor: görevlerden biri diğeri başlamadan bitiyor ve yarış durumu hiç oluşmuyor. Bu projedeki testler ortak bir kapı kullanır — her görev önce kendi bağlantısını açıp ısınır (`SELECT 1`), sonra hepsi aynı `TaskCompletionSource` üzerinde bekler ve birlikte serbest bırakılır. Kuyruktaki mükerrer kayıt hatası ancak bu yöntemle görünür hâle geldi; kapısız hâlde altı koşuda da gözden kaçıyordu.
+En kritik test projenin tüm iddiasını kanıtlar: 50 ayrı bağlantıdan aynı bilete gerçek eşzamanlı istek gider ve tam olarak birinin başarılı olduğu doğrulanır (`TryAddToCartAsync_ElliEsZamanliIstek_SadeceBiriBasariliOlmali`).
 
-Kapsanan alanlar:
+**Uçtan uca testler** uygulamanın tamamını bellek içi bir test sunucusunda ayağa kaldırıp gerçek HTTP istekleri gönderir; böylece yönlendirme, yetkilendirme, antiforgery, model bağlama ve Razor görünümleri de kapsama girer. "Servis doğru ama sayfa bozuk" durumu ancak böyle yakalanır — nitekim denetimdeki hataların yarısı yalnızca bu seviyede görünüyordu.
+
+<details>
+<summary><b>Kapsanan alanlar (19 test sınıfı)</b></summary>
 
 | Dosya | Ne test ediliyor |
 |---|---|
 | `BiletRezervasyonServisiTests` | Eşzamanlı sepete ekleme, kilit süresi, ödeme tamamlama, çoklu koltukta "hepsi ya da hiçbiri", kesişen koltuk kümeleri, kilit uzatma |
-| `KuyrukServisiTests` | Sıra numarası benzersizliği, FIFO hak tanıma, süre dolumu, aynı kullanıcının eşzamanlı katılımında tek kayıt, eşzamanlı hak tanımada tutarlılık |
-| `AdminEtkinlikSilmeTests` | Satılmış bilet koruması, bilet ve kuyruk kayıtlarının temizlenmesi |
-| `MekanBilgisiTests` | Şehir/salon ayrıştırma uç durumları |
-| `EtkinlikKartVmTests` | Geri sayım metni, kıtlık uyarısı eşikleri |
-| `AdminOzetTests` | Gelir/doluluk hesapları, sıfıra bölme durumu |
-| `ProfilVmTests` | Avatar baş harfleri |
-| `KuyrukBildirimServisiTests` | Bildirim gönderimi, tekrar gönderim engeli, hata sonrası yeniden deneme |
-| `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
-| `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
-| `EtkinlikSorguServisiTests` | Ana sayfa filtreleri (kategori, şehir, fiyat, tarih, tükenenler), sıralama ve sayfalama |
-| `FavoriServisiTests` | Favori ekleme/çıkarma, kullanıcı ayrımı, cascade silme, eşzamanlı isteklerde mükerrer kayıt olmaması |
-| `BiletDevirServisiTests` | Bilet devri: eski QR'ın geçersizleşmesi, kapıda okutulmuş biletin devredilememesi, eşzamanlı devir denemeleri |
-| `KimlikEpostaServisiTests` | Doğrulama ve şifre sıfırlama e-postalarının içeriği, gönderim hatasının yukarı taşınması |
-| `EtkinlikEsZamanliDuzenlemeTests` | İki yöneticinin aynı etkinliği düzenlemesi (EF seviyesinde kayıp güncelleme koruması) |
+| `KuyrukServisiTests` | Sıra numarası benzersizliği, FIFO hak tanıma, süre dolumu, aynı kullanıcının eşzamanlı katılımında tek kayıt |
 | `GirisServisiTests` | Kapı kontrolü: tek kullanım, 20 eşzamanlı okutmada tek giriş, satılmamış bilet reddi |
-| `DegerlendirmeServisiTests` | Değerlendirme hakkı (okutulmamış bilet reddi), geçersiz puan, tek kayıt kuralı, eşzamanlı istek, ortalama ve dağılım hesabı |
-| `DenetimBulgulariTests` | Kod denetiminde bulunan on hatanın kapandığını doğrulayan testler (bkz. [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek)) |
-| `UctanUcaAkisTests` | Giriş yapmış kullanıcı olarak tüm akışlar (aşağıya bakınız) |
+| `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
+| `BiletDevirServisiTests` | Bilet devri: eski QR'ın geçersizleşmesi, okutulmuş biletin devredilememesi, eşzamanlı devir |
+| `DegerlendirmeServisiTests` | Değerlendirme hakkı, geçersiz puan, tek kayıt kuralı, eşzamanlı istek, ortalama ve dağılım |
+| `EtkinlikSorguServisiTests` | Ana sayfa filtreleri (kategori, şehir, fiyat, tarih, tükenenler), sıralama, sayfalama |
+| `FavoriServisiTests` | Favori ekleme/çıkarma, kullanıcı ayrımı, cascade silme, eşzamanlı isteklerde mükerrer kayıt |
+| `AdminEtkinlikSilmeTests` | Satılmış bilet koruması, bilet ve kuyruk kayıtlarının temizlenmesi |
+| `EtkinlikEsZamanliDuzenlemeTests` | İki yöneticinin aynı etkinliği düzenlemesi (EF seviyesi) |
+| `KuyrukBildirimServisiTests` · `BiletBildirimServisiTests` | Bildirim gönderimi, QR gömme, tekrar gönderim engeli, hata sonrası yeniden deneme |
+| `KimlikEpostaServisiTests` | Doğrulama ve şifre sıfırlama e-postalarının içeriği |
+| `MekanBilgisiTests` · `EtkinlikKartVmTests` · `AdminOzetTests` · `ProfilVmTests` | Ayrıştırma uç durumları, geri sayım, gelir/doluluk hesapları, sıfıra bölme |
+| `DenetimBulgulariTests` | Denetimde bulunan on hatanın kapandığı (bkz. [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek)) |
+| `UctanUcaAkisTests` | Giriş yapmış kullanıcı olarak bütün akışlar: salon haritası, çoklu koltuk, çakışma, sınır, vazgeçme, yetki, rol, yönetim paneli, değerlendirme, kuyruk, güvenlik başlıkları, sayfalama sınırları |
 
-### Uçtan uca testler
+Ödeme adımı kapsam dışıdır: Stripe'ın kendi sunucusunda oturum açılmasını gerektirir. Ödemenin veritabanı tarafı `BiletRezervasyonServisiTests` içinde test edilir.
 
-Servis testleri sınıfları tek tek çağırır; **uçtan uca testler** uygulamanın tamamını bellek içi bir test sunucusunda ayağa kaldırıp gerçek HTTP istekleri gönderir. Böylece yönlendirme, yetkilendirme filtreleri, antiforgery, model bağlama ve Razor görünümleri de kapsama girer — yani "servis doğru ama sayfa bozuk" durumu yakalanır.
+Testler `Guvenlik:EpostaDogrulamaZorunlu` ve `Guvenlik:HizSiniriAktif` kapalı, arka plan görevleri devre dışı bir yapılandırmayla çalışır — aksi halde görevler sepet kilitlerini düşürüp sonuçları belirsiz hâle getirirdi.
 
-Kapsanan akışlar:
-
-| Akış | Doğrulanan |
-|---|---|
-| Salon haritası | Koltuklar ve seçim çubuğu render ediliyor, sayfada hiç satır içi `style` kalmamış (CSP uyumu) |
-| Çoklu koltuk | 3 koltuk sepete giriyor, sepet toplamı doğru |
-| Çakışma | Koltuklardan biri başkasındaysa hiçbiri sepete girmiyor |
-| Sınır | 6'dan fazla koltuk reddediliyor |
-| Vazgeçme | Koltuk tekrar satışa çıkıyor |
-| Yetki | Başkasının sepeti görünmüyor ve iptal edilemiyor |
-| Rol | Normal kullanıcı admin sayfalarına ve kapı kontrolüne giremiyor |
-| Yönetici | Panel açılıyor, satılmış bileti olan etkinlik silinemiyor |
-| Değerlendirme | Kapıdan geçmeyen yazamıyor, geçen yazabiliyor ve yorumu sayfada görünüyor |
-| Kuyruk | İki kez katılım denemesinde tek kayıt oluşuyor |
-| Güvenlik başlıkları | CSP nonce'lu, `unsafe-inline` içermiyor, Stripe yönlendirmesine izin veriyor; `Permissions-Policy` var, `Server` başlığı yok |
-| Etkinlik düzenleme | Form açıkken başkası kaydettiyse üstüne yazılmıyor (controller seviyesinde) |
-| E-posta değişikliği | Onaylanana kadar adres değişmiyor; onay bağlantısıyla değişiyor |
-| Sayfalama | Aşırı büyük ve negatif sayfa numaraları sunucuyu düşürmüyor |
-
-Ödeme adımı kapsam dışıdır: Stripe'ın kendi sunucusunda oturum açılmasını gerektirir. Ödemenin veritabanı tarafı `BiletRezervasyonServisiTests` içinde ayrıca test edilir.
-
-Testler `Guvenlik:EpostaDogrulamaZorunlu` ve `Guvenlik:HizSiniriAktif` kapalı, arka plan görevleri devre dışı bırakılmış bir yapılandırmayla çalışır — aksi halde görevler sepet kilitlerini düşürüp sonuçları belirsiz hâle getirirdi.
+</details>
 
 ### Yük testleri (k6)
 
-Uygulamayı `yuktest` profiliyle başlatın; bu profil e-posta doğrulama zorunluluğunu ve hız sınırını kapatır (yüzlerce test hesabının gelen kutusu yok ve hepsi tek IP'den gelir) ve SMTP'yi devre dışı bırakır.
+`yuktest` profili e-posta doğrulamasını, hız sınırını ve SMTP'yi kapatır — yüzlerce test hesabının gelen kutusu yok, hepsi tek IP'den geliyor ve gerçek e-posta gönderilmemeli.
 
 ```bash
 dotnet run --project BiletSatis.Web --launch-profile yuktest
@@ -939,29 +739,17 @@ dotnet run --project BiletSatis.Web --launch-profile yuktest
 
 ```bash
 k6 run -e VUS=200 loadtests/k6/add-to-cart-test.js
-```
-
-```bash
 k6 run -e M=30 -e N=10 loadtests/k6/queue-fairness-test.js
-```
-
-```bash
 k6 run loadtests/k6/anasayfa-test.js
 ```
 
-Testler eşik (threshold) tanımlar; koşul sağlanmazsa k6 hata koduyla biter, yani CI'da doğrudan kullanılabilir. Ölçüm sonuçları ve yöntem için [loadtests/k6/README.md](loadtests/k6/README.md).
+Her test eşik (threshold) tanımlar; koşul sağlanmazsa k6 hata koduyla biter, yani CI'da doğrudan kullanılabilir. Ölçüm sonuçları ve yöntem: [loadtests/k6/README.md](loadtests/k6/README.md).
 
-Yük testleri her koşuda tek kullanımlık hesaplar açar. Birikince temizlemek için:
-
-```bash
-sqlcmd -S localhost -E -d BiletSatisDb -i loadtests/temizlik.sql
-```
-
-Betik yalnızca `yuktest-` önekli hesapları hedefler, satılmış bileti olanlara dokunmaz ve silmeden önce ne sileceğini gösterir.
+Koşular tek kullanımlık hesap bırakır; `sqlcmd -S localhost -E -d BiletSatisDb -i loadtests/temizlik.sql` temizler (yalnızca `yuktest-` önekli hesapları, satılmış bileti olanlara dokunmadan).
 
 ## Bilinen kapsam dışı konular
 
-- Production dağıtımı (deployment/hosting) henüz yapılmadı.
+- **Production dağıtımı henüz yapılmadı.** Yayına çıkarken iki değer gerçek alan adıyla güncellenmelidir: `AllowedHosts` (şu an `*`, yani uygulama hangi alan adıyla çağrılırsa çağrılsın cevap veriyor — Host başlığı manipülasyonuna açık; üretimde uyarı loglanır) ve `Eposta:SiteAdresi` (doğrulama ve şifre sıfırlama bağlantıları bunu kullanır).
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut). Bu yüzden ödeme 15 dakikalık uzatılmış kilidi de aşarsa para alınmış olmasına rağmen bilet verilemez; durum loglanır ve kullanıcı uyarılır, iade elle yapılır.
 - Bildirim gönderimi **en az bir kez** (at-least-once) garantisi verir. Tekrar gönderim penceresi tek kayda indirildi (her e-postadan sonra ayrı yazma), ama sıfırlanamaz. Kayıt sahiplenilip e-posta gönderildikten hemen sonra süreç çökerse, kira süresi dolduğunda aynı bildirim tekrar gönderilebilir. Tam olarak bir kez garantisi, e-posta gönderimiyle veritabanı yazmasının aynı işlemde olmasını gerektirir; bu da dış bir servisle mümkün değildir.
 - Arayüzde Google Fonts dışında dış kaynak yoktur; CSP bu iki alan adı dışında her şeyi kendi sunucusuyla sınırlar.
