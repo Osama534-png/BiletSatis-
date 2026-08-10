@@ -22,11 +22,14 @@ public class GirisServisi : IGirisServisi
 
     public async Task<GirisSonucu> DurumSorgulaAsync(string? kod, CancellationToken ct = default)
     {
-        var biletId = _biletKodu.BiletIdCoz(kod);
-        if (biletId == null) return Gecersiz();
+        var cozulen = _biletKodu.Coz(kod);
+        if (cozulen == null) return Gecersiz();
 
-        var bilgi = await BiletBilgisiAsync(biletId.Value, ct);
+        var bilgi = await BiletBilgisiAsync(cozulen.BiletId, ct);
         if (bilgi == null) return Gecersiz();
+
+        // Bilet devredildiyse sürüm artmıştır; eski sahibin kodu artık geçerli değil.
+        if (bilgi.KodSurumu != cozulen.KodSurumu) return Gecersiz();
 
         var durum = bilgi.Durum != BiletDurumu.Satildi
             ? GirisDurumu.SatilmamisBilet
@@ -39,21 +42,26 @@ public class GirisServisi : IGirisServisi
 
     public async Task<GirisSonucu> GirisiOnaylaAsync(string? kod, CancellationToken ct = default)
     {
-        var biletId = _biletKodu.BiletIdCoz(kod);
-        if (biletId == null) return Gecersiz();
+        var cozulen = _biletKodu.Coz(kod);
+        if (cozulen == null) return Gecersiz();
 
         // Tek atomik UPDATE: "henüz giriş yapılmamışsa işaretle". Aynı bileti iki
         // görevli aynı anda okutursa etkilenen satır sayısı yalnızca birinde 1 olur.
+        // Kod sürümü de koşula dahil: bilet okutma anında devredilmişse sürüm artar
+        // ve elindeki eski kodla giriş yapılamaz.
         var etkilenen = await _db.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE Biletler
             SET GirisYapildi = 1, GirisZamani = GETUTCDATE()
-            WHERE Id = {biletId.Value}
+            WHERE Id = {cozulen.BiletId}
               AND Durum = {BiletDurumMetni.Satildi}
               AND GirisYapildi = 0
+              AND KodSurumu = {cozulen.KodSurumu}
             """, ct);
 
-        var bilgi = await BiletBilgisiAsync(biletId.Value, ct);
+        var bilgi = await BiletBilgisiAsync(cozulen.BiletId, ct);
         if (bilgi == null) return Gecersiz();
+
+        if (bilgi.KodSurumu != cozulen.KodSurumu) return Gecersiz();
 
         if (etkilenen == 1)
         {
@@ -80,6 +88,7 @@ public class GirisServisi : IGirisServisi
                 KoltukNo = b.KoltukNo,
                 Fiyat = b.Fiyat,
                 Durum = b.Durum,
+                KodSurumu = b.KodSurumu,
                 GirisYapildi = b.GirisYapildi,
                 GirisZamani = b.GirisZamani,
                 EtkinlikAdi = b.Etkinlik!.Ad,
@@ -115,6 +124,7 @@ public class GirisServisi : IGirisServisi
         public string KoltukNo { get; init; } = "";
         public decimal Fiyat { get; init; }
         public BiletDurumu Durum { get; init; }
+        public int KodSurumu { get; init; }
         public bool GirisYapildi { get; init; }
         public DateTime? GirisZamani { get; init; }
         public string EtkinlikAdi { get; init; } = "";

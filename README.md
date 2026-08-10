@@ -15,6 +15,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Otomatik test kapsamı** — hem gerçek SQL Server'a karşı çalışan xUnit entegrasyon testleri hem de k6 ile gerçek eşzamanlı yük testleri.
 - **İnteraktif salon haritası** — koltuk numarası önekinden (`A-01` → A blok) türetilen blok haritası, sahne yayı, doluluğa göre renklendirme.
 - **Çoklu koltuk seçimi** — haritadan tek seferde 6 koltuğa kadar seçilir, seçim çubuğu toplamı canlı gösterir ve tamamı tek istekte rezerve edilir. Koltuklardan biri bile araya girilirse hiçbiri alınmaz (bkz. Mimari Kararlar). Sepetin tamamı tek bir Stripe oturumunda, çok kalemli olarak ödenir.
+- **Bilet devretme** — bilete gidemeyen kullanıcı biletini başka bir kullanıcıya devredebilir. Devir sonrası eski sahibin QR kodu geçersizleşir (imzaya sürüm eklenmiştir) ve yeni sahibe yeni QR'lı bilet e-postası gider. Kapıda okutulmuş ya da etkinliği geçmiş bilet devredilemez.
 - **Genel giriş etkinlikleri** — her etkinlik salonlu değildir. Festival ve ayakta konserlerde koltuk seçimi yerine yalnızca adet seçilir; sistem müsait biletlerden o kadarını tek atomik sorguyla ayırır. Yeterli bilet yoksa hiçbiri ayrılmaz.
 - **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, canlı arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü; tümü sayfa yenilemeden çalışır ve tercihler tarayıcıda saklanır.
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
@@ -56,6 +57,35 @@ WHERE Durum = 'Satışta'
 Id listesi tek bir metin parametresi olarak gönderilip SQL tarafında `STRING_SPLIT` ile tabloya çevrilir. Böylece koltuk sayısına göre değişen bir SQL metni üretmeye gerek kalmaz, sorgu tamamen parametreli kalır.
 
 Geri alma sonrası "hangi koltuk elden gitti" sorgusu bilerek `ROLLBACK`'ten **sonra** çalışır; önce çalışsaydı kendi yazdığımız satırları "sepette" görürdük.
+
+### Bilet devretmede eski QR nasıl öldürülüyor?
+
+Bilete gidemeyen kullanıcı biletini bir arkadaşına devredebilir. Buradaki asıl soru teknik: **eski sahibin elindeki QR ne olacak?**
+
+Kod imzası önceden yalnızca bilet numarası üzerindeydi (`bilet:1399`), yani her bilet için sabitti. Devir yapılsa bile eski sahibin QR'ı çalışmaya devam ederdi — iki kişi aynı biletle kapıya gelirdi.
+
+Çözüm, imzaya bir **sürüm** eklemek:
+
+```
+kod  = 1399.2.a7f3c9e2
+imza = HMAC(anahtar, "bilet:1399:2")
+```
+
+Devir sırasında `KodSurumu` bir artar. Eski koddaki sürüm artık biletin sürümüyle uyuşmaz ve kapıda reddedilir. Kullanıcı kendi kodundaki sürüm numarasını elle artıramaz, çünkü sürüm imzanın içinde — yeni sürümün imzasını üretmek için gizli anahtar gerekir.
+
+Devir tek atomik `UPDATE` ile yapılır:
+
+```sql
+UPDATE Biletler
+SET RezerveEdenKullaniciId = @alici, KodSurumu = KodSurumu + 1, BildirimGonderildi = 0
+WHERE Id = @id AND Durum = 'Satıldı' AND RezerveEdenKullaniciId = @devreden AND GirisYapildi = 0
+```
+
+Bu tek koşul üç durumu birden kapatır: iki sekmeden aynı anda iki farklı kişiye devretme, başkasının biletini devretme ve **bilet tam o anda kapıda okutuluyorken devretme**. `BildirimGonderildi` sıfırlandığı için mevcut bildirim görevi yeni sahibe yeni QR'lı bileti kendiliğinden gönderir — ayrı bir e-posta akışı yazmaya gerek kalmadı.
+
+Sürüm eklenmeden önce gönderilmiş QR'lar (iki parçalı `id.imza` biçimi) hâlâ geçerli sayılır; aksi halde o e-postalardaki biletler bir gecede çalışmaz hâle gelirdi.
+
+Koruma ölçüldü: sürüm kontrolü kaldırıldığında eski QR yeniden geçerli oluyor ve kapıdan giriş yapabiliyor — ilgili iki test kırılıyor.
 
 ### Genel giriş: "hangisi olursa olsun N tane"
 
@@ -476,6 +506,7 @@ Kapsanan alanlar:
 | `KuyrukBildirimServisiTests` | Bildirim gönderimi, tekrar gönderim engeli, hata sonrası yeniden deneme |
 | `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
 | `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
+| `BiletDevirServisiTests` | Bilet devri: eski QR'ın geçersizleşmesi, kapıda okutulmuş biletin devredilememesi, eşzamanlı devir denemeleri |
 | `KimlikEpostaServisiTests` | Doğrulama ve şifre sıfırlama e-postalarının içeriği, gönderim hatasının yukarı taşınması |
 | `EtkinlikEsZamanliDuzenlemeTests` | İki yöneticinin aynı etkinliği düzenlemesi (kayıp güncelleme koruması) |
 | `UctanUcaAkisTests` | Giriş yapmış kullanıcı olarak tüm akışlar (aşağıya bakınız) |

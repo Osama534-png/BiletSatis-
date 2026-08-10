@@ -35,6 +35,13 @@ public class Bilet
     /// </summary>
     public string? OdemeReferansi { get; set; }
 
+    /// <summary>
+    /// QR kodunun sürümü. Bilet başkasına devredildiğinde artar ve eski sahibin
+    /// elindeki QR geçersizleşir. Sürüm imzanın içinde olduğu için kullanıcı kendi
+    /// kodundaki sürümü değiştirip yenisini üretemez.
+    /// </summary>
+    public int KodSurumu { get; set; } = 1;
+
     /// <summary>Kapıda QR okutulup giriş onaylandı mı. Bir bilet yalnızca bir kez giriş sağlar.</summary>
     public bool GirisYapildi { get; set; }
 

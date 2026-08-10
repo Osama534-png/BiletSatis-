@@ -94,12 +94,18 @@ public class BiletBildirimServisi : IBiletBildirimServisi
             }
 
             // QR, kapıdaki görevlinin okutunca açacağı imzalı doğrulama adresini taşır.
-            var imzaliKod = _biletKodu.KodUret(bilet.Id);
+            var imzaliKod = _biletKodu.KodUret(bilet.Id, bilet.KodSurumu);
             var dogrulamaAdresi = $"{_ayarlar.SiteAdresi.TrimEnd('/')}/Giris/Dogrula?kod={imzaliKod}";
             var qrPng = _qr.PngUret(dogrulamaAdresi);
 
-            var konu = $"Biletin hazır: {bilet.Etkinlik.Ad}";
-            var govde = GovdeOlustur(kullanici.Ad, bilet, bilet.Etkinlik, imzaliKod);
+            // Kod sürümü 1'den büyükse bilet devredilmiş demektir; alıcı satın alma
+            // yapmadığı için "ödemen tamamlandı" demek yanlış olurdu.
+            var devredilmis = bilet.KodSurumu > 1;
+
+            var konu = devredilmis
+                ? $"Bir bilet size devredildi: {bilet.Etkinlik.Ad}"
+                : $"Biletin hazır: {bilet.Etkinlik.Ad}";
+            var govde = GovdeOlustur(kullanici.Ad, bilet, bilet.Etkinlik, imzaliKod, devredilmis);
 
             try
             {
@@ -139,7 +145,7 @@ public class BiletBildirimServisi : IBiletBildirimServisi
         return gonderilen;
     }
 
-    private string GovdeOlustur(string ad, Bilet bilet, Etkinlik etkinlik, string biletKodu)
+    private string GovdeOlustur(string ad, Bilet bilet, Etkinlik etkinlik, string biletKodu, bool devredilmis)
     {
         var selamlama = string.IsNullOrWhiteSpace(ad) ? "Merhaba" : $"Merhaba {ad}";
         var salon = MekanBilgisi.SalonAdi(etkinlik.Mekan);
@@ -160,8 +166,8 @@ public class BiletBildirimServisi : IBiletBildirimServisi
 
         return $"""
             <div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;color:#1b1812">
-              <h2 style="color:#1f8a70;margin:0 0 4px">Biletin hazır!</h2>
-              <p style="margin:0 0 20px;color:#7a7266">{selamlama}, ödemen başarıyla tamamlandı.</p>
+              <h2 style="color:#1f8a70;margin:0 0 4px">{(devredilmis ? "Bir bilet size devredildi!" : "Biletin hazır!")}</h2>
+              <p style="margin:0 0 20px;color:#7a7266">{selamlama}, {(devredilmis ? "bu bilet size devredildi ve artık sizin adınıza kayıtlı" : "ödemen başarıyla tamamlandı")}.</p>
 
               <div style="border:1px solid #eae1cf;border-radius:12px;overflow:hidden">
                 <div style="background:#17140f;color:#fff;padding:16px 20px">

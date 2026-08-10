@@ -178,6 +178,7 @@ if (string.IsNullOrWhiteSpace(imzaAnahtari))
 builder.Services.AddSingleton<IBiletKoduServisi, BiletKoduServisi>();
 builder.Services.AddSingleton<IQrKodUretici, QrKodUretici>();
 builder.Services.AddScoped<IGirisServisi, GirisServisi>();
+builder.Services.AddScoped<BiletSatis.Web.Services.Devir.IBiletDevirServisi, BiletSatis.Web.Services.Devir.BiletDevirServisi>();
 builder.Services.AddScoped<IKuyrukBildirimServisi, KuyrukBildirimServisi>();
 builder.Services.AddScoped<IBiletBildirimServisi, BiletBildirimServisi>();
 builder.Services.AddScoped<IKimlikEpostaServisi, KimlikEpostaServisi>();

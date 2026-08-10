@@ -60,7 +60,7 @@ public class GirisServisiTests
         try
         {
             using var db = DatabaseFixture.CreateContext();
-            var kod = Kodlayici.KodUret(biletId);
+            var kod = Kodlayici.KodUret(biletId, 1);
 
             var sonuc = await YeniServis(db).GirisiOnaylaAsync(kod);
 
@@ -83,7 +83,7 @@ public class GirisServisiTests
         try
         {
             using var db = DatabaseFixture.CreateContext();
-            var kod = Kodlayici.KodUret(biletId);
+            var kod = Kodlayici.KodUret(biletId, 1);
             var servis = YeniServis(db);
 
             await servis.GirisiOnaylaAsync(kod);
@@ -103,7 +103,7 @@ public class GirisServisiTests
         var (etkinlikId, biletId) = await BiletOlustur(BiletDurumu.Satildi);
         try
         {
-            var kod = Kodlayici.KodUret(biletId);
+            var kod = Kodlayici.KodUret(biletId, 1);
 
             var gorevler = Enumerable.Range(0, 20).Select(async _ =>
             {
@@ -126,7 +126,7 @@ public class GirisServisiTests
         try
         {
             using var db = DatabaseFixture.CreateContext();
-            var kod = Kodlayici.KodUret(biletId);
+            var kod = Kodlayici.KodUret(biletId, 1);
 
             var sonuc = await YeniServis(db).GirisiOnaylaAsync(kod);
 
@@ -166,7 +166,7 @@ public class GirisServisiTests
         try
         {
             using var db = DatabaseFixture.CreateContext();
-            var kod = Kodlayici.KodUret(biletId);
+            var kod = Kodlayici.KodUret(biletId, 1);
 
             var sonuc = await YeniServis(db).DurumSorgulaAsync(kod);
 
@@ -183,7 +183,7 @@ public class GirisServisiTests
     {
         using var db = DatabaseFixture.CreateContext();
 
-        var sonuc = await YeniServis(db).GirisiOnaylaAsync(Kodlayici.KodUret(999_999));
+        var sonuc = await YeniServis(db).GirisiOnaylaAsync(Kodlayici.KodUret(999_999, 1));
 
         Assert.Equal(GirisDurumu.GecersizKod, sonuc.Durum);
     }

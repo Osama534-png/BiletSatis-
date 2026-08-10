@@ -2,6 +2,7 @@ using BiletSatis.Web.Data;
 using BiletSatis.Web.Domain;
 using BiletSatis.Web.Models;
 using BiletSatis.Web.Services;
+using BiletSatis.Web.Services.Devir;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Stripe.Checkout;
@@ -22,14 +23,16 @@ public class BiletlerController : Controller
     private readonly BiletSatisDbContext _db;
     private readonly IBiletRezervasyonServisi _rezervasyon;
     private readonly IKuyrukServisi _kuyruk;
+    private readonly IBiletDevirServisi _devir;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<BiletlerController> _logger;
 
-    public BiletlerController(BiletSatisDbContext db, IBiletRezervasyonServisi rezervasyon, IKuyrukServisi kuyruk, ICurrentUserService currentUser, ILogger<BiletlerController> logger)
+    public BiletlerController(BiletSatisDbContext db, IBiletRezervasyonServisi rezervasyon, IKuyrukServisi kuyruk, IBiletDevirServisi devir, ICurrentUserService currentUser, ILogger<BiletlerController> logger)
     {
         _db = db;
         _rezervasyon = rezervasyon;
         _kuyruk = kuyruk;
+        _devir = devir;
         _currentUser = currentUser;
         _logger = logger;
     }
@@ -406,6 +409,37 @@ public class BiletlerController : Controller
                 await _kuyruk.CompleteQueueEntryAsync(haktanindi.SiraNo, kullaniciId);
             }
         }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Devret(int biletId, string aliciEposta)
+    {
+        var kullaniciId = _currentUser.GetKullaniciId();
+        var sonuc = await _devir.DevretAsync(biletId, kullaniciId, aliciEposta ?? "");
+
+        if (sonuc == DevirSonucu.Basarili)
+        {
+            TempData["Bilgi"] = $"Bilet {aliciEposta} adresine devredildi. " +
+                                "Yeni QR kodu alıcıya e-postayla gönderiliyor; sizdeki kod artık geçersiz.";
+        }
+        else
+        {
+            TempData["Hata"] = sonuc switch
+            {
+                DevirSonucu.AliciBulunamadi =>
+                    "Bu adrese kayıtlı, e-postasını doğrulamış bir hesap bulunamadı.",
+                DevirSonucu.KendinizeDevredemezsiniz =>
+                    "Bileti kendinize devredemezsiniz.",
+                DevirSonucu.GirisYapilmis =>
+                    "Bu bilet kapıda okutulmuş; artık devredilemez.",
+                DevirSonucu.EtkinlikGecmis =>
+                    "Etkinlik başlamış ya da geçmiş; bilet devredilemez.",
+                _ => "Bilet devredilemedi — üzerinizde olduğundan emin olun."
+            };
+        }
+
+        return RedirectToAction(nameof(Biletlerim));
     }
 
     [HttpPost]

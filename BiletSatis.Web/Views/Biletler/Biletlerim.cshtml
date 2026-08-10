@@ -17,6 +17,15 @@
     <p>Satın aldığınız biletlerin geçmişi.</p>
 </div>
 
+@if (TempData["Bilgi"] != null)
+{
+    <div class="alert alert-success">✅ @TempData["Bilgi"]</div>
+}
+@if (TempData["Hata"] != null)
+{
+    <div class="alert alert-danger">⚠️ @TempData["Hata"]</div>
+}
+
 @if (!Model.Any())
 {
     <p class="text-muted">Henüz satın aldığınız bir bilet yok.</p>
@@ -53,6 +62,33 @@ else
                             <span class="badge badge-satildi">✅ Satıldı</span>
                         </div>
                         <div class="ticket-code" aria-hidden="true"></div>
+
+                        @if (bilet.GirisYapildi)
+                        {
+                            <p class="text-muted small mb-0">🚪 Bu bilet kapıda okutuldu; devredilemez.</p>
+                        }
+                        else if (bilet.Etkinlik != null && bilet.Etkinlik.Tarih <= DateTime.UtcNow)
+                        {
+                            <p class="text-muted small mb-0">Etkinlik geçti.</p>
+                        }
+                        else
+                        {
+                            <details class="devir-alani">
+                                <summary>🎁 Bileti devret</summary>
+                                <p class="ticket-desc">
+                                    Bilet devredildiğinde <strong>sizdeki QR geçersiz olur</strong> ve
+                                    yeni sahibine yeni bir QR gönderilir. Bu işlem geri alınamaz.
+                                </p>
+                                <form asp-action="Devret" method="post" data-tek-gonderim="Devrediliyor…">
+                                    <input type="hidden" name="biletId" value="@bilet.Id" />
+                                    <label class="form-label small" for="alici-@bilet.Id">Alıcının e-posta adresi</label>
+                                    <input type="email" name="aliciEposta" id="alici-@bilet.Id"
+                                           class="form-control form-control-sm mb-2" required
+                                           placeholder="arkadas@ornek.com" />
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100">Devret</button>
+                                </form>
+                            </details>
+                        }
                     </div>
                 </div>
             </div>

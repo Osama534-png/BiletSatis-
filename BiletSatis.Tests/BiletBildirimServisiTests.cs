@@ -209,7 +209,7 @@ public class BiletBildirimServisiTests
             // Gövde, gömülü görseli cid ile referanslamalı.
             Assert.Contains($"cid:{gorsel.ContentId}", mesaj.Govde);
             // Gövdedeki bilet kodu, kapı doğrulamasında kullanılan imzalı kodun aynısı olmalı.
-            Assert.Contains(Kodlayici.KodUret(biletId), mesaj.Govde);
+            Assert.Contains(Kodlayici.KodUret(biletId, 1), mesaj.Govde);
         }
         finally { await Temizle(etkinlikId, kullaniciId); }
     }

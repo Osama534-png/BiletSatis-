@@ -3140,3 +3140,32 @@ footer.site-footer a:hover {
   gap: 0.75rem;
   flex-wrap: wrap;
 }
+
+/* ---------- Bilet devretme ---------- */
+
+.devir-alani {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+}
+
+.devir-alani > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--neutral-text);
+  list-style: none;
+}
+
+.devir-alani > summary::-webkit-details-marker {
+  display: none;
+}
+
+.devir-alani > summary:hover {
+  color: var(--accent-dark);
+}
+
+.devir-alani[open] > summary {
+  color: var(--accent-dark);
+  margin-bottom: 0.5rem;
+}
