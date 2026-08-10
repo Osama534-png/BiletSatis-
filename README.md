@@ -15,6 +15,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Otomatik test kapsamı** — hem gerçek SQL Server'a karşı çalışan xUnit entegrasyon testleri hem de k6 ile gerçek eşzamanlı yük testleri.
 - **İnteraktif salon haritası** — koltuk numarası önekinden (`A-01` → A blok) türetilen blok haritası, sahne yayı, doluluğa göre renklendirme.
 - **Çoklu koltuk seçimi** — haritadan tek seferde 6 koltuğa kadar seçilir, seçim çubuğu toplamı canlı gösterir ve tamamı tek istekte rezerve edilir. Koltuklardan biri bile araya girilirse hiçbiri alınmaz (bkz. Mimari Kararlar). Sepetin tamamı tek bir Stripe oturumunda, çok kalemli olarak ödenir.
+- **Genel giriş etkinlikleri** — her etkinlik salonlu değildir. Festival ve ayakta konserlerde koltuk seçimi yerine yalnızca adet seçilir; sistem müsait biletlerden o kadarını tek atomik sorguyla ayırır. Yeterli bilet yoksa hiçbiri ayrılmaz.
 - **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, canlı arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü; tümü sayfa yenilemeden çalışır ve tercihler tarayıcıda saklanır.
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
 - **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
@@ -55,6 +56,33 @@ WHERE Durum = 'Satışta'
 Id listesi tek bir metin parametresi olarak gönderilip SQL tarafında `STRING_SPLIT` ile tabloya çevrilir. Böylece koltuk sayısına göre değişen bir SQL metni üretmeye gerek kalmaz, sorgu tamamen parametreli kalır.
 
 Geri alma sonrası "hangi koltuk elden gitti" sorgusu bilerek `ROLLBACK`'ten **sonra** çalışır; önce çalışsaydı kendi yazdığımız satırları "sepette" görürdük.
+
+### Genel giriş: "hangisi olursa olsun N tane"
+
+Her etkinlik salonlu değildir. Festival, ayakta konser, açık alan etkinliklerinde koltuk numarası yoktur; kullanıcı yalnızca kaç bilet istediğini söyler. `Etkinlik.BiletModeli` bunu belirler: `KoltukSecmeli` ya da `GenelGiris`.
+
+Bu, projedeki üçüncü rezervasyon biçimi ve öncekilerden farklı bir soru soruyor:
+
+| | Sorulan |
+|---|---|
+| Tek koltuk | "Şu bileti ver" |
+| Çoklu koltuk | "Şu belirli biletleri ver" |
+| Genel giriş | **"Hangisi olursa olsun N tane ver"** |
+
+```sql
+UPDATE TOP (@adet) Biletler
+SET Durum = 'Sepette', KilitBitisZamani = DATEADD(MINUTE, 5, GETUTCDATE()), RezerveEdenKullaniciId = @kullaniciId
+OUTPUT INSERTED.Id
+WHERE EtkinlikId = @etkinlikId AND Durum = 'Satışta'
+```
+
+`UPDATE TOP (n)` müsait satırlardan istenen kadarını tek seferde kilitler; `OUTPUT` hangilerinin alındığını söyler. Yeterli bilet yoksa sorgu **bulabildiği kadarını** alır — yine kısmi başarı. Çoklu koltuktaki mantığın aynısı uygulanır: işlem içinde yapılır, sayı tutmazsa tamamı geri alınır. Kullanıcı 5 bilet isteyip 3 biletle kalmaz.
+
+Koruma ölçüldü: geri alma `COMMIT`'e çevrildiğinde ilgili iki test kırılıyor. Eşzamanlılık testi de doğrudan **overselling**'i hedefler — 10 biletlik etkinlikte 10 kullanıcı aynı anda 3'er bilet isterse dağıtılan toplam asla 10'u aşmamalı.
+
+#### Neden ayrı bir "kalan sayısı" tablosu değil?
+
+İlk tasarım `Kalan = Kalan - @adet WHERE Kalan >= @adet` biçiminde bir sayaç tablosuydu. Vazgeçildi: sayaç, iptal ve süre dolumunda kontenjanın geri verilmesini, bilet satırlarının ayrıca üretilmesini ve ödeme kurtarma mantığıyla uyumlandırılmasını gerektiriyordu. Satır tabanlı çözüm sepet, ödeme, QR ve kapı kontrolünü hiç değiştirmeden çalışıyor. Sayaç yaklaşımı gerçek yüksek ölçekli sistemlerde doğru tercih olabilir; bu kod tabanı için maliyeti kazancından fazlaydı.
 
 ### Ödeme sırasında kilit neden uzatılıyor?
 

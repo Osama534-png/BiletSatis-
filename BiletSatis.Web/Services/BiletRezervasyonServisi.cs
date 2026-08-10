@@ -94,6 +94,59 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
             .Select(b => b.KoltukNo)
             .ToListAsync(ct);
 
+    public async Task<CokluSepeteEklemeSonucu> TryClaimAnyAsync(
+        int etkinlikId, int adet, string kullaniciId, CancellationToken ct = default)
+    {
+        if (adet <= 0) return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
+
+        // Koltuk seçmeli akışta "şu belirli biletleri ver" diyoruz. Burada ise
+        // "hangisi olursa olsun N tane ver" deniyor: UPDATE TOP (n), müsait
+        // satırlardan istenen kadarını tek seferde kilitler. OUTPUT ile hangilerini
+        // aldığımızı öğreniyoruz.
+        //
+        // Yeterli müsait bilet yoksa sorgu bulabildiği kadarını alır — yine kısmi
+        // başarı. Koltuk seçmeli akıştaki gibi işlem içinde yapıp sayı tutmazsa
+        // tamamını geri alıyoruz; kullanıcı 4 bilet isteyip 2 biletle kalmasın.
+        await using var islem = await _db.Database.BeginTransactionAsync(ct);
+
+        List<int> alinanlar;
+        try
+        {
+            alinanlar = await _db.Database.SqlQuery<int>($"""
+                UPDATE TOP ({adet}) Biletler
+                SET Durum = {BiletDurumMetni.Sepette},
+                    KilitBitisZamani = DATEADD(MINUTE, {KilitDakikasi}, GETUTCDATE()),
+                    RezerveEdenKullaniciId = {kullaniciId}
+                OUTPUT INSERTED.Id
+                WHERE EtkinlikId = {etkinlikId} AND Durum = {BiletDurumMetni.Satista}
+                """).ToListAsync(ct);
+        }
+        catch (SqlException ex) when (ex.Number == 1205)
+        {
+            _logger.LogWarning(ex, "Genel giriş rezervasyonu kilitlenmeye takıldı: EtkinlikId={EtkinlikId}", etkinlikId);
+            return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
+        }
+
+        if (alinanlar.Count != adet)
+        {
+            await islem.RollbackAsync(ct);
+
+            _logger.LogInformation(
+                "Genel giriş rezervasyonu başarısız: EtkinlikId={EtkinlikId} İstenen={Istenen} Bulunan={Bulunan}",
+                etkinlikId, adet, alinanlar.Count);
+
+            return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
+        }
+
+        await islem.CommitAsync(ct);
+
+        _logger.LogInformation(
+            "Genel giriş rezervasyonu başarılı: EtkinlikId={EtkinlikId} KullaniciId={KullaniciId} Adet={Adet}",
+            etkinlikId, kullaniciId, adet);
+
+        return CokluSepeteEklemeSonucu.Olumlu();
+    }
+
     public async Task<int> ReleaseExpiredCartHoldsAsync(CancellationToken ct = default)
     {
         var etkilenen = await _db.Database.ExecuteSqlInterpolatedAsync($"""

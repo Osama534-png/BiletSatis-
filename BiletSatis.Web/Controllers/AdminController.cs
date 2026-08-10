@@ -64,6 +64,7 @@ public class AdminController : Controller
             Ad = etkinlik.Ad,
             Mekan = etkinlik.Mekan,
             Kategori = etkinlik.Kategori,
+            BiletModeli = etkinlik.BiletModeli,
             Aciklama = etkinlik.Aciklama,
             YasSiniri = etkinlik.YasSiniri,
             Tarih = etkinlik.Tarih,
@@ -97,6 +98,7 @@ public class AdminController : Controller
         etkinlik.Ad = model.Ad;
         etkinlik.Mekan = model.Mekan;
         etkinlik.Kategori = model.Kategori;
+        etkinlik.BiletModeli = model.BiletModeli;
         etkinlik.Aciklama = model.Aciklama;
         etkinlik.YasSiniri = model.YasSiniri;
         etkinlik.Tarih = model.Tarih;
@@ -126,6 +128,7 @@ public class AdminController : Controller
                 Ad = guncel.Ad,
                 Mekan = guncel.Mekan,
                 Kategori = guncel.Kategori,
+                BiletModeli = guncel.BiletModeli,
                 Aciklama = guncel.Aciklama,
                 YasSiniri = guncel.YasSiniri,
                 Tarih = guncel.Tarih,
@@ -215,6 +218,7 @@ public class AdminController : Controller
             Ad = model.Ad,
             Mekan = model.Mekan,
             Kategori = model.Kategori,
+            BiletModeli = model.BiletModeli,
             Aciklama = model.Aciklama,
             YasSiniri = model.YasSiniri,
             AfisUrl = afisUrl,

@@ -31,6 +31,14 @@
                 <span asp-validation-for="Kategori" class="text-danger"></span>
             </div>
             <div class="mb-3">
+                <label asp-for="BiletModeli" class="form-label"></label>
+                <select asp-for="BiletModeli" class="form-select">
+                    <option value="KoltukSecmeli">Koltuk seçmeli — salon haritasından koltuk seçilir</option>
+                    <option value="GenelGiris">Genel giriş — koltuk yok, yalnızca adet</option>
+                </select>
+                <span asp-validation-for="BiletModeli" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
                 <label asp-for="Aciklama" class="form-label"></label>
                 <textarea asp-for="Aciklama" class="form-control" rows="4"
                           placeholder="Etkinlik detay sayfasında görünecek tanıtım metni"></textarea>

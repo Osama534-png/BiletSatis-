@@ -20,6 +20,9 @@ public class EtkinlikDuzenleViewModel
     [Display(Name = "Kategori")]
     public EtkinlikKategorisi Kategori { get; set; } = EtkinlikKategorisi.Konser;
 
+    [Display(Name = "Bilet modeli")]
+    public BiletModeli BiletModeli { get; set; } = BiletModeli.KoltukSecmeli;
+
     [StringLength(2000)]
     [Display(Name = "Açıklama")]
     public string Aciklama { get; set; } = "";

@@ -209,6 +209,90 @@ public class UctanUcaAkisTests : IClassFixture<UygulamaFabrikasi>
         finally { await Temizle(etkinlikId); }
     }
 
+    // ---------- Genel giriş etkinlikleri ----------
+
+    [Fact]
+    public async Task GenelGirisEtkinligi_HaritaYerineAdetSeciciGostermeli()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur(koltukSayisi: 10);
+        try
+        {
+            using (var db = DatabaseFixture.CreateContext())
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    UPDATE Etkinlikler SET BiletModeli = N'GenelGiris' WHERE Id = {etkinlikId}
+                    """);
+            }
+
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("genel"));
+            var html = await istemci.GetStringAsync($"/Biletler/Index?etkinlikId={etkinlikId}");
+
+            Assert.Contains("Genel giri", html);          // "Genel giriş" başlığı
+            Assert.Contains("name=\"adet\"", html);       // adet seçici
+            Assert.DoesNotContain("seatForm", html);      // salon haritası yok
+            Assert.DoesNotContain("style=\"", html);      // CSP uyumu
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    [Fact]
+    public async Task GenelGiris_IstenenAdetSepeteEklenmeli()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur(koltukSayisi: 10);
+        try
+        {
+            using (var db = DatabaseFixture.CreateContext())
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    UPDATE Etkinlikler SET BiletModeli = N'GenelGiris' WHERE Id = {etkinlikId}
+                    """);
+            }
+
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("genel-sepet"));
+
+            await FormGonder(istemci, $"/Biletler/Index?etkinlikId={etkinlikId}",
+                "/Biletler/GenelGirisSepeteEkle",
+                new Dictionary<string, string>
+                {
+                    ["etkinlikId"] = etkinlikId.ToString(),
+                    ["adet"] = "3"
+                });
+
+            var sepet = await istemci.GetStringAsync("/Biletler/Sepetim");
+            Assert.Contains("3 koltuk", sepet);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    [Fact]
+    public async Task GenelGiris_KalandanFazlaIstenirse_HicbiriAyrilmamali()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur(koltukSayisi: 2);
+        try
+        {
+            using (var db = DatabaseFixture.CreateContext())
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    UPDATE Etkinlikler SET BiletModeli = N'GenelGiris' WHERE Id = {etkinlikId}
+                    """);
+            }
+
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("genel-yetersiz"));
+
+            await FormGonder(istemci, $"/Biletler/Index?etkinlikId={etkinlikId}",
+                "/Biletler/GenelGirisSepeteEkle",
+                new Dictionary<string, string>
+                {
+                    ["etkinlikId"] = etkinlikId.ToString(),
+                    ["adet"] = "5"
+                });
+
+            var sepet = await istemci.GetStringAsync("/Biletler/Sepetim");
+            Assert.Contains("Sepetinizde bekleyen bir rezervasyon yok", sepet);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     // ---------- Başkasının verisine erişim ----------
 
     [Fact]

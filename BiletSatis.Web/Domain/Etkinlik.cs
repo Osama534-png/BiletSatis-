@@ -18,6 +18,12 @@ public class Etkinlik
 
     public DateTime Tarih { get; set; }
 
+    /// <summary>
+    /// Biletlerin nasıl satıldığı. Salonlu etkinliklerde kullanıcı koltuk seçer;
+    /// genel girişte yalnızca adet seçer ve sistem müsait biletlerden o kadarını verir.
+    /// </summary>
+    public BiletModeli BiletModeli { get; set; } = BiletModeli.KoltukSecmeli;
+
     public List<Bilet> Biletler { get; set; } = new();
 
     /// <summary>

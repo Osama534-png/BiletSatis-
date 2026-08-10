@@ -19,27 +19,25 @@ public class UygulamaFabrikasi : WebApplicationFactory<Program>
     /// <summary>Testlerde oluşturulan hesapların şifresi. Yalnızca test veritabanında geçerlidir.</summary>
     public const string TestSifresi = "TestSifre123!";
 
+    static UygulamaFabrikasi()
+    {
+        // Ayarlar ortam değişkeniyle veriliyor, ConfigureAppConfiguration ile değil.
+        // Sebebi: Program.cs bu değerleri `builder` kurulurken okuyor, yani fabrikanın
+        // sonradan eklediği yapılandırma kaynağı o okumaya yetişmiyordu. Ortam
+        // değişkenleri ise varsayılan kaynaklar arasında ve en baştan görülüyor.
+        //
+        // Bu ayar atlandığında testler tek tek geçip tam pakette kalıyordu: test
+        // sunucusunda istemci IP'si boş olduğu için tüm testler aynı hız sınırı
+        // kovasını paylaşıyor ve 15. girişten sonra kilit devreye giriyordu.
+        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", DatabaseFixture.ConnectionString);
+        Environment.SetEnvironmentVariable("Guvenlik__EpostaDogrulamaZorunlu", "false");
+        Environment.SetEnvironmentVariable("Guvenlik__HizSiniriAktif", "false");
+        Environment.SetEnvironmentVariable("Eposta__SmtpSunucu", "");
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(Environments.Development);
-
-        builder.ConfigureAppConfiguration((_, config) =>
-        {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                // Testler ayrı veritabanına yazsın; geliştirme verisi bozulmasın.
-                ["ConnectionStrings:DefaultConnection"] = DatabaseFixture.ConnectionString,
-
-                // Test hesaplarının gelen kutusu yok; doğrulama adımı akışı kilitlerdi.
-                ["Guvenlik:EpostaDogrulamaZorunlu"] = "false",
-
-                // Tüm istekler tek IP'den geliyor, sınır testleri boğardı.
-                ["Guvenlik:HizSiniriAktif"] = "false",
-
-                // SMTP tanımsız kalsın: e-postalar diske yazılır, gerçek gönderim olmaz.
-                ["Eposta:SmtpSunucu"] = ""
-            });
-        });
 
         builder.ConfigureServices(services =>
         {
@@ -108,9 +106,16 @@ public class UygulamaFabrikasi : WebApplicationFactory<Program>
                 ["__RequestVerificationToken"] = AntiforgeryJetonu(girisSayfasi)
             }));
 
-        if (cevap.StatusCode != System.Net.HttpStatusCode.Found)
+        // 302 tek başına yeterli değil: başarısız giriş de yönlendirme dönebilir
+        // (ör. doğrulanmamış hesap "e-postanızı doğrulayın" sayfasına gider).
+        // Hedefin /Account altında olmaması, oturumun gerçekten açıldığını gösterir.
+        var hedef = cevap.Headers.Location?.OriginalString ?? "";
+
+        if (cevap.StatusCode != System.Net.HttpStatusCode.Found ||
+            hedef.StartsWith("/Account", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException($"Giriş yapılamadı: {cevap.StatusCode}");
+            throw new InvalidOperationException(
+                $"Giriş yapılamadı: {cevap.StatusCode} → '{hedef}' (hesap: {eposta})");
         }
 
         return istemci;

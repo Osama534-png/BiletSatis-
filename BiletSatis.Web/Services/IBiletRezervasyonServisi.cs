@@ -29,6 +29,13 @@ public interface IBiletRezervasyonServisi
     /// </summary>
     Task<CokluSepeteEklemeSonucu> TryAddManyToCartAsync(IReadOnlyCollection<int> biletIdleri, string kullaniciId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Genel giriş etkinliklerinde kullanılır: belirli koltukları değil, müsait
+    /// biletlerden <paramref name="adet"/> tanesini rezerve eder. Yeterli sayıda
+    /// müsait bilet yoksa hiçbiri alınmaz.
+    /// </summary>
+    Task<CokluSepeteEklemeSonucu> TryClaimAnyAsync(int etkinlikId, int adet, string kullaniciId, CancellationToken ct = default);
+
     Task<int> ReleaseExpiredCartHoldsAsync(CancellationToken ct = default);
 
     /// <summary>

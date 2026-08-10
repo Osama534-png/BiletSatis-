@@ -1,0 +1,98 @@
+@model BiletSatis.Web.Models.GenelGirisVm
+@{
+    ViewData["Title"] = Model.EtkinlikAdi;
+    var kalanGun = (Model.Tarih.Date - DateTime.Now.Date).Days;
+}
+
+<div class="event-header">
+    <img class="event-header-poster"
+         src="@(string.IsNullOrWhiteSpace(Model.AfisUrl) ? "/img/afis/varsayilan.svg" : Model.AfisUrl)"
+         alt="@Model.EtkinlikAdi afişi" />
+    <div class="event-header-info">
+        <h1>@Model.EtkinlikAdi</h1>
+        <div class="event-header-meta">
+            @if (!string.IsNullOrWhiteSpace(Model.Mekan))
+            {
+                <span>📍 @Model.MekanAdi</span>
+            }
+            <span>📅 @Model.Tarih.ToString("dd MMMM yyyy, HH:mm")</span>
+            @if (kalanGun > 0)
+            {
+                <span class="countdown-pill">⏳ @kalanGun gün kaldı</span>
+            }
+        </div>
+        <div class="event-header-meta">
+            <span class="badge badge-satista">🎫 Genel giriş — koltuk numarası yok</span>
+        </div>
+    </div>
+</div>
+
+@if (TempData["Hata"] != null)
+{
+    <div class="alert alert-danger">⚠️ @TempData["Hata"]</div>
+}
+@if (TempData["Bilgi"] != null)
+{
+    <div class="alert alert-success">✅ @TempData["Bilgi"]</div>
+}
+
+<section class="detay-blok">
+    <h2>Bilet Al</h2>
+
+    @if (Model.Tukendi)
+    {
+        <p class="text-muted">
+            Bu etkinlik için bilet kalmadı. Kuyruğa katılıp iptal edilen biletlerden haberdar olabilirsiniz.
+        </p>
+        <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@Model.EtkinlikId"
+           class="btn btn-primary">⏳ Kuyruğa Katıl</a>
+    }
+    else
+    {
+        <div class="genel-giris-kart">
+            <div class="genel-giris-bilgi">
+                <span class="genel-giris-fiyat">@(Model.Fiyat?.ToString("C") ?? "—")</span>
+                <span class="text-muted">kişi başı</span>
+
+                <p class="ticket-desc mb-0">
+                    Bu etkinlikte koltuk seçimi yoktur; giriş sırası kapıda oluşur.
+                    Kaç bilet istediğinizi seçmeniz yeterli.
+                </p>
+
+                @if (Model.SonBiletler)
+                {
+                    <p class="kitlik mb-0">🔥 Son @Model.MusaitBilet bilet!</p>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">@Model.MusaitBilet / @Model.ToplamBilet bilet müsait</p>
+                }
+            </div>
+
+            <form asp-action="GenelGirisSepeteEkle" method="post" class="genel-giris-form"
+                  data-tek-gonderim="Ayrılıyor…">
+                <input type="hidden" name="etkinlikId" value="@Model.EtkinlikId" />
+
+                <label class="form-label" for="adet">Bilet adedi</label>
+                <select name="adet" id="adet" class="form-select girdi-orta">
+                    @for (var i = 1; i <= Model.SecilebilirEnFazla; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+
+                <button type="submit" class="btn btn-primary">🛒 Sepete Ekle</button>
+            </form>
+        </div>
+
+        <p class="text-muted mt-3 mb-0">
+            Seçtiğiniz biletler 5 dakika size ayrılır; bu süre içinde ödemeyi tamamlamanız gerekir.
+        </p>
+    }
+</section>
+
+<div class="queue-cta">
+    <span>Bilet tükendiyse sıraya girip boşalan biletlerden haberdar ol.</span>
+    <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@Model.EtkinlikId"
+       class="btn btn-outline-secondary btn-sm">⏳ Kuyruğa Katıl</a>
+</div>

@@ -43,7 +43,53 @@ public class BiletlerController : Controller
 
         if (etkinlik == null) return NotFound();
 
+        if (etkinlik.BiletModeli == BiletModeli.GenelGiris)
+        {
+            return View("GenelGiris", GenelGirisVmOlustur(etkinlik));
+        }
+
         return View(KoltukHaritasiOlustur(etkinlik));
+    }
+
+    private static GenelGirisVm GenelGirisVmOlustur(Etkinlik etkinlik)
+    {
+        var musait = etkinlik.Biletler.Where(b => b.Durum == BiletDurumu.Satista).ToList();
+
+        return new GenelGirisVm
+        {
+            EtkinlikId = etkinlik.Id,
+            EtkinlikAdi = etkinlik.Ad,
+            Mekan = etkinlik.Mekan,
+            AfisUrl = etkinlik.AfisUrl,
+            Tarih = etkinlik.Tarih,
+            MusaitBilet = musait.Count,
+            ToplamBilet = etkinlik.Biletler.Count,
+            Fiyat = musait.Count > 0 ? musait.Min(b => b.Fiyat) : etkinlik.Biletler.Select(b => (decimal?)b.Fiyat).Min(),
+            MaxKoltuk = MaxKoltuk
+        };
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GenelGirisSepeteEkle(int etkinlikId, int adet)
+    {
+        if (adet < 1 || adet > MaxKoltuk)
+        {
+            TempData["Hata"] = $"1 ile {MaxKoltuk} arasında bilet seçebilirsiniz.";
+            return RedirectToAction(nameof(Index), new { etkinlikId });
+        }
+
+        var kullaniciId = _currentUser.GetKullaniciId();
+        var sonuc = await _rezervasyon.TryClaimAnyAsync(etkinlikId, adet, kullaniciId);
+
+        if (sonuc.Basarili)
+        {
+            return RedirectToAction(nameof(Sepetim));
+        }
+
+        TempData["Hata"] = $"{adet} bilet ayrılamadı — yeterli sayıda bilet kalmamış olabilir. " +
+                           "Kalan bilet sayısını kontrol edip tekrar deneyin.";
+        return RedirectToAction(nameof(Index), new { etkinlikId });
     }
 
     /// <summary>

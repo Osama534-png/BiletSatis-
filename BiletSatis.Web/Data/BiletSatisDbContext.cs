@@ -40,6 +40,11 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
 
             e.HasIndex(x => x.Kategori);
 
+            e.Property(x => x.BiletModeli)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValue(BiletModeli.KoltukSecmeli);
+
             // rowversion: SQL Server her güncellemede kendisi artırır. EF, güncelleme
             // sorgusuna "WHERE ... AND SatirSurumu = okuduğum değer" koşulunu ekler;
             // araya başka bir kayıt girdiyse hiçbir satır etkilenmez ve

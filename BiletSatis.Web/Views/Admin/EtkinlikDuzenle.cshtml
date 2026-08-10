@@ -38,6 +38,14 @@
             </div>
 
             <div class="mb-3">
+                <label asp-for="BiletModeli" class="form-label"></label>
+                <select asp-for="BiletModeli" class="form-select">
+                    <option value="KoltukSecmeli">Koltuk seçmeli — salon haritasından koltuk seçilir</option>
+                    <option value="GenelGiris">Genel giriş — koltuk yok, yalnızca adet</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
                 <label asp-for="Tarih" class="form-label"></label>
                 <input asp-for="Tarih" class="form-control" />
                 <span asp-validation-for="Tarih" class="text-danger"></span>

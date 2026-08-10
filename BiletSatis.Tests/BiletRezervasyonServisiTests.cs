@@ -455,6 +455,114 @@ public class BiletRezervasyonServisiTests
         finally { await Temizle(etkinlikId); }
     }
 
+    // ---------- Genel giriş: "hangisi olursa olsun N tane" ----------
+
+    [Fact]
+    public async Task TryClaimAnyAsync_YeterliBiletVarsa_IstenenKadariniVermeli()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(10);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var sonuc = await YeniServis(db).TryClaimAnyAsync(etkinlikId, 4, "kullanici-1");
+
+            Assert.True(sonuc.Basarili);
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var alinan = await kontrol.Biletler.AsNoTracking()
+                .CountAsync(b => b.EtkinlikId == etkinlikId
+                              && b.Durum == BiletDurumu.Sepette
+                              && b.RezerveEdenKullaniciId == "kullanici-1");
+
+            Assert.Equal(4, alinan);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Kısmi başarı burada da kabul edilemez: 5 bilet isteyip 3'üyle kalmak yerine
+    // hiçbiri alınmamalı.
+    [Fact]
+    public async Task TryClaimAnyAsync_YeterliBiletYoksa_HicbiriniVermemeli()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(3);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var sonuc = await YeniServis(db).TryClaimAnyAsync(etkinlikId, 5, "kullanici-1");
+
+            Assert.False(sonuc.Basarili);
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var sepetteki = await kontrol.Biletler.AsNoTracking()
+                .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum == BiletDurumu.Sepette);
+
+            Assert.Equal(0, sepetteki);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Genel girişin yarış durumu: 10 biletlik etkinlikte 10 kullanıcı aynı anda
+    // 3'er bilet isterse, en fazla 3 kişi alabilmeli (3×3=9) ve toplam satılan
+    // asla kapasiteyi aşmamalı. Aşması "overselling" demektir.
+    [Fact]
+    public async Task TryClaimAnyAsync_EsZamanliTalepler_KapasiteyiAsmamali()
+    {
+        var (etkinlikId, _) = await BiletlerOlustur(10);
+        try
+        {
+            var kapi = new TaskCompletionSource();
+
+            var gorevler = Enumerable.Range(0, 10).Select(async i =>
+            {
+                using var db = DatabaseFixture.CreateContext();
+                await db.Database.ExecuteSqlRawAsync("SELECT 1");
+                await kapi.Task;
+                return await YeniServis(db).TryClaimAnyAsync(etkinlikId, 3, $"kullanici-{i}");
+            }).ToList();
+
+            await Task.Delay(250);
+            kapi.SetResult();
+
+            var sonuclar = await Task.WhenAll(gorevler);
+            var basariliSayisi = sonuclar.Count(s => s.Basarili);
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var sepetteki = await kontrol.Biletler.AsNoTracking()
+                .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum == BiletDurumu.Sepette);
+
+            // Her başarılı istek tam 3 bilet almış olmalı — ne eksik ne fazla.
+            Assert.Equal(basariliSayisi * 3, sepetteki);
+            Assert.True(sepetteki <= 10, $"10 biletlik etkinlikte {sepetteki} bilet dağıtılmış (overselling)");
+            Assert.True(basariliSayisi is >= 1 and <= 3, $"Beklenmeyen başarılı sayısı: {basariliSayisi}");
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    [Fact]
+    public async Task TryClaimAnyAsync_BaskasininSepetindekiBiletiVermemeli()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(4);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+
+            // 4 biletin 2'si başkasının sepetinde; kalan 2 ile 3 bilet verilemez.
+            await servis.TryAddManyToCartAsync(new[] { idler[0], idler[1] }, "baskasi");
+
+            var sonuc = await servis.TryClaimAnyAsync(etkinlikId, 3, "kullanici-1");
+
+            Assert.False(sonuc.Basarili);
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var baskasininki = await kontrol.Biletler.AsNoTracking()
+                .CountAsync(b => b.EtkinlikId == etkinlikId && b.RezerveEdenKullaniciId == "baskasi");
+
+            Assert.Equal(2, baskasininki);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     [Fact]
     public async Task ReleaseExpiredCartHoldsAsync_SuresiDolanBileti_SatistaGeriDondurmeli()
     {
