@@ -21,18 +21,20 @@ public class AccountController : Controller
     /// <summary>Giriş/çıkış ve oturum çerezinin yönetimi.</summary>
     private readonly SignInManager<ApplicationUser> _signInManager;
 
-    private readonly IKimlikEpostaServisi _kimlikEposta;
+    /// <summary>Kimlik e-postaları isteğin dışında gönderilsin diye kuyruğa bırakılır.</summary>
+    private readonly IKimlikEpostaKuyrugu _epostaKuyrugu;
+
     private readonly ILogger<AccountController> _logger;
 
     public AccountController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
-        IKimlikEpostaServisi kimlikEposta,
+        IKimlikEpostaKuyrugu epostaKuyrugu,
         ILogger<AccountController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
-        _kimlikEposta = kimlikEposta;
+        _epostaKuyrugu = epostaKuyrugu;
         _logger = logger;
     }
 
@@ -202,9 +204,8 @@ public class AccountController : Controller
                 new { eposta = kullanici.Email, jeton = JetonuKodla(jeton) },
                 protocol: Request.Scheme)!;
 
-            await EpostaDeneAsync(
-                () => _kimlikEposta.SifirlamaGonderAsync(kullanici.Email!, kullanici.Ad, adres),
-                "Şifre sıfırlama e-postası gönderilemedi: {Alici}", kullanici.Email!);
+            _epostaKuyrugu.Kuyruklat(new KimlikEpostaIsi(
+                KimlikEpostaTuru.SifreSifirlama, kullanici.Email!, kullanici.Ad, adres));
         }
 
         return RedirectToAction(nameof(SifirlamaGonderildi));
@@ -260,6 +261,12 @@ public class AccountController : Controller
 
     // ---------- Yardımcılar ----------
 
+    /// <summary>
+    /// Doğrulama bağlantısını kuyruğa bırakır. Gönderim isteğin dışında yapılıyor:
+    /// kullanıcı "Kayıt Ol"a bastığında cevabı SMTP sunucusu dönene kadar beklemesin.
+    /// Yük testinde ölçüldü — inline gönderimde bu istek 200 eşzamanlı kullanıcıda
+    /// 4-17 saniye sürüyordu.
+    /// </summary>
     private async Task DogrulamaEpostasiGonderAsync(ApplicationUser kullanici)
     {
         var jeton = await _userManager.GenerateEmailConfirmationTokenAsync(kullanici);
@@ -267,25 +274,8 @@ public class AccountController : Controller
             new { kullaniciId = kullanici.Id, jeton = JetonuKodla(jeton) },
             protocol: Request.Scheme)!;
 
-        await EpostaDeneAsync(
-            () => _kimlikEposta.DogrulamaGonderAsync(kullanici.Email!, kullanici.Ad, adres),
-            "Doğrulama e-postası gönderilemedi: {Alici}", kullanici.Email!);
-    }
-
-    /// <summary>
-    /// E-posta gönderimi başarısız olursa akış kesilmemeli: hesap zaten oluşturuldu,
-    /// kullanıcı bağlantıyı tekrar isteyebilir. Hata yalnızca loglanır.
-    /// </summary>
-    private async Task EpostaDeneAsync(Func<Task> gonderim, string hataMesaji, string alici)
-    {
-        try
-        {
-            await gonderim();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, hataMesaji, alici);
-        }
+        _epostaKuyrugu.Kuyruklat(new KimlikEpostaIsi(
+            KimlikEpostaTuru.Dogrulama, kullanici.Email!, kullanici.Ad, adres));
     }
 
     // Identity jetonları "+" ve "/" içerebilir; adres satırında bozulmamaları için

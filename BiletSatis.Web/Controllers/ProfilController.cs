@@ -15,20 +15,20 @@ public class ProfilController : Controller
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
-    private readonly IKimlikEpostaServisi _kimlikEposta;
+    private readonly IKimlikEpostaKuyrugu _epostaKuyrugu;
     private readonly BiletSatisDbContext _db;
     private readonly ILogger<ProfilController> _logger;
 
     public ProfilController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
-        IKimlikEpostaServisi kimlikEposta,
+        IKimlikEpostaKuyrugu epostaKuyrugu,
         BiletSatisDbContext db,
         ILogger<ProfilController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
-        _kimlikEposta = kimlikEposta;
+        _epostaKuyrugu = epostaKuyrugu;
         _db = db;
         _logger = logger;
     }
@@ -156,16 +156,11 @@ public class ProfilController : Controller
             new { kullaniciId = kullanici.Id, yeniEposta, jeton = JetonKodlayici.Kodla(jeton) },
             protocol: Request.Scheme)!;
 
-        try
-        {
-            await _kimlikEposta.DegisiklikGonderAsync(yeniEposta, kullanici.Ad, adres);
-        }
-        catch (Exception ex)
-        {
-            // Gönderim hatası akışı kesmemeli: hesapta hiçbir şey değişmedi,
-            // kullanıcı formu tekrar gönderip yeni bir bağlantı isteyebilir.
-            _logger.LogError(ex, "E-posta değişikliği onayı gönderilemedi: {Alici}", yeniEposta);
-        }
+        // Gönderim isteğin dışında yapılıyor; kullanıcı SMTP sunucusunu beklemesin.
+        // Hata olursa yalnızca loglanır — hesapta hiçbir şey değişmediği için kullanıcı
+        // formu tekrar gönderip yeni bir bağlantı isteyebilir.
+        _epostaKuyrugu.Kuyruklat(new KimlikEpostaIsi(
+            KimlikEpostaTuru.AdresDegisikligi, yeniEposta, kullanici.Ad, adres));
     }
 
     [HttpPost]

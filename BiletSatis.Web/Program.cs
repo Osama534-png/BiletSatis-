@@ -198,6 +198,14 @@ builder.Services.AddScoped<IBiletBildirimServisi, BiletBildirimServisi>();
 builder.Services.AddScoped<IKimlikEpostaServisi, KimlikEpostaServisi>();
 builder.Services.AddHostedService<BildirimWorker>();
 
+// Kayıt, şifre sıfırlama ve adres değişikliği e-postaları isteğin içinde
+// gönderiliyordu: kullanıcı cevabı SMTP sunucusu dönene kadar bekliyordu.
+// Yük testinde POST /Account/KayitOl 200 eşzamanlı kullanıcıda 4-17 saniyeye
+// çıkıyordu. Artık kuyruğa bırakılıp arka planda gönderiliyorlar — bildirimlerde
+// zaten uygulanan ilkenin aynısı.
+builder.Services.AddSingleton<IKimlikEpostaKuyrugu, KimlikEpostaKuyrugu>();
+builder.Services.AddHostedService<KimlikEpostaWorker>();
+
 // Stripe anahtarı yoksa uygulama ayağa kalkar ama ödeme adımında anlaşılmaz bir
 // hata verir. QR imza anahtarındaki yaklaşımın aynısı: üretimde eksikse başlamasın.
 var stripeAnahtari = builder.Configuration["Stripe:SecretKey"];
