@@ -1,7 +1,7 @@
 @model BiletSatis.Web.Models.GenelGirisVm
 @{
     ViewData["Title"] = Model.EtkinlikAdi;
-    var kalanGun = (Model.Tarih.Date - DateTime.UtcNow.Date).Days;
+    var kalanGun = (Model.Tarih.Date - DateTime.Now.Date).Days;
 }
 
 <div class="event-header">

@@ -39,7 +39,13 @@ public class BiletDevirServisi : IBiletDevirServisi
         }
 
         if (bilet.GirisYapildi) return DevirSonucu.GirisYapilmis;
-        if (bilet.EtkinlikTarihi <= DateTime.UtcNow) return DevirSonucu.EtkinlikGecmis;
+
+        // Etkinlik tarihi takvim saatidir (yönetici "20:00" yazar, kullanıcı "20:00"
+        // görür), bir an değil — bu yüzden yerel saatle karşılaştırılır. UtcNow ile
+        // karşılaştırıldığında Türkiye'de 20:00 başlayan bir etkinlik saat 23:00'e
+        // kadar "henüz başlamadı" sayılıyordu; devir üç saat fazladan açık kalıyordu.
+        // Sepet kilidi, giriş zamanı gibi gerçek anlar UTC'dir; ikisi farklı türde değer.
+        if (bilet.EtkinlikTarihi <= DateTime.Now) return DevirSonucu.EtkinlikGecmis;
 
         // Asıl devir tek atomik UPDATE. Yukarıdaki kontroller kullanıcıya anlaşılır
         // mesaj vermek için; karar burada veriliyor. Böylece iki sekmeden aynı anda

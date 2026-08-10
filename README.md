@@ -1,10 +1,62 @@
 # 🎟️ BiletSatış
 
-Yüksek eşzamanlılıkta (yüzlerce kullanıcı aynı bilete aynı anda saldırdığında bile) doğru çalışan, gerçek bir ödeme sağlayıcısına bağlı bir bilet satış sistemi. ASP.NET Core MVC + EF Core + SQL Server ile geliştirildi.
+[![CI](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml/badge.svg)](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml)
+![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
+![Test](https://img.shields.io/badge/test-201%20ge%C3%A7iyor-2ea44f)
+![Lisans](https://img.shields.io/badge/lisans-MIT-blue)
 
-Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yarış durumu) problemini SQL Server seviyesinde atomik sorgularla çözmeyi, adil bir **bekleme kuyruğu** (waitlist) mekanizmasını ve gerçek bir **ödeme entegrasyonunu** öğrenmek/göstermek amacıyla sıfırdan yazıldı.
+**Aynı bileti aynı anda 200 kişi isterse ne olur?** Bu proje o soruya kod yazarak değil, **ölçerek** cevap veriyor.
 
-Projenin ayırt edici yanı özellik listesi değil, **iddiaların ölçülmüş olması**. "Race condition'a karşı korumalı" cümlesi tek başına hiçbir şey ifade etmez; aşağıdaki her satır çalıştırılabilir bir testin çıktısıdır.
+Gerçek bir ödeme sağlayıcısına bağlı bir bilet satış sistemi: ASP.NET Core MVC + EF Core + SQL Server. Klasik "sepete ekle / satın al" akışının **race condition** problemini SQL Server seviyesinde atomik sorgularla çözer, adil bir **bekleme kuyruğu** işletir ve biletleri **imzalı QR** ile kapıda doğrular.
+
+Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "Race condition'a karşı korumalı" cümlesi tek başına hiçbir şey ifade etmez; aşağıdaki her satır çalıştırılabilir bir testin çıktısıdır.
+
+---
+
+### Nereden başlamalı?
+
+| Ne aradığınıza göre | Gidin |
+|---|---|
+| **Mühendislik kalitesini görmek istiyorum** | [Mimari Kararlar](#mimari-kararlar) — her kararın gerekçesi ve reddedilen alternatifi |
+| **İddialar doğru mu?** | [Ölçülmüş sonuçlar](#ölçülmüş-sonuçlar) · [Beş dakikada doğrulayın](#beş-dakikada-kendiniz-doğrulayın) |
+| **Hata bulup düzeltebiliyor mu?** | [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek) — bulunan 8 hata ve kanıtları |
+| **Çalıştırmak istiyorum** | [Kurulum](#kurulum) · [Docker ile](#docker-ile-çalıştırma) |
+| **Ne yapmıyor?** | [Bilinen kapsam dışı konular](#bilinen-kapsam-dışı-konular) |
+
+<details>
+<summary><b>Tüm içindekiler</b></summary>
+
+- [Ölçülmüş sonuçlar](#ölçülmüş-sonuçlar)
+- [Beş dakikada kendiniz doğrulayın](#beş-dakikada-kendiniz-doğrulayın)
+- [Nasıl çalışıyor](#nasıl-çalışıyor)
+- [Öne çıkan özellikler](#öne-çıkan-özellikler)
+- [Mimari Kararlar](#mimari-kararlar)
+  - [Neden atomik `UPDATE`, neden `lock()` değil?](#neden-atomik-update-neden-lock-değil)
+  - [Çoklu koltukta neden tek `UPDATE` yetmiyor?](#çoklu-koltukta-neden-tek-update-yetmiyor)
+  - [Bilet devretmede eski QR nasıl öldürülüyor?](#bilet-devretmede-eski-qr-nasıl-öldürülüyor)
+  - [Genel giriş: "hangisi olursa olsun N tane"](#genel-giriş-hangisi-olursa-olsun-n-tane)
+  - [Ödeme sırasında kilit neden uzatılıyor?](#ödeme-sırasında-kilit-neden-uzatılıyor)
+  - [Aynı kullanıcı kuyruğa iki kez giremez — nasıl?](#aynı-kullanıcı-kuyruğa-iki-kez-giremez--nasıl)
+  - [Etkinlik düzenlemede `RowVersion`](#etkinlik-düzenlemede-rowversion-optimistic-concurrency)
+  - [Zamanın iki türü: "an" ve "takvim saati"](#zamanın-iki-türü-an-ve-takvim-saati)
+  - [Kapı kontrolü QR kodu neden imzalı?](#kapı-kontrolü-qr-kodu-neden-imzalı)
+  - [Çerez imzalama anahtarları neden veritabanında?](#çerez-imzalama-anahtarları-neden-veritabanında)
+  - [Uygulamanın iki kopyası aynı anda çalışabilir mi?](#uygulamanın-iki-kopyası-aynı-anda-çalışabilir-mi)
+  - [CSP neden var, XSS zaten engellenmiyor mu?](#csp-neden-var-xss-zaten-engellenmiyor-mu)
+  - [Ana sayfa neden sunucuda sayfalanıyor?](#ana-sayfa-neden-sunucuda-sayfalanıyor)
+  - [Veritabanı bütünlüğü](#veritabanı-bütünlüğü)
+  - [Güvenlik önlemleri](#güvenlik-önlemleri)
+- [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek)
+- [Teknoloji yığını](#teknoloji-yığını)
+- [Proje yapısı](#proje-yapısı)
+- [Kurulum](#kurulum)
+- [Test](#test)
+- [Bilinen kapsam dışı konular](#bilinen-kapsam-dışı-konular)
+
+</details>
+
+---
 
 ## Ölçülmüş sonuçlar
 
@@ -34,7 +86,117 @@ k6 run -e VUS=200 loadtests/k6/add-to-cart-test.js
 
 İkincisi için uygulamanın `yuktest` profiliyle çalışıyor olması gerekir (`dotnet run --project BiletSatis.Web --launch-profile yuktest`). Testin eşiği `sepete_ekleme_basarili == 1`: bir tane bile fazla başarı olursa k6 süreci hata koduyla biter.
 
-## Öne Çıkan Özellikler
+## Nasıl çalışıyor
+
+Projenin çekirdek iddiası tek bir cümlede özetlenebilir: **karar veritabanında verilir, uygulamada değil.** İki kullanıcı aynı koltuğu istediğinde kimin alacağına C# kodu değil, SQL Server'ın tek bir atomik `UPDATE`'i karar verir.
+
+```mermaid
+sequenceDiagram
+    participant A as Kullanıcı A
+    participant B as Kullanıcı B
+    participant W as Uygulama
+    participant DB as SQL Server
+
+    Note over A,B: İkisi de aynı anda "Sepete Ekle"
+
+    A->>W: POST SepeteEkle (bilet 42)
+    B->>W: POST SepeteEkle (bilet 42)
+
+    W->>DB: UPDATE Biletler SET Durum='Sepette'<br/>WHERE Id=42 AND Durum='Satışta'
+    W->>DB: UPDATE Biletler SET Durum='Sepette'<br/>WHERE Id=42 AND Durum='Satışta'
+
+    DB-->>W: etkilenen satır = 1
+    DB-->>W: etkilenen satır = 0
+
+    W-->>A: Sepete eklendi (5 dk kilit)
+    W-->>B: "Bu koltuk az önce alındı"
+
+    Note over DB: Okuma ve yazma tek deyimde.<br/>Araya girilebilecek bir an yok.
+```
+
+Aynı ilke sistemin her yerinde tekrarlanır: kapıda giriş onayı (`WHERE GirisYapildi = 0`), bilet devri (`WHERE RezerveEdenKullaniciId = @devreden`), kuyruğa katılım (`WHERE NOT EXISTS ... WITH (UPDLOCK, HOLDLOCK)`). Uygulama belleğinde tutulan hiçbir kilit yok — bu yüzden ikinci bir kopya açıldığında da doğru çalışır.
+
+### Arayüz
+
+| Salon haritası | Sepet ve ödeme |
+|---|---|
+| ![Salon haritası](docs/gorseller/salon-haritasi.png) | ![Sepet](docs/gorseller/sepet.png) |
+| Koltuk numarası önekinden türetilen blok haritası; tek seferde 6 koltuğa kadar seçim, canlı toplam | 5 dakikalık kilit sayacı, çok kalemli tek Stripe oturumu |
+
+| Etkinlik keşfi | Kapı kontrolü |
+|---|---|
+| ![Ana sayfa](docs/gorseller/ana-sayfa.png) | ![Kapı kontrolü](docs/gorseller/kapi-kontrolu.png) |
+| Kategori, şehir, tarih ve fiyat filtreleri — sunucuda çalışır, sayfa yenilenmez | Görevli QR'ı okutur; imza doğrulanır, bilet tek kullanımlıktır |
+
+<details>
+<summary><b>Bileti alan kullanıcının izlediği yol</b></summary>
+
+```mermaid
+flowchart LR
+    K[Kuyruğa katıl] -->|Sıra geldi| S[Koltuk seç]
+    S --> SP[Sepet<br/>5 dk kilit]
+    SP -->|Ödemeye geç| U[Kilit 15 dk'ya uzar]
+    U --> ST[Stripe Checkout]
+    ST -->|Ödendi| B[Bilet: Satıldı]
+    SP -.->|Süre doldu| GS[Tekrar satışta]
+    B --> QR[İmzalı QR e-postayla gider]
+    QR --> KP[Kapıda okutulur<br/>tek kullanım]
+    KP --> D[Değerlendirme hakkı]
+```
+
+Süre dolumunu `CartExpiryWorker`, kuyruk devrini `WaitlistWorker`, e-postaları `BildirimWorker` ve `KimlikEpostaWorker` arka planda yürütür — hiçbiri kullanıcının isteğini bekletmez.
+
+</details>
+
+<details>
+<summary><b>Katmanlar ve veri akışı</b></summary>
+
+```mermaid
+flowchart TD
+    subgraph Tarayıcı
+        UI[Razor görünümleri<br/>+ site.js]
+    end
+
+    subgraph Uygulama[ASP.NET Core]
+        C[Controllers]
+        SRV[Servisler<br/>atomik SQL]
+        BG[Arka plan görevleri]
+        SEC[CSP · nonce · rate limit<br/>global Authorize]
+    end
+
+    subgraph Dış[Dış servisler]
+        STRIPE[Stripe Checkout]
+        SMTP[SMTP]
+    end
+
+    DB[(SQL Server)]
+
+    UI -->|HTTP| SEC --> C
+    C --> SRV --> DB
+    BG --> DB
+    C -->|ödeme oturumu| STRIPE
+    BG -->|kuyruğa alınmış e-posta| SMTP
+    DB -.->|DataProtection anahtarları<br/>çoklu kopya için| Uygulama
+```
+
+</details>
+
+## Öne çıkan özellikler
+
+Zor olanlar — her birinin gerekçesi [Mimari kararlar](#mimari-kararlar) bölümünde:
+
+| Özellik | Neden zor |
+|---|---|
+| **Race-condition güvenli satın alma** | Okuma-sonra-yazma yerine tek atomik `UPDATE`; karar veritabanında verilir, uygulama belleğinde değil |
+| **"Hepsi ya da hiçbiri" çoklu koltuk** | Tek `UPDATE` kısmen başarılı olabilir; işlem içinde satır sayısı tutmazsa tamamı geri alınır |
+| **Adil FIFO bekleme kuyruğu** | Sıra numarasını `IDENTITY` üretir; aynı kullanıcının iki isteği tek deyimde engellenir |
+| **Devredilebilir bilet** | QR imzasına sürüm eklendi; devir sonrası eski sahibin kodu kapıda reddedilir |
+| **İmzalı QR ile kapı kontrolü** | HMAC imza + sabit süreli karşılaştırma + tek kullanım garantisi |
+| **Doğrulanmış değerlendirme** | Yorum için bilet almak yetmez; biletin kapıda okutulmuş olması gerekir |
+| **Yatay ölçeklenebilirlik** | Migration/seed dağıtık kilitle, bildirim gönderimi sahiplenmeyle korunur |
+
+<details>
+<summary><b>Tüm özellikler (18 madde)</b></summary>
 
 - **Race-condition güvenli satın alma** — "sepete ekle" işlemi, okuma-sonra-yazma yerine tek bir atomik `UPDATE ... WHERE Durum='Satışta'` sorgusuyla yapılır. Aynı bilete aynı anda 1000 istek gelse bile SQL Server garantisiyle sadece biri başarılı olur.
 - **5 dakikalık sepet kilidi + otomatik temizlik** — bir bilet sepete eklendiğinde 5 dakika rezerve edilir; ödeme yapılmazsa arka planda çalışan bir servis (`CartExpiryWorker`) 10 saniyede bir süresi dolanları otomatik olarak tekrar satışa açar.
@@ -55,7 +217,9 @@ k6 run -e VUS=200 loadtests/k6/add-to-cart-test.js
 - **Doğrulanmış değerlendirme** — etkinlik sayfasında puan ortalaması, yıldız dağılımı ve yorumlar gösterilir. Değerlendirme bırakabilmek için bilet almak yetmez, biletin **kapıda okutulmuş** olması gerekir; böylece her yorumun arkasında gerçek bir katılım vardır. Bir kullanıcı bir etkinliği yalnızca bir kez değerlendirir, sonradan güncelleyebilir.
 - **Kapı kontrolü** — görevli biletteki QR'ı okutur, mobil öncelikli doğrulama sayfası bileti kontrol eder. QR kodu HMAC ile imzalıdır (sahte bilet üretilemez), bir bilet yalnızca bir kez giriş sağlar ve eşzamanlı okutmalarda tek atomik `UPDATE` ile yalnızca biri kaydedilir.
 
-## Mimari Kararlar
+</details>
+
+## Mimari kararlar
 
 ### Neden atomik `UPDATE`, neden `lock()` değil?
 
@@ -196,6 +360,23 @@ _db.Entry(etkinlik).Property(e => e.SatirSurumu).OriginalValue = model.SatirSuru
 Bu tek satır olmadan koruma şemada durur ama gerçek akışta hiçbir şey yapmaz. Nitekim projede bir süre öyle durdu — bkz. [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek).
 
 Korumanın gerçekten çalıştığı ölçüldü: yukarıdaki satır kaldırıldığında çakışan kayıt sessizce başarılı oluyor (302, "kaydedildi") ve ikinci yöneticinin değişikliği eziliyor; satır geri konduğunda istek reddediliyor.
+
+### Zamanın iki türü: "an" ve "takvim saati"
+
+Projede iki farklı zaman kavramı var ve karıştırıldıklarında hata sessizce geliyor:
+
+| Tür | Örnek | Nasıl saklanır | Neyle karşılaştırılır |
+|---|---|---|---|
+| **An** — evrende belirli bir nokta | Sepet kilidinin bitişi, giriş zamanı, kuyruk hakkının son anı | UTC (`GETUTCDATE()`, `DateTime.UtcNow`) | `UtcNow` |
+| **Takvim saati** — insanın takvimindeki bir yer | Etkinliğin tarihi ve saati | Yöneticinin girdiği gibi | `DateTime.Now` |
+
+Ayrım şuradan geliyor: "sepet 5 dakika sonra düşer" cümlesi nerede olursanız olun aynı anı gösterir; "konser 12 Eylül 20:00'de" cümlesi ise yerel takvimdeki bir yeri gösterir — yönetici 20:00 yazar, kullanıcı 20:00 görür, kapıda 20:00'de buluşulur.
+
+Bu ayrım bir kez yanlış uygulandı ve **testler onu yakaladı**: geri sayım hesabı tutarlılık adına `UtcNow`'a çevrilince Türkiye'de gece 00:00–03:00 arasında bütün geri sayımlar bir gün kaydı (UTC henüz dünde olduğu için "yarın" olan etkinlik "2 gün kaldı" göründü). Testler etkinlik tarihini `DateTime.Now.Date.AddDays(n)` ile kurduğu için hata gece yarısından hemen sonra çalıştırılan pakette ortaya çıktı.
+
+Ters yönde de bir hata vardı: bilet devri `EtkinlikTarihi <= DateTime.UtcNow` diye bakıyordu, yani Türkiye'de 20:00 başlayan bir etkinliğin bileti saat 23:00'e kadar devredilebiliyordu. O da yerel saate çekildi.
+
+Sonuç: karşılaştırmanın iki tarafı da **aynı türde** olmalı. "Tutarlılık" adına hepsini UTC yapmak yanlıştı; doğru olan hangi değerin hangi tür olduğunu ayırmaktı.
 
 ### Neden biletlerde `RowVersion` yok?
 
@@ -495,7 +676,7 @@ Ayrı bir "blok" tablosu yok. Blok bilgisi koltuk numarasının önekinden türe
 
 Şehir başlangıçta `Mekan` alanındaki `"Salon Adı, Şehir"` metninden C# tarafında ayrıştırılıyordu (`MekanBilgisi` sınıfı). Bu, ek bir migration gerektirmeden şehir filtresi eklemeyi mümkün kıldı — ama metnin içinden türetilen bir değerle ne `WHERE` yazılabilir ne dizin kurulabilir. Sunucu tarafı filtreleme eklenirken `Etkinlik.Sehir` gerçek bir sütuna dönüştürüldü; değer `SaveChanges` sırasında `Mekan`'dan türetiliyor, böylece kaydı kim yazarsa yazsın (admin paneli, seeder, test) tutarlı kalıyor. `MekanBilgisi` ayrıştırma işini yapmaya devam ediyor, ama artık sorgu zamanında değil kayıt zamanında çalışıyor.
 
-## Teknoloji Yığını
+## Teknoloji yığını
 
 | Katman | Teknoloji |
 |---|---|
@@ -507,7 +688,7 @@ Ayrı bir "blok" tablosu yok. Blok bilgisi koltuk numarasının önekinden türe
 | Loglama | Serilog (console + rolling file) |
 | Test | xUnit (entegrasyon testleri) + k6 (yük testleri) |
 
-## Proje Yapısı
+## Proje yapısı
 
 ```
 BiletSatis/
@@ -725,7 +906,7 @@ sqlcmd -S localhost -E -d BiletSatisDb -i loadtests/temizlik.sql
 
 Betik yalnızca `yuktest-` önekli hesapları hedefler, satılmış bileti olanlara dokunmaz ve silmeden önce ne sileceğini gösterir.
 
-## Bilinen Kapsam Dışı Konular
+## Bilinen kapsam dışı konular
 
 - Production dağıtımı (deployment/hosting) henüz yapılmadı.
 - Satın alma sonrası iade/iptal akışı yok (sadece ödeme öncesi sepetten vazgeçme mevcut). Bu yüzden ödeme 15 dakikalık uzatılmış kilidi de aşarsa para alınmış olmasına rağmen bilet verilemez; durum loglanır ve kullanıcı uyarılır, iade elle yapılır.
@@ -733,7 +914,7 @@ Betik yalnızca `yuktest-` önekli hesapları hedefler, satılmış bileti olanl
 - Arayüzde Google Fonts dışında dış kaynak yoktur; CSP bu iki alan adı dışında her şeyi kendi sunucusuyla sınırlar.
 - Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.
 - Site içinde kamera açan QR okuyucu yok; görevli telefonun kendi kamera uygulamasını kullanır.
-- **Saat dilimi.** Bütün zaman karşılaştırmaları UTC'dir (`GETUTCDATE()`, `DateTime.UtcNow`) ve etkinlik tarihleri de UTC kabul edilir; ama yönetici formu tarihi girerken yerel saat düşünür ve arayüz değeri olduğu gibi gösterir. Türkiye'de bu, etkinliğin "geçti" sayılmasını 3 saat kaydırır. Doğru çözüm, tarihleri kullanıcının saat diliminden çevirip UTC saklamak ve gösterirken geri çevirmek; bu bir migration ve arayüz genelinde biçimlendirme değişikliği gerektirdiği için yapılmadı. Karşılaştırmaların hepsi en azından **tutarlı** hâle getirildi — daha önce filtre yerel saat, iş kuralları UTC kullanıyordu.
+- **Saat dilimi.** Sistem iki tür zaman değeri ayırır (bkz. Mimari Kararlar → [Zamanın iki türü](#zamanın-iki-türü-an-ve-takvim-saati)): gerçek anlar UTC, etkinlik tarihi yerel takvim saatidir. Bu, tek sunuculu ve tek saat dilimli bir kurulum için doğru çalışır. Uygulama farklı saat dilimlerindeki sunucularda çalışacaksa ya da kullanıcılara kendi saat dilimlerinde gösterim yapılacaksa, etkinlik tarihinin saat dilimi bilgisiyle birlikte saklanması gerekir (`datetimeoffset` ya da ayrı bir saat dilimi sütunu).
 - Kimlik e-postaları (doğrulama, şifre sıfırlama, adres değişikliği) süreç içi bir kanalda tutulur, veritabanına yazılmaz. Uygulama tam o anda kapanırsa gönderilmemiş bağlantı kaybolur; kullanıcı arayüzden yenisini isteyebilir. Bilet ve kuyruk bildirimleri bundan farklı: onlar veritabanı bayrağıyla izlenir ve kaybolmaz.
 - `AspNetUsers` tablosuna foreign key yok (bkz. Veritabanı bütünlüğü). Hesap silme özelliği eklenirse bu bağların kurulması gerekir.
 - Arama `LIKE '%...%'` kullandığı için dizinden yararlanamaz. Filtreleme, sıralama ve sayfalamanın tamamı veritabanında yapılır (bkz. Mimari Kararlar), ama etkinlik sayısı onbinlere çıkarsa aramanın tam metin indeksine (full-text index) taşınması gerekir.

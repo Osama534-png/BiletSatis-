@@ -56,10 +56,9 @@ public class EtkinlikSorguServisi : IEtkinlikSorguServisi
             sorgu = sorgu.Where(e => e.Sehir == filtre.Sehir);
         }
 
-        // UtcNow, Now değil: etkinlik tarihleri sistemin her yerinde UTC ile
-        // karşılaştırılıyor (GETUTCDATE(), DateTime.UtcNow). Burada yerel saat
-        // kullanmak "bu hafta" penceresini sunucunun saat dilimi kadar kaydırıyordu.
-        var simdi = DateTime.UtcNow;
+        // Now, UtcNow değil: "bu hafta" / "bu ay" filtreleri kullanıcının takvimine
+        // göre çalışmalı ve etkinlik tarihi de takvim saatidir (bkz. EtkinlikKartVm.KalanGun).
+        var simdi = DateTime.Now;
         if (filtre.Tarih == "hafta")
         {
             var bitis = simdi.AddDays(7);

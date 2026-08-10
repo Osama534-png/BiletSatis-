@@ -1,0 +1,73 @@
+name: CI
+
+# Testlerin "geçtiğine" README'de söz vermek yerine her push'ta kanıtlamak için.
+# Paket, gerçek bir SQL Server'a karşı çalışır — in-memory sahte veritabanı, tam da
+# doğrulanmak istenen eşzamanlılık davranışını (atomik UPDATE, rowversion, UPDLOCK)
+# taklit edemezdi.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Derle ve test et
+    runs-on: ubuntu-latest
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_SA_PASSWORD || 'Ci-Test-Parolasi-2026!' }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 20s
+
+    env:
+      # Testler bu değişken tanımlıysa onu kullanır (bkz. DatabaseFixture).
+      TEST_CONNECTION_STRING: >-
+        Server=localhost,1433;Database=BiletSatisDb_Test;User Id=sa;
+        Password=${{ secrets.CI_SA_PASSWORD || 'Ci-Test-Parolasi-2026!' }};
+        TrustServerCertificate=True;MultipleActiveResultSets=true
+
+      # Uçtan uca testler uygulamayı ayağa kaldırır; bu iki koruma açıkken yüzlerce
+      # test hesabı giriş yapamaz (gelen kutusu yok, hepsi aynı IP'den geliyor).
+      Guvenlik__EpostaDogrulamaZorunlu: "false"
+      Guvenlik__HizSiniriAktif: "false"
+
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .NET kurulumu
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Bağımlılıkları geri yükle
+        run: dotnet restore BiletSatis.slnx
+
+      - name: Derle
+        run: dotnet build BiletSatis.slnx --no-restore --configuration Release
+
+      - name: Testleri çalıştır
+        run: dotnet test BiletSatis.Tests --no-build --configuration Release --logger "trx;LogFileName=sonuclar.trx" --results-directory testsonuclari
+
+      - name: Test sonuçlarını yükle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-sonuclari
+          path: testsonuclari
+          if-no-files-found: ignore

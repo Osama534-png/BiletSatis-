@@ -67,7 +67,9 @@ else
                         {
                             <p class="text-muted small mb-0">🚪 Bu bilet kapıda okutuldu; devredilemez.</p>
                         }
-                        else if (bilet.Etkinlik != null && bilet.Etkinlik.Tarih <= DateTime.UtcNow)
+                        @* Yerel saat: etkinlik tarihi takvim saatidir, an değil (bkz. BiletDevirServisi).
+                           Sayfadaki bu kontrol, servisin uyguladığı kuralla aynı olmalı. *@
+                        else if (bilet.Etkinlik != null && bilet.Etkinlik.Tarih <= DateTime.Now)
                         {
                             <p class="text-muted small mb-0">Etkinlik geçti.</p>
                         }

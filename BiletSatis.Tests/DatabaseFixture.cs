@@ -7,8 +7,16 @@ namespace BiletSatis.Tests;
 // dayandığı için InMemory/SQLite yerine ayrı bir test veritabanına karşı çalışır.
 public class DatabaseFixture : IAsyncLifetime
 {
-    public const string ConnectionString =
-        "Server=localhost;Database=BiletSatisDb_Test;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+    /// <summary>
+    /// Yerel geliştirmede Windows kimlik doğrulamasıyla localhost'a bağlanır.
+    ///
+    /// CI'da bu işe yaramaz: sunucu Linux container'ında çalışır ve kullanıcı/şifre
+    /// ile bağlanılır. Bu yüzden dize <c>TEST_CONNECTION_STRING</c> ortam
+    /// değişkeniyle geçilebilir — tanımlıysa o kullanılır, değilse yerel varsayılan.
+    /// </summary>
+    public static readonly string ConnectionString =
+        Environment.GetEnvironmentVariable("TEST_CONNECTION_STRING")
+        ?? "Server=localhost;Database=BiletSatisDb_Test;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
     public async Task InitializeAsync()
     {

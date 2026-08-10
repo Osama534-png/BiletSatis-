@@ -38,7 +38,8 @@ public class EtkinlikDetayVm
     public DegerlendirmeSatiri? KendiDegerlendirmesi { get; set; }
 
     public bool Tukendi => MusaitKoltuk == 0;
-    public int KalanGun => (Tarih.Date - DateTime.UtcNow.Date).Days;
+    // Bkz. EtkinlikKartVm.KalanGun: etkinlik tarihi takvim saatidir, an değil.
+    public int KalanGun => (Tarih.Date - DateTime.Now.Date).Days;
 
     public string Sehir => MekanBilgisi.Sehir(Mekan);
 
