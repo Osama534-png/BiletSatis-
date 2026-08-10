@@ -30,7 +30,10 @@
 
         "//": "k6 yük testleri tek IP'den yüzlerce kayıt/giriş isteği gönderir ve test hesaplarının gelen kutusu olmadığı için doğrulama adımını tamamlayamaz. Bu iki koruma yalnızca bu profilde kapalıdır; normal 'http' profilinde açıktır.",
         "Guvenlik__EpostaDogrulamaZorunlu": "false",
-        "Guvenlik__HizSiniriAktif": "false"
+        "Guvenlik__HizSiniriAktif": "false",
+
+        "//smtp": "SMTP bilgisi user-secrets'ta tanımlıysa yük testi her sanal kullanıcı için gerçek bir doğrulama e-postası gönderir — 200 kullanıcılık bir koşu, var olmayan @test.local adreslerine 200 e-posta demek. Bu, gönderen hesabın itibarına zarar verir. Boş bırakılınca e-postalar logs/eposta klasörüne yazılır ve içerikleri yine kontrol edilebilir.",
+        "Eposta__SmtpSunucu": ""
       }
     }
   }
