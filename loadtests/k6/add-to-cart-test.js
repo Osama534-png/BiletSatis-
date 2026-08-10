@@ -106,13 +106,21 @@ export default function (data) {
   const listeSayfasi = http.get(`${BASE_URL}/Biletler/Index?etkinlikId=${ETKINLIK_ID}`);
   const token = antiForgeryTokenAl(listeSayfasi.body);
 
+  // Çoklu koltuk seçimi eklendiğinde uç nokta "biletId" yerine "etkinlikId" +
+  // "biletIds" almaya başladı. Tek bilete saldırdığımız için biletIds tek değer.
   const res = http.post(
     `${BASE_URL}/Biletler/SepeteEkle`,
-    { biletId: data.biletId, __RequestVerificationToken: token },
+    {
+      etkinlikId: ETKINLIK_ID,
+      biletIds: data.biletId,
+      __RequestVerificationToken: token,
+    },
     { redirects: 5 },
   );
 
-  const basarili = res.url && res.url.includes('OdemeStub');
+  // Başarılı rezervasyon sepete yönlendirir; başarısız olan etkinlik sayfasına
+  // hata mesajıyla döner. (Eskiden tek biletlik ödeme sayfasına gidiliyordu.)
+  const basarili = res.url && res.url.includes('Sepetim');
 
   if (basarili) {
     sepeteEklemeBasarili.add(1);

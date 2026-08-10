@@ -56,6 +56,25 @@ Her iki script de ortam değişkenleriyle özelleştirilebilir:
 | `M` (queue-fairness) | `30` | Kuyruğa katılacak toplam kullanıcı |
 | `N` (queue-fairness) | `10` | Satışın açılacağı kişi sayısı |
 
+## Ölçülen sonuçlar (2026-08-10, 200 sanal kullanıcı)
+
+`add-to-cart-test.js`, tek bir bilete 200 sanal kullanıcının aynı anda saldırdığı senaryo:
+
+| Ölçüm | Sonuç |
+|---|---|
+| Sepete ekleme başarılı | **1** (eşik: tam olarak 1) |
+| "Zaten alınmış" cevabı | 199 |
+| HTTP hatası | %0 (1808 istekte 0) |
+| İstek/saniye | 244 |
+| Yanıt süresi (medyan / p95) | 300 ms / 3,67 s |
+| Toplam süre | 7,4 sn |
+
+Projenin çekirdek iddiası ilk kez gerçek eşzamanlı yük altında doğrulandı: 200 kullanıcı aynı bileti isterken **tam olarak biri** aldı, hiçbir "double booking" olmadı ve toplam satılan+sepetteki bilet sayısı kapasiteyi aşmadı.
+
+`queue-fairness-test.js` (30 sanal kullanıcı) da 3/3 geçti: hak tanınan hiçbir sıra numarası, bekleyen hiçbir sıra numarasından yüksek değil — yani kimse sırasını atlamadı.
+
+p95'in 3,67 saniye olması tek makinede 200 eşzamanlı kullanıcının uygulama, veritabanı ve k6 ile aynı CPU'yu paylaşmasından kaynaklanıyor; doğruluk ölçümünü etkilemez.
+
 ## Yük testinden önce: iki korumayı kapatın
 
 Yük testleri her sanal kullanıcı için tek kullanımlık bir hesap açıp hemen giriş yapar. İki güvenlik önlemi bu senaryoyu engeller:
