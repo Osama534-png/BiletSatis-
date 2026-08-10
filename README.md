@@ -116,6 +116,42 @@ sequenceDiagram
 
 Aynı ilke sistemin her yerinde tekrarlanır: kapıda giriş onayı (`WHERE GirisYapildi = 0`), bilet devri (`WHERE RezerveEdenKullaniciId = @devreden`), kuyruğa katılım (`WHERE NOT EXISTS ... WITH (UPDLOCK, HOLDLOCK)`). Uygulama belleğinde tutulan hiçbir kilit yok — bu yüzden ikinci bir kopya açıldığında da doğru çalışır.
 
+### Arayüz
+
+**Etkinlik keşfi.** Kategori menüsü, şehir seçici ve üstteki sayaçlar. Filtreler yazarken/seçerken anında uygulanır ve sayfa yenilenmez, ama filtreleme **sunucuda** yapılır: tarayıcıya yalnızca gösterilecek 12 kart iner (bkz. [Ana sayfa neden sunucuda sayfalanıyor?](#ana-sayfa-neden-sunucuda-sayfalanıyor)).
+
+![Ana sayfa](docs/gorseller/ana-sayfa.png)
+
+<details>
+<summary><b>Filtre paneli, sıralama ve sayfalama</b></summary>
+
+Arama, tarih, fiyat aralığı ve "tükenenleri göster" seçenekleri; sıralama ve sayfalama. Hepsi adres çubuğuna yazılır — filtrelenmiş liste paylaşılabilir ve tarayıcının geri düğmesi beklendiği gibi çalışır.
+
+![Etkinlik listesi ve filtreler](docs/gorseller/etkinlik-listesi.png)
+
+</details>
+
+**Koltuk seçimi.** Blok haritası ayrı bir tablodan değil, koltuk numarasının önekinden türetilir (`A-01` → A blok); kategori sırasını fiyat belirler. Tek seferde en fazla 6 koltuk seçilir ve alttaki çubuk toplamı canlı gösterir. Seçimin tamamı **tek istekte** rezerve edilir: koltuklardan biri bile araya girilirse hiçbiri alınmaz.
+
+![Salon haritası](docs/gorseller/salon-haritasi.png)
+
+**Sepet ve ödeme.** Alttaki satır rezervasyonun ne zaman düşeceğini söylüyor — sepete eklenen koltuk 5 dakika kilitlenir, ödenmezse arka plan görevi otomatik olarak tekrar satışa açar. Ödemeye geçildiğinde kilit 15 dakikaya uzar, çünkü kullanıcı Stripe sayfasında kart bilgisi girerken süre dolarsa koltuğu kaybederdi. Sepetin tamamı tek bir Stripe oturumunda, çok kalemli olarak ödenir.
+
+![Sepetim](docs/gorseller/sepet.png)
+
+**Kapı kontrolü.** Görevlinin telefonunda açılan doğrulama sayfası. QR kodu HMAC ile imzalıdır; imza tutmayan kod veritabanına hiç sorulmaz. Giriş onayı tek atomik `UPDATE` ile kaydedilir, yani aynı bileti iki görevli aynı anda okutsa bile yalnızca biri geçer.
+
+<img src="docs/gorseller/kapi-kontrolu.png" alt="Kapı kontrolü" width="400">
+
+<details>
+<summary>Bu ekranın üç savunma katmanı</summary>
+
+1. **İmza** — kod `bilet:{id}:{sürüm}` üzerinden HMAC-SHA256 ile imzalanır; anahtarı bilmeyen geçerli kod üretemez. Karşılaştırma sabit sürelidir.
+2. **Yetki** — sayfa `[Authorize(Roles = "Admin")]` ile korunur. Herkese açık olsaydı biletini okutan kişi kendi girişini yakabilirdi.
+3. **Tek kullanım** — onay `WHERE ... AND GirisYapildi = 0` koşuluyla yapılır; 20 eşzamanlı okutmada tek giriş kaydı oluştuğu testle doğrulanmıştır.
+
+</details>
+
 
 <details>
 <summary><b>Bileti alan kullanıcının izlediği yol</b></summary>
