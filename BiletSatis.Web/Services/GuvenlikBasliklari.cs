@@ -70,6 +70,12 @@ public static class GuvenlikBasliklari
             // Dış sitelere giderken tam adres (ve içindeki parametreler) sızmasın.
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 
+            // Sitenin ihtiyacı olmayan tarayıcı yetenekleri kapatılır. Bir gün sayfaya
+            // script sızarsa kamerayı, mikrofonu ya da konumu isteyemesin; ödeme API'si
+            // de kapalı, çünkü ödeme kendi sayfamızda değil Stripe'ta alınıyor.
+            headers["Permissions-Policy"] =
+                "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()";
+
             await next();
         });
 

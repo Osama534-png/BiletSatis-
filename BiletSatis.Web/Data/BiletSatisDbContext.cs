@@ -100,6 +100,12 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
 
             b.Property(x => x.Fiyat).HasColumnType("decimal(10,2)");
             b.Property(x => x.OdemeReferansi).HasMaxLength(200);
+
+            // Kod sürümü 1'den başlar. Sütun eklendiğinde varsayılanı 0 bırakılmıştı;
+            // o güne kadarki bütün biletler sıfır kaldı ve kod çözücü sıfır sürümü
+            // geçersiz saydığı için sistem kendi ürettiği QR'ı kapıda reddediyordu.
+            // Varsayılan burada olunca EF dışından eklenen kayıtlar da geçerli olur.
+            b.Property(x => x.KodSurumu).HasDefaultValue(1);
             b.HasIndex(x => new { x.Durum, x.KilitBitisZamani });
 
             // Bildirim görevi "satılmış ama bildirilmemiş" biletleri tarar.

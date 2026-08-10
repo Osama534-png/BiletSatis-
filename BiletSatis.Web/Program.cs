@@ -23,6 +23,11 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Kestrel varsayılan olarak her cevaba "Server: Kestrel" başlığı ekler. Saldırganın
+// hangi sunucuyu hedeflediğini bilmesi tek başına açık değil, ama bilinen bir açık
+// çıktığında taranabilir hedef listesine girmenin de gereği yok.
+builder.WebHost.ConfigureKestrel(secenekler => secenekler.AddServerHeader = false);
+
 builder.Host.UseSerilog((context, services, config) => config
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)

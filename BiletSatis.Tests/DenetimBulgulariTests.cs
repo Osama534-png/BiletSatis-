@@ -25,6 +25,7 @@ public class DenetimBulgulariTests : IClassFixture<UygulamaFabrikasi>
     private static string BenzersizEposta(string on) => $"{on}-{Guid.NewGuid():N}@test.local";
 
     private static async Task<int> EtkinlikOlustur(BiletModeli model = BiletModeli.KoltukSecmeli, int koltuk = 3)
+
     {
         using var db = DatabaseFixture.CreateContext();
         var etkinlik = new Etkinlik
@@ -269,6 +270,54 @@ public class DenetimBulgulariTests : IClassFixture<UygulamaFabrikasi>
         Assert.True(
             cevap.StatusCode is HttpStatusCode.OK or HttpStatusCode.Found,
             $"Beklenmeyen durum kodu: {(int)cevap.StatusCode}");
+    }
+
+    // ---------- Bulgu 5: kod sürümü sıfır kalan biletlerin QR'ı kapıda reddediliyordu ----------
+
+    /// <summary>
+    /// <c>KodSurumu</c> sütunu migration ile <c>defaultValue: 0</c> olarak eklenmişti;
+    /// o ana kadarki bütün biletler sıfırla kaldı. Kod çözücü sıfır sürümü geçersiz
+    /// sayıyor, yani sistem kendi ürettiği QR'ı kapıda "sahte bilet" diye reddediyordu.
+    /// Geliştirme veritabanında 66 satılmış bilet bu durumdaydı.
+    ///
+    /// Sütunun varsayılanı 1 olmalı: EF dışından (ham SQL, toplu içe aktarma) eklenen
+    /// bir bilet de geçerli bir QR taşımalı.
+    /// </summary>
+    [Fact]
+    public async Task HamSqlIleEklenenBilet_GecerliKodSurumuAlmali()
+    {
+        var etkinlikId = await EtkinlikOlustur(koltuk: 0);
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+
+            // KodSurumu bilerek verilmiyor: sütunun varsayılanı devreye girmeli.
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO Biletler (EtkinlikId, KoltukNo, Fiyat, Durum, BildirimGonderildi, GirisYapildi)
+                VALUES ({etkinlikId}, N'Z-99', 100, {BiletDurumMetni.Satildi}, 1, 0)
+                """);
+
+            var bilet = await db.Biletler.AsNoTracking().FirstAsync(b => b.EtkinlikId == etkinlikId);
+
+            Assert.True(bilet.KodSurumu >= 1,
+                $"Kod sürümü {bilet.KodSurumu} — sıfır sürümlü biletin QR kodu kapıda reddedilir.");
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    /// <summary>
+    /// Veritabanında sıfır sürümlü bilet kalmamalı: kalırsa sahibinin eline geçen QR
+    /// kapıda çalışmaz ve bunu ancak etkinlik günü fark ederiz.
+    /// </summary>
+    [Fact]
+    public async Task Veritabaninda_SifirSurumluBiletKalmamali()
+    {
+        using var db = DatabaseFixture.CreateContext();
+
+        var bozukSayisi = await db.Biletler.AsNoTracking().CountAsync(b => b.KodSurumu < 1);
+
+        Assert.True(bozukSayisi == 0,
+            $"{bozukSayisi} biletin kod sürümü sıfır — bu biletlerin QR kodları kapıda geçersiz görünür.");
     }
 
     // ---------- Bulgu 4: genel giriş ucu bilet modelini doğrulamıyordu ----------

@@ -743,5 +743,17 @@ public class UctanUcaAkisTests : IClassFixture<UygulamaFabrikasi>
 
         Assert.Equal("nosniff", Assert.Single(cevap.Headers.GetValues("X-Content-Type-Options")));
         Assert.Equal("DENY", Assert.Single(cevap.Headers.GetValues("X-Frame-Options")));
+        Assert.Equal("strict-origin-when-cross-origin", Assert.Single(cevap.Headers.GetValues("Referrer-Policy")));
+
+        // Sitenin kullanmadığı tarayıcı yetenekleri kapalı olmalı: sayfaya bir gün
+        // script sızarsa kamerayı, mikrofonu ya da konumu isteyemesin.
+        var yetkiler = Assert.Single(cevap.Headers.GetValues("Permissions-Policy"));
+        Assert.Contains("camera=()", yetkiler);
+        Assert.Contains("microphone=()", yetkiler);
+        Assert.Contains("geolocation=()", yetkiler);
+
+        // Kestrel'in "Server: Kestrel" başlığı kapatıldı; hangi sunucuyu hedeflediğini
+        // söylemenin gereği yok.
+        Assert.False(cevap.Headers.Contains("Server"));
     }
 }
