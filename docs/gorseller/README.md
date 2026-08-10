@@ -1,18 +1,30 @@
-# Ekran görüntüleri
+# Ekran görüntülerini yenileme
 
-Ana README'nin "Arayüz" bölümü bu klasördeki dosyaları gösterir.
+Arayüz değişince ana README'deki görseller eskir. Sırasıyla şu adresler çekilir
+(`salon-haritasi`, `sepet`, `ana-sayfa`, `etkinlik-listesi`, `kapi-kontrolu`):
 
-| Dosya | Sayfa | Ne gösteriyor |
-|---|---|---|
-| `ana-sayfa.png` | `/` | Kategori menüsü, şehir seçici, sayaçlar |
-| `etkinlik-listesi.png` | `/` (alt bölüm) | Filtre paneli, sıralama, kart ızgarası, sayfalama |
-| `salon-haritasi.png` | `/Biletler/Index?etkinlikId=…` | Blok haritası ve çoklu koltuk seçimi (canlı toplam) |
-| `sepet.png` | `/Biletler/Sepetim` | Rezervasyon süresi ve çok kalemli ödeme |
-| `kapi-kontrolu.png` | `/Giris/Dogrula?kod=…` | İmzalı QR doğrulama (mobil genişlik) |
+```
+/Biletler/Index?etkinlikId=9      → koltuk seç, alttaki toplam çubuğu görünsün
+/Biletler/Sepetim                 → süre sayacı ve "Stripe ile Öde" görünsün
+/?kategori=Konser&siralama=fiyat-artan
+/Giris/Dogrula?kod=...            → admin girişi gerekir, ~420 px genişlik
+```
 
-## Yenilerken
+Kapı kontrolü için **geçerli bir imzalı kod** gerekir; kod bilet numarasının HMAC
+imzasını taşır, elle uydurulamaz. İmza anahtarını okumadan üretmenin yolu,
+uygulamanın kendi bildirim hattını kullanmak:
 
-- Geniş ekranlar için pencere ~1280–1900 px; kapı kontrolü için ~420 px (sayfa mobil öncelikli).
-- Tam sayfa yerine ilgili bölümü kırp; boş alan görselin etkisini düşürür.
-- Görselde gerçek e-posta adresi ya da kişisel bilgi kalmasın.
-- PNG, 600 KB altı.
+```sql
+UPDATE Biletler SET BildirimGonderildi = 0, BildirimKilitZamani = NULL WHERE Id = 1;
+```
+
+Uygulamayı `yuktest` profiliyle başlat (SMTP kapalı olsun ki gerçek e-posta
+gitmesin). `BildirimWorker` 20 saniye içinde e-postayı `logs/eposta/` altına
+yazar; doğrulama adresi onun içindedir:
+
+```bash
+grep -ohE '[0-9]+\.[0-9]+\.[a-f0-9]{16}' BiletSatis.Web/logs/eposta/*.html
+```
+
+Geniş sayfalarda pencere ~1700 px, kapı kontrolünde ~420 px. Görselde gerçek
+e-posta adresi kalmasın.
