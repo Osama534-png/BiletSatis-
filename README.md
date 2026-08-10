@@ -366,9 +366,9 @@ dotnet user-secrets set "Yonetici:Sifre" "guclu-bir-sifre"
 
 Ayrı bir "blok" tablosu yok. Blok bilgisi koltuk numarasının önekinden türetilir (`A-01`, `B-33` → A ve B blokları). Kategori sırası fiyata göre belirlenir: en pahalı blok "1. Kategori" olur ve salon haritasında sahneye en yakın konuma yerleşir.
 
-### Şehir neden ayrı bir sütun değil?
+### Şehir neden ayrı bir sütun?
 
-Şehir, `Mekan` alanındaki `"Salon Adı, Şehir"` metninden ayrıştırılır (`MekanBilgisi` sınıfı). Bu, ek bir migration gerektirmeden şehir filtresi eklemeyi mümkün kıldı; karşılığında mekan alanının bu biçimde girilmesi gerekir. Şehir bağımsız bir varlık hâline gelirse (ör. şehir sayfaları, il/ilçe hiyerarşisi) ayrı sütuna taşınmalıdır.
+Şehir başlangıçta `Mekan` alanındaki `"Salon Adı, Şehir"` metninden C# tarafında ayrıştırılıyordu (`MekanBilgisi` sınıfı). Bu, ek bir migration gerektirmeden şehir filtresi eklemeyi mümkün kıldı — ama metnin içinden türetilen bir değerle ne `WHERE` yazılabilir ne dizin kurulabilir. Sunucu tarafı filtreleme eklenirken `Etkinlik.Sehir` gerçek bir sütuna dönüştürüldü; değer `SaveChanges` sırasında `Mekan`'dan türetiliyor, böylece kaydı kim yazarsa yazsın (admin paneli, seeder, test) tutarlı kalıyor. `MekanBilgisi` ayrıştırma işini yapmaya devam ediyor, ama artık sorgu zamanında değil kayıt zamanında çalışıyor.
 
 ## Teknoloji Yığını
 
@@ -577,5 +577,4 @@ Detaylar için [loadtests/k6/README.md](loadtests/k6/README.md).
 - Arayüzde Google Fonts dışında dış kaynak yoktur; CSP bu iki alan adı dışında her şeyi kendi sunucusuyla sınırlar.
 - Kapı kontrolünde çevrimdışı mod yok; doğrulama için internet bağlantısı gerekir.
 - Site içinde kamera açan QR okuyucu yok; görevli telefonun kendi kamera uygulamasını kullanır.
-- Arayüzdeki filtreler (arama, kategori, şehir, fiyat, sıralama) istemci tarafında çalışır. Tüm etkinlikler tek sayfada render edildiği için etkinlik sayısı büyüdüğünde sunucu tarafı filtreleme ve sayfalama gerekir.
-- Şehir bilgisi ayrı bir sütun değil, `Mekan` alanından ayrıştırılır (bkz. Mimari Kararlar).
+- Arama `LIKE '%...%'` kullandığı için dizinden yararlanamaz. Filtreleme, sıralama ve sayfalamanın tamamı veritabanında yapılır (bkz. Mimari Kararlar), ama etkinlik sayısı onbinlere çıkarsa aramanın tam metin indeksine (full-text index) taşınması gerekir.
