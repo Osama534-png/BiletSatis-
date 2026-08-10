@@ -18,7 +18,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Favoriler** — etkinlik kartlarındaki ve detay sayfasındaki ♡ düğmesiyle etkinlik favoriye alınır, "Favorilerim" sayfasında listelenir. Kalp tıklaması sayfayı yenilemez; istek arka planda gidip yalnızca düğmeyi günceller (JavaScript kapalıysa normal form gönderimine düşer). Kullanıcı ile etkinlik arasındaki çoka-çok ilişki, bileşik birincil anahtarlı bir ara tabloyla kurulur.
 - **Bilet devretme** — bilete gidemeyen kullanıcı biletini başka bir kullanıcıya devredebilir. Devir sonrası eski sahibin QR kodu geçersizleşir (imzaya sürüm eklenmiştir) ve yeni sahibe yeni QR'lı bilet e-postası gider. Kapıda okutulmuş ya da etkinliği geçmiş bilet devredilemez.
 - **Genel giriş etkinlikleri** — her etkinlik salonlu değildir. Festival ve ayakta konserlerde koltuk seçimi yerine yalnızca adet seçilir; sistem müsait biletlerden o kadarını tek atomik sorguyla ayırır. Yeterli bilet yoksa hiçbiri ayrılmaz.
-- **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü. Filtreleme, sıralama ve **sayfalama tamamen veritabanında** yapılır; seçimler adres çubuğunda durduğu için filtrelenmiş liste paylaşılabilir ve geri düğmesi çalışır.
+- **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü. Filtreler yazarken/seçerken anında uygulanır ve sayfa yenilenmez; yalnızca sonuç listesi yeniden çekilir. Filtreleme, sıralama ve **sayfalama tamamen veritabanında** yapılır; seçimler adres çubuğunda durduğu için filtrelenmiş liste paylaşılabilir ve geri düğmesi çalışır.
 - **Kullanıcı profili** — kullanıcı adını, e-postasını ve şifresini değiştirebilir; kendi satın alma özetini görür.
 - **Yönetim paneli** — etkinlik ekleme/düzenleme/silme, afiş yükleme, satış ve gelir istatistikleri, kuyruğa hak tanıma.
 - **E-posta bildirimleri** — kuyrukta sırası gelene "sıran geldi", bilet satın alana QR kodlu "biletin hazır" e-postası gönderilir. Gönderim, kuyruk ve ödeme işlemlerinden ayrı bir arka plan görevinde yapılır; hata olursa bildirim kaybolmaz, tekrar denenir.
@@ -303,6 +303,10 @@ Tarayıcıda ölçüldü: nonce'suz bir `<script>` enjekte edildiğinde çalış
 Ana sayfa başlangıçta **tüm etkinlikleri** çekip tarayıcıya gönderiyor, filtreleme ve sıralamayı JavaScript yapıyordu. 19 etkinlikle bu fark edilmiyordu; ölçünce görüldü ki 2000 etkinlikte sayfa **5,3 MB**'a çıkıyor ve yanıt süresi 22 ms'den 759 ms'ye tırmanıyor (rakamlar: `loadtests/k6/README.md`).
 
 Filtreleme, sıralama ve sayfalama artık tamamen SQL'de. Sunucu her istekte yalnızca gösterilecek 12 kartı okuyor. Sonuç: aynı 2000 etkinlikle sayfa **48 KB**, p95 **68 ms** — yani 2000 etkinlikli sayfa, eskiden 19 etkinlikle üretilen sayfadan bile küçük.
+
+**Filtreler anında uygulanır, sayfa yenilenmez.** Yazarken ya da bir seçenek değiştirirken filtre kendiliğinden çalışır; "Filtrele" düğmesine basmak gerekmez. Ama filtreleme yine sunucudadır — değişen tek şey, sonucun tam sayfa yerine **yalnızca liste parçası** olarak çekilip yerine konması. Sayfanın geri kalanı (başlık, sayaçlar, öne çıkanlar, menü) yeniden üretilmez.
+
+Yazarken her tuşta istek gitmemesi için 300 ms beklenir: "konser" yazmak 6 istek değil 1 istek üretir. Hızlı yazıldığında önceki istek iptal edilir, böylece geç gelen eski cevap yenisinin üstüne yazamaz. JavaScript çalışmazsa form normal GET gönderimiyle aynı işi yapar.
 
 Bunun üç yan etkisi oldu:
 

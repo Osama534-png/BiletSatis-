@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initCountUp();
   initScrollReveal();
   initFiyatKaydirici();
+  initAnaSayfaFiltre();
   initDinamikStiller();
   initFavoriDugmeleri();
   initVenueMap();
@@ -132,9 +133,8 @@ function initScrollReveal() {
   items.forEach((el) => observer.observe(el));
 }
 
-// Filtreleme, arama ve sıralama artık sunucuda yapılıyor (bkz. EtkinlikSorguServisi).
-// Burada kalan tek iş, fiyat kaydırıcısının yanındaki sayıyı sürüklerken güncellemek —
-// asıl filtreleme form gönderildiğinde sunucuda uygulanır.
+// Fiyat kaydırıcısının yanındaki sayıyı sürüklerken günceller. Asıl filtreleme
+// sunucuda yapılır; bu yalnızca anlık geri bildirim.
 function initFiyatKaydirici() {
   const kaydirici = document.getElementById("priceRange");
   const etiket = document.getElementById("priceValue");
@@ -146,6 +146,147 @@ function initFiyatKaydirici() {
 
   kaydirici.addEventListener("input", yaz);
   yaz();
+}
+
+// Ana sayfa filtreleri: yazarken/seçerken kendiliğinden uygulanır, düğmeye
+// basmak gerekmez ve sayfa yenilenmez.
+//
+// Filtreleme yine sunucuda yapılıyor (ölçek için şart: 2000 etkinlikte tüm
+// listeyi tarayıcıya göndermek sayfayı 5 MB'a çıkarıyordu). Değişen tek şey,
+// sonucun tam sayfa yerine yalnızca liste parçası olarak çekilmesi.
+//
+// Her tuş vuruşunda istek gitmesin diye 300 ms beklenir: "konser" yazmak 6
+// istek değil 1 istek üretir.
+function initAnaSayfaFiltre() {
+  const form = document.getElementById("filtrePaneli");
+  const kap = document.getElementById("sonuclar");
+  if (!form || !kap) return;
+
+  // JavaScript çalışıyorsa düğme gereksiz; çalışmıyorsa form normal gönderimle
+  // çalışmaya devam eder, o yüzden düğme HTML'de duruyor.
+  form.querySelector("button[type=submit]")?.setAttribute("hidden", "hidden");
+
+  let zamanlayici = null;
+  let sonIstek = null;
+
+  const adresOlustur = (sayfa) => {
+    const veriler = new FormData(form);
+    const parametreler = new URLSearchParams();
+
+    for (const [ad, deger] of veriler.entries()) {
+      if (deger !== "" && deger !== null) parametreler.append(ad, deger);
+    }
+
+    if (sayfa && sayfa > 1) parametreler.set("sayfa", String(sayfa));
+    else parametreler.delete("sayfa");
+
+    const sorgu = parametreler.toString();
+    return sorgu ? `?${sorgu}` : "/";
+  };
+
+  const uygula = async (adres, kaydir = false) => {
+    // Önceki istek hâlâ sürüyorsa iptal et: hızlı yazarken eski cevabın geç
+    // gelip yenisinin üstüne yazmasını engeller.
+    sonIstek?.abort();
+    sonIstek = new AbortController();
+
+    kap.classList.add("yukleniyor");
+
+    try {
+      const cevap = await fetch(adres, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        signal: sonIstek.signal,
+      });
+
+      if (!cevap.ok) throw new Error(`Sunucu ${cevap.status} döndü`);
+
+      kap.innerHTML = await cevap.text();
+
+      // Adres çubuğu filtreyi yansıtsın: bağlantı paylaşılabilir kalır ve
+      // sayfa yenilenirse aynı sonuçlar gelir.
+      history.replaceState(null, "", adres);
+
+      // Yeni basılan içerikteki kalpler ve değere bağlı stiller bağlanmalı.
+      initFavoriDugmeleri();
+      initDinamikStiller();
+
+      if (kaydir) kap.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (hata) {
+      if (hata.name !== "AbortError") {
+        // Ağ hatası: kullanıcı boş ekranla kalmasın, normal gönderime düş.
+        form.submit();
+      }
+    } finally {
+      kap.classList.remove("yukleniyor");
+    }
+  };
+
+  const geciktir = (ms) => {
+    clearTimeout(zamanlayici);
+    zamanlayici = setTimeout(() => uygula(adresOlustur(1)), ms);
+  };
+
+  // Metin ve kaydırıcı yazarken beklemeli; açılır liste ve kutucuk anında.
+  form.addEventListener("input", (olay) => {
+    geciktir(olay.target.type === "range" || olay.target.type === "text" ? 300 : 0);
+  });
+
+  form.addEventListener("change", () => geciktir(0));
+
+  form.addEventListener("submit", (olay) => {
+    olay.preventDefault();
+    uygula(adresOlustur(1));
+  });
+
+  // Sayfalama bağlantıları da tam yenileme yapmasın. Liste her filtrede yeniden
+  // basıldığı için bağlantılara tek tek dinleyici eklenemez; olay kap üzerinden
+  // yakalanıyor.
+  kap.addEventListener("click", (olay) => {
+    const baglanti = olay.target.closest("a.sayfa-baglantisi");
+    if (!baglanti || baglanti.classList.contains("is-pasif")) return;
+
+    olay.preventDefault();
+    uygula(baglanti.getAttribute("href"), true);
+  });
+
+  // Kategori sekmeleri ve şehir seçenekleri formun dışında; seçimi gizli alana
+  // yazıp aynı akışı kullanıyorlar.
+  const gizliAlanaYaz = (ad, deger) => {
+    const alan = form.querySelector(`input[name="${ad}"]`);
+    if (alan) alan.value = deger ?? "";
+  };
+
+  document.querySelectorAll(".category-tab").forEach((sekme) => {
+    sekme.addEventListener("click", (olay) => {
+      olay.preventDefault();
+      const adres = new URL(sekme.href, location.origin);
+      gizliAlanaYaz("kategori", adres.searchParams.get("kategori"));
+
+      document.querySelectorAll(".category-tab").forEach((s) => s.classList.remove("is-active"));
+      sekme.classList.add("is-active");
+
+      uygula(adresOlustur(1));
+    });
+  });
+
+  document.querySelectorAll(".city-option").forEach((secenek) => {
+    secenek.addEventListener("click", (olay) => {
+      olay.preventDefault();
+      const adres = new URL(secenek.href, location.origin);
+      const sehir = adres.searchParams.get("sehir");
+      gizliAlanaYaz("sehir", sehir);
+
+      document.querySelectorAll(".city-option").forEach((s) => s.classList.remove("is-active"));
+      secenek.classList.add("is-active");
+
+      const baslik = document.getElementById("cityCurrent");
+      if (baslik) baslik.textContent = sehir || "Tüm Şehirler";
+
+      document.getElementById("cityPicker")?.removeAttribute("open");
+
+      uygula(adresOlustur(1));
+    });
+  });
 }
 
 
@@ -219,6 +360,11 @@ function initFavoriDugmeleri() {
     // Favorilerim sayfasında kalp kaldırılınca kartın da listeden çıkması
     // gerekiyor; orada tam yenileme doğru davranış.
     if (form.dataset.favoriYenile === "true") return;
+
+    // Sonuç listesi filtreden sonra yeniden basıldığında bu fonksiyon tekrar
+    // çağrılıyor; daha önce bağlanmış formlara ikinci kez dinleyici eklenmesin.
+    if (form.dataset.baglandi === "1") return;
+    form.dataset.baglandi = "1";
 
     form.addEventListener("submit", async (olay) => {
       olay.preventDefault();

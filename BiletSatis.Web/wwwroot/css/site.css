@@ -3281,3 +3281,20 @@ footer.site-footer a:hover {
 .category-tab {
   text-decoration: none;
 }
+
+/* Filtre uygulanırken sonuç listesi hafifçe soluklaşır — istek gittiğini belli eder. */
+#sonuclar {
+  transition: opacity 0.15s var(--ease);
+}
+
+#sonuclar.yukleniyor {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.sonuc-ozeti {
+  margin-bottom: 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--neutral-text);
+}

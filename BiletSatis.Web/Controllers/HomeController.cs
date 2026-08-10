@@ -65,6 +65,19 @@ public class HomeController : Controller
             return RedirectToAction(nameof(Index), degerler);
         }
 
+        // Filtre değiştiğinde tarayıcı yalnızca sonuç listesini ister. Sayfanın
+        // geri kalanını (başlık, sayaçlar, öne çıkanlar, menü) yeniden üretmenin
+        // anlamı yok — hem sunucuda hem ağda gereksiz iş olurdu.
+        if (Request.Headers.XRequestedWith == "XMLHttpRequest")
+        {
+            return PartialView("_EtkinlikSonuclari", new AnaSayfaVm
+            {
+                Sayfa = sonuc,
+                Filtre = filtre,
+                FavoriEtkinlikIdleri = await _favori.FavoriIdleriAsync(_currentUser.GetKullaniciId())
+            });
+        }
+
         var istatistik = await _sorgu.IstatistikAsync();
 
         var vm = new AnaSayfaVm

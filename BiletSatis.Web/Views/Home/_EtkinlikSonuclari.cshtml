@@ -1,0 +1,143 @@
+@model BiletSatis.Web.Models.AnaSayfaVm
+@using BiletSatis.Web.Domain
+@{
+    var filtre = Model.Filtre;
+    var sayfa = Model.Sayfa;
+}
+
+@* Filtre değiştiğinde yalnızca bu parça yeniden çekilip yerine konur; sayfanın
+   geri kalanı (başlık, sayaçlar, öne çıkanlar, menü) olduğu gibi kalır. *@
+<div class="sonuc-ozeti">
+    @if (sayfa.ToplamKayit == 0)
+    {
+        <text>0 sonuç</text>
+    }
+    else
+    {
+        <text>@sayfa.ToplamKayit sonuçtan @sayfa.IlkSira–@sayfa.SonSira</text>
+    }
+</div>
+
+
+@if (!sayfa.Ogeler.Any())
+{
+    <p class="text-muted">🔍 @(filtre.FiltreVarMi ? "Filtrelerinize uyan etkinlik bulunamadı." : "Henüz etkinlik yok.")</p>
+}
+else
+{
+    <div class="event-grid" id="eventRail">
+        @for (int i = 0; i < sayfa.Ogeler.Count; i++)
+        {
+            var e = sayfa.Ogeler[i];
+            var sira = ((sayfa.Sayfa - 1) * sayfa.SayfaBoyutu) + i + 1;
+            <div class="event-card gecikme-@(i % 10)">
+                <div class="poster">
+                    <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
+                         alt="@e.Ad afişi" loading="lazy" />
+                    <span class="poster-category">@KategoriMetni.Ad(e.Kategori)</span>
+                    <span class="poster-index">#@(sira.ToString("00"))</span>
+                    <span class="poster-countdown @(e.YaklasanEtkinlik ? "is-yakin" : "")">⏳ @e.GeriSayimMetni</span>
+                </div>
+                <div class="body">
+                    <div class="card-main">
+                    <div class="kart-baslik-satiri">
+                        <h2>@e.Ad</h2>
+                        <partial name="_FavoriDugmesi" model="@((e.Id, Model.FavoriEtkinlikIdleri.Contains(e.Id)))" />
+                    </div>
+                    <div class="meta">
+                        <span class="date-pill">📅 @e.Tarih.ToString("dd.MM.yyyy · HH:mm")</span>
+                        @if (!string.IsNullOrWhiteSpace(e.Mekan))
+                        {
+                            <span class="venue-line">📍 @e.Mekan</span>
+                        }
+                        @if (e.MusaitKoltukSayisi == 0)
+                        {
+                            <span class="stok-uyari tukendi">🚫 Tükendi</span>
+                        }
+                        else if (e.SonBiletler)
+                        {
+                            <span class="stok-uyari">🔥 Son @e.MusaitKoltukSayisi bilet!</span>
+                        }
+                        else
+                        {
+                            <span>🎟️ @e.MusaitKoltukSayisi koltuk müsait</span>
+                        }
+                    </div>
+                    </div>
+                    <div class="price-row">
+                        @if (e.EnDusukFiyat.HasValue)
+                        {
+                            <span class="price">@e.EnDusukFiyat.Value.ToString("N0")<small>₺'den itibaren</small></span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-satildi">Tükendi</span>
+                        }
+                    </div>
+                    <div class="cta-row">
+                        <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id" class="btn btn-primary btn-sm">🎟️ Bilet Al</a>
+                        <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@e.Id" class="btn btn-outline-secondary btn-sm">⏳ Kuyruk</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (sayfa.ToplamSayfa > 1)
+    {
+        <nav class="sayfalama" aria-label="Sayfalar">
+            @if (sayfa.OncekiVarMi)
+            {
+                <a class="sayfa-baglantisi" asp-action="Index"
+                   asp-all-route-data="filtre.BaglantiDegerleri(sayfa.Sayfa - 1)" rel="prev">‹ Önceki</a>
+            }
+            else
+            {
+                <span class="sayfa-baglantisi is-pasif">‹ Önceki</span>
+            }
+
+            @{
+                // Uzun listelerde tüm sayfa numaralarını basmak anlamsız;
+                // geçerli sayfanın çevresinde dar bir pencere gösteriliyor.
+                var ilk = Math.Max(1, sayfa.Sayfa - 2);
+                var son = Math.Min(sayfa.ToplamSayfa, ilk + 4);
+                ilk = Math.Max(1, son - 4);
+            }
+
+            @if (ilk > 1)
+            {
+                <a class="sayfa-baglantisi" asp-action="Index" asp-all-route-data="filtre.BaglantiDegerleri(1)">1</a>
+                <span class="sayfa-ara">…</span>
+            }
+
+            @for (var s = ilk; s <= son; s++)
+            {
+                if (s == sayfa.Sayfa)
+                {
+                    <span class="sayfa-baglantisi is-aktif" aria-current="page">@s</span>
+                }
+                else
+                {
+                    <a class="sayfa-baglantisi" asp-action="Index" asp-all-route-data="filtre.BaglantiDegerleri(s)">@s</a>
+                }
+            }
+
+            @if (son < sayfa.ToplamSayfa)
+            {
+                <span class="sayfa-ara">…</span>
+                <a class="sayfa-baglantisi" asp-action="Index"
+                   asp-all-route-data="filtre.BaglantiDegerleri(sayfa.ToplamSayfa)">@sayfa.ToplamSayfa</a>
+            }
+
+            @if (sayfa.SonrakiVarMi)
+            {
+                <a class="sayfa-baglantisi" asp-action="Index"
+                   asp-all-route-data="filtre.BaglantiDegerleri(sayfa.Sayfa + 1)" rel="next">Sonraki ›</a>
+            }
+            else
+            {
+                <span class="sayfa-baglantisi is-pasif">Sonraki ›</span>
+            }
+        </nav>
+    }
+}

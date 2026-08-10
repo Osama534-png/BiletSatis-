@@ -399,6 +399,34 @@ public class UctanUcaAkisTests : IClassFixture<UygulamaFabrikasi>
         }
     }
 
+    // Filtre değiştiğinde tarayıcı tam sayfa değil yalnızca sonuç listesini ister.
+    // Tam sayfa dönerse hem ağda hem sunucuda gereksiz iş olur ve JS sayfanın
+    // içine sayfa gömer.
+    [Fact]
+    public async Task AnaSayfa_JavaScriptIsteginde_YalnizcaSonucParcasiDonmeli()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("parca"));
+
+            var istek = new HttpRequestMessage(HttpMethod.Get, "/?arama=ZZ");
+            istek.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var cevap = await istemci.SendAsync(istek);
+            var govde = await cevap.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.OK, cevap.StatusCode);
+
+            // Parça yalnızca sonuçları içermeli; sayfa iskeleti gelmemeli.
+            Assert.DoesNotContain("<html", govde, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("filtrePaneli", govde);
+            Assert.DoesNotContain("stats-strip", govde);
+            Assert.Contains("sonuc-ozeti", govde);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     // ---------- Favoriler ----------
 
     [Fact]
