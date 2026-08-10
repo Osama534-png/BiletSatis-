@@ -55,6 +55,15 @@ public class FavoriController : Controller
         var kullaniciId = _currentUser.GetKullaniciId();
         var durum = await _favori.DegistirAsync(etkinlikId, kullaniciId);
 
+        // JavaScript'ten geldiyse sayfayı yeniden çizdirmeye gerek yok: tek satırlık
+        // bir cevap yeterli. Tam sayfa yenileme, kalbe her basışta ana sayfanın
+        // bütün sorgularını (etkinlikler, koltuk sayıları, favori listesi) baştan
+        // çalıştırıyordu — yapılan iş ise tek bir veritabanı yazması.
+        if (Request.Headers.XRequestedWith == "XMLHttpRequest")
+        {
+            return Json(new { favoride = durum == FavoriDurumu.Eklendi });
+        }
+
         TempData["Bilgi"] = durum == FavoriDurumu.Eklendi
             ? "Etkinlik favorilerinize eklendi."
             : "Etkinlik favorilerinizden çıkarıldı.";

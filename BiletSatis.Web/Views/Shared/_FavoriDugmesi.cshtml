@@ -1,9 +1,15 @@
 @model (int EtkinlikId, bool Favoride)
 @{
     var donus = Context.Request.Path + Context.Request.QueryString;
+
+    // Favorilerim sayfasında kalp kaldırılınca kart da listeden çıkmalı; orada
+    // arka plan isteği yerine tam yenileme yapılıyor.
+    var favorilerSayfasi = string.Equals(
+        ViewContext.RouteData.Values["controller"] as string, "Favori", StringComparison.OrdinalIgnoreCase);
 }
 
-<form asp-controller="Favori" asp-action="Degistir" method="post" class="favori-form">
+<form asp-controller="Favori" asp-action="Degistir" method="post" class="favori-form"
+      data-favori-yenile="@(favorilerSayfasi ? "true" : "false")">
     <input type="hidden" name="etkinlikId" value="@Model.EtkinlikId" />
     <input type="hidden" name="donusAdresi" value="@donus" />
     <button type="submit"

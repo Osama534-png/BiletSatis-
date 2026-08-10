@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initScrollReveal();
   initEventSearch();
   initDinamikStiller();
+  initFavoriDugmeleri();
   initVenueMap();
   initSeatSelection();
   initFormDavranislari();
@@ -422,6 +423,58 @@ function initFormDavranislari() {
 
       dugme.disabled = true;
       dugme.textContent = form.dataset.tekGonderim;
+    });
+  });
+}
+
+// Favori kalbi: form gönderimini durdurup isteği arka planda yapar, yalnızca
+// düğmenin görünümünü değiştirir. Öncesinde her tıklama tam sayfa yenilemesi
+// tetikliyordu; ana sayfanın bütün sorguları (etkinlikler, koltuk sayıları,
+// favori listesi) tek satırlık bir yazma için baştan çalışıyordu.
+//
+// Form olduğu gibi duruyor: JavaScript çalışmazsa ya da istek başarısız olursa
+// normal gönderime düşülüyor, yani özellik JS'siz de çalışır.
+function initFavoriDugmeleri() {
+  document.querySelectorAll("form.favori-form").forEach((form) => {
+    // Favorilerim sayfasında kalp kaldırılınca kartın da listeden çıkması
+    // gerekiyor; orada tam yenileme doğru davranış.
+    if (form.dataset.favoriYenile === "true") return;
+
+    form.addEventListener("submit", async (olay) => {
+      olay.preventDefault();
+
+      const dugme = form.querySelector(".favori-dugme");
+      if (!dugme || dugme.disabled) return;
+
+      dugme.disabled = true;
+
+      try {
+        const cevap = await fetch(form.action, {
+          method: "POST",
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+          body: new FormData(form),
+        });
+
+        if (!cevap.ok) throw new Error(`Sunucu ${cevap.status} döndü`);
+
+        const sonuc = await cevap.json();
+        const favoride = sonuc.favoride === true;
+
+        dugme.classList.toggle("is-favori", favoride);
+        dugme.textContent = favoride ? "♥" : "♡";
+        dugme.setAttribute("aria-pressed", String(favoride));
+
+        const metin = favoride ? "Favorilerden çıkar" : "Favorilere ekle";
+        dugme.title = metin;
+        dugme.setAttribute("aria-label", metin);
+      } catch {
+        // Ağ hatası ya da oturum düşmesi: formu normal yoldan gönder, kullanıcı
+        // en azından sonucu görsün.
+        form.submit();
+        return;
+      } finally {
+        dugme.disabled = false;
+      }
     });
   });
 }

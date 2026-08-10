@@ -342,6 +342,39 @@ public class UctanUcaAkisTests : IClassFixture<UygulamaFabrikasi>
         finally { await Temizle(etkinlikId); }
     }
 
+    // Kalp tıklaması sayfayı yenilemek yerine küçük bir JSON cevabı almalı;
+    // aksi halde her tıklamada ana sayfanın bütün sorguları baştan çalışır.
+    [Fact]
+    public async Task Favori_JavaScriptIsteginde_SayfaYerineJsonDonmeli()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("favori-json"));
+
+            var html = await istemci.GetStringAsync($"/Etkinlik/Detay?id={etkinlikId}");
+
+            var istek = new HttpRequestMessage(HttpMethod.Post, "/Favori/Degistir")
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["etkinlikId"] = etkinlikId.ToString(),
+                    ["__RequestVerificationToken"] = UygulamaFabrikasi.AntiforgeryJetonu(html)
+                })
+            };
+            istek.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+            var cevap = await istemci.SendAsync(istek);
+
+            Assert.Equal(HttpStatusCode.OK, cevap.StatusCode);
+            Assert.Equal("application/json", cevap.Content.Headers.ContentType?.MediaType);
+
+            var govde = await cevap.Content.ReadAsStringAsync();
+            Assert.Contains("\"favoride\":true", govde);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     // Dönüş adresi istemciden geliyor; dış bir siteye yönlendirilememeli.
     [Fact]
     public async Task Favori_DisAdreseYonlendirmemeli()
