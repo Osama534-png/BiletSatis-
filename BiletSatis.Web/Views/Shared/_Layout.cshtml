@@ -41,6 +41,9 @@
                                 <a class="nav-link" asp-controller="Biletler" asp-action="Biletlerim">🎫 Biletlerim</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link" asp-controller="Favori" asp-action="Index">♥ Favorilerim</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link" asp-controller="Profil" asp-action="Index">👤 Profilim</a>
                             </li>
                             @if (User.IsInRole("Admin"))

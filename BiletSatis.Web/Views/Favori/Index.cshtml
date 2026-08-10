@@ -1,0 +1,62 @@
+@model List<BiletSatis.Web.Models.EtkinlikKartVm>
+@{
+    ViewData["Title"] = "Favorilerim";
+}
+
+<div class="hero">
+    <h1>♥ Favorilerim</h1>
+    <p>Beğendiğiniz etkinlikler burada birikir.</p>
+</div>
+
+@if (TempData["Bilgi"] != null)
+{
+    <div class="alert alert-success">✅ @TempData["Bilgi"]</div>
+}
+
+@if (!Model.Any())
+{
+    <p class="text-muted">
+        Henüz favori etkinliğiniz yok. Etkinlik sayfalarındaki ♡ düğmesine basarak ekleyebilirsiniz.
+    </p>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-primary">Etkinliklere Göz At</a>
+}
+else
+{
+    <div class="event-grid">
+        @foreach (var e in Model)
+        {
+            <div class="event-card">
+                <div class="poster">
+                    <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
+                         alt="@e.Ad afişi" loading="lazy" />
+                    <span class="poster-category">@BiletSatis.Web.Domain.KategoriMetni.Ad(e.Kategori)</span>
+                    <partial name="_FavoriDugmesi" model="@((e.Id, true))" />
+                </div>
+                <div class="body">
+                    <h2>@e.Ad</h2>
+                    <div class="meta">
+                        <span class="date-pill">📅 @e.Tarih.ToString("dd.MM.yyyy · HH:mm")</span>
+                        @if (!string.IsNullOrEmpty(e.Sehir))
+                        {
+                            <span class="city-pill">📍 @e.Sehir</span>
+                        }
+                    </div>
+                    <div class="price-row">
+                        @if (e.EnDusukFiyat.HasValue)
+                        {
+                            <span class="price">@e.EnDusukFiyat.Value.ToString("N0")<small>₺'den itibaren</small></span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-satildi">Tükendi</span>
+                        }
+                    </div>
+                    <div class="cta-row">
+                        <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id"
+                           class="btn btn-primary btn-sm">İncele</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

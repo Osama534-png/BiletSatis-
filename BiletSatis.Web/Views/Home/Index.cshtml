@@ -233,6 +233,7 @@
                             <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
                                  alt="@e.Ad afişi" loading="lazy" />
                             <span class="poster-category">@KategoriMetni.Ad(e.Kategori)</span>
+                            <partial name="_FavoriDugmesi" model="@((e.Id, Model.FavoriEtkinlikIdleri.Contains(e.Id)))" />
                             <span class="poster-index">#@((i + 1).ToString("00"))</span>
                             <span class="poster-countdown @(e.YaklasanEtkinlik ? "is-yakin" : "")">⏳ @e.GeriSayimMetni</span>
                         </div>

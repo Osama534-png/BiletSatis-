@@ -15,6 +15,7 @@ Bu proje, klasik "sepete ekle / satın al" akışının **race condition** (yar�
 - **Otomatik test kapsamı** — hem gerçek SQL Server'a karşı çalışan xUnit entegrasyon testleri hem de k6 ile gerçek eşzamanlı yük testleri.
 - **İnteraktif salon haritası** — koltuk numarası önekinden (`A-01` → A blok) türetilen blok haritası, sahne yayı, doluluğa göre renklendirme.
 - **Çoklu koltuk seçimi** — haritadan tek seferde 6 koltuğa kadar seçilir, seçim çubuğu toplamı canlı gösterir ve tamamı tek istekte rezerve edilir. Koltuklardan biri bile araya girilirse hiçbiri alınmaz (bkz. Mimari Kararlar). Sepetin tamamı tek bir Stripe oturumunda, çok kalemli olarak ödenir.
+- **Favoriler** — etkinlik kartlarındaki ve detay sayfasındaki ♡ düğmesiyle etkinlik favoriye alınır, "Favorilerim" sayfasında listelenir. Kullanıcı ile etkinlik arasındaki çoka-çok ilişki, bileşik birincil anahtarlı bir ara tabloyla kurulur.
 - **Bilet devretme** — bilete gidemeyen kullanıcı biletini başka bir kullanıcıya devredebilir. Devir sonrası eski sahibin QR kodu geçersizleşir (imzaya sürüm eklenmiştir) ve yeni sahibe yeni QR'lı bilet e-postası gider. Kapıda okutulmuş ya da etkinliği geçmiş bilet devredilemez.
 - **Genel giriş etkinlikleri** — her etkinlik salonlu değildir. Festival ve ayakta konserlerde koltuk seçimi yerine yalnızca adet seçilir; sistem müsait biletlerden o kadarını tek atomik sorguyla ayırır. Yeterli bilet yoksa hiçbiri ayrılmaz.
 - **Etkinlik keşif arayüzü** — kategori menüsü, şehir seçici, canlı arama, tarih/fiyat filtreleri, sıralama, ızgara/liste görünümü; tümü sayfa yenilemeden çalışır ve tercihler tarayıcıda saklanır.
@@ -506,6 +507,7 @@ Kapsanan alanlar:
 | `KuyrukBildirimServisiTests` | Bildirim gönderimi, tekrar gönderim engeli, hata sonrası yeniden deneme |
 | `BiletBildirimServisiTests` | Satın alma bildirimi, e-posta içeriği, QR kodunun gömülmesi, tekrar gönderim engeli |
 | `BiletKoduServisiTests` | İmza doğrulama; sahte imza, numara değiştirme ve farklı anahtar denemeleri |
+| `FavoriServisiTests` | Favori ekleme/çıkarma, kullanıcı ayrımı, cascade silme, eşzamanlı isteklerde mükerrer kayıt olmaması |
 | `BiletDevirServisiTests` | Bilet devri: eski QR'ın geçersizleşmesi, kapıda okutulmuş biletin devredilememesi, eşzamanlı devir denemeleri |
 | `KimlikEpostaServisiTests` | Doğrulama ve şifre sıfırlama e-postalarının içeriği, gönderim hatasının yukarı taşınması |
 | `EtkinlikEsZamanliDuzenlemeTests` | İki yöneticinin aynı etkinliği düzenlemesi (kayıp güncelleme koruması) |

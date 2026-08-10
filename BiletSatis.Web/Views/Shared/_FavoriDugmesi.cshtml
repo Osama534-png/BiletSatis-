@@ -1,0 +1,14 @@
+@model (int EtkinlikId, bool Favoride)
+@{
+    var donus = Context.Request.Path + Context.Request.QueryString;
+}
+
+<form asp-controller="Favori" asp-action="Degistir" method="post" class="favori-form">
+    <input type="hidden" name="etkinlikId" value="@Model.EtkinlikId" />
+    <input type="hidden" name="donusAdresi" value="@donus" />
+    <button type="submit"
+            class="favori-dugme @(Model.Favoride ? "is-favori" : "")"
+            title="@(Model.Favoride ? "Favorilerden çıkar" : "Favorilere ekle")"
+            aria-label="@(Model.Favoride ? "Favorilerden çıkar" : "Favorilere ekle")"
+            aria-pressed="@(Model.Favoride ? "true" : "false")">@(Model.Favoride ? "♥" : "♡")</button>
+</form>

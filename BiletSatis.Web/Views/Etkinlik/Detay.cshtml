@@ -20,6 +20,11 @@
         <span class="detay-kategori">@KategoriMetni.Ad(Model.Kategori)</span>
         <h1>@Model.Ad</h1>
 
+        <div class="detay-favori">
+            <partial name="_FavoriDugmesi" model="@((Model.Id, Model.Favoride))" />
+            <span class="text-muted small">@(Model.Favoride ? "Favorilerinizde" : "Favorilere ekle")</span>
+        </div>
+
         @if (Model.Degerlendirmeler.Adet > 0)
         {
             <a class="puan-rozeti" href="#degerlendirmeler">

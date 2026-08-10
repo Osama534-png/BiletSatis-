@@ -28,6 +28,9 @@ public class EtkinlikDetayVm
     /// <summary>Puan ortalaması, dağılımı ve yorumlar.</summary>
     public DegerlendirmeOzeti Degerlendirmeler { get; set; } = new();
 
+    /// <summary>Etkinlik giriş yapan kullanıcının favorilerinde mi.</summary>
+    public bool Favoride { get; set; }
+
     /// <summary>Giriş yapan kullanıcının bu etkinliğe okutulmuş bileti var mı.</summary>
     public bool DegerlendirebilirMi { get; set; }
 

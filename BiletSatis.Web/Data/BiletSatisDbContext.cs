@@ -22,6 +22,7 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
     public DbSet<Bilet> Biletler => Set<Bilet>();
     public DbSet<RezervasyonKuyrugu> RezervasyonKuyrugu => Set<RezervasyonKuyrugu>();
     public DbSet<Degerlendirme> Degerlendirmeler => Set<Degerlendirme>();
+    public DbSet<Favori> Favoriler => Set<Favori>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -102,6 +103,24 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
             d.HasIndex(x => new { x.EtkinlikId, x.KullaniciId }).IsUnique();
 
             d.HasOne(x => x.Etkinlik)
+                .WithMany()
+                .HasForeignKey(x => x.EtkinlikId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Favori>(f =>
+        {
+            // Bileşik birincil anahtar: aynı kullanıcı aynı etkinliği iki kez
+            // favoriye alamaz. Kural veritabanı seviyesinde olduğu için çift
+            // tıklama ya da eşzamanlı istek mükerrer kayıt oluşturamaz.
+            f.HasKey(x => new { x.KullaniciId, x.EtkinlikId });
+
+            f.Property(x => x.KullaniciId).HasMaxLength(450);
+
+            // "Favorilerim" sayfası kullanıcıya göre, en yeni önce sıralar.
+            f.HasIndex(x => new { x.KullaniciId, x.EklenmeZamani });
+
+            f.HasOne(x => x.Etkinlik)
                 .WithMany()
                 .HasForeignKey(x => x.EtkinlikId)
                 .OnDelete(DeleteBehavior.Cascade);

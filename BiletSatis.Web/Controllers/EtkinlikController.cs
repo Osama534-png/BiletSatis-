@@ -3,6 +3,7 @@ using BiletSatis.Web.Domain;
 using BiletSatis.Web.Models;
 using BiletSatis.Web.Services;
 using BiletSatis.Web.Services.Degerlendirmeler;
+using BiletSatis.Web.Services.Favoriler;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,15 +13,18 @@ public class EtkinlikController : Controller
 {
     private readonly BiletSatisDbContext _db;
     private readonly IDegerlendirmeServisi _degerlendirme;
+    private readonly IFavoriServisi _favori;
     private readonly ICurrentUserService _currentUser;
 
     public EtkinlikController(
         BiletSatisDbContext db,
         IDegerlendirmeServisi degerlendirme,
+        IFavoriServisi favori,
         ICurrentUserService currentUser)
     {
         _db = db;
         _degerlendirme = degerlendirme;
+        _favori = favori;
         _currentUser = currentUser;
     }
 
@@ -95,6 +99,7 @@ public class EtkinlikController : Controller
         var kullaniciId = _currentUser.GetKullaniciId();
         vm.DegerlendirebilirMi = await _degerlendirme.DegerlendirebilirMiAsync(id, kullaniciId);
         vm.KendiDegerlendirmesi = await _degerlendirme.KendiDegerlendirmesiAsync(id, kullaniciId);
+        vm.Favoride = await _favori.FavorideMiAsync(id, kullaniciId);
 
         return View(vm);
     }

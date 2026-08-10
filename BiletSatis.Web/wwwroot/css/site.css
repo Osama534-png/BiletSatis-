@@ -3169,3 +3169,51 @@ footer.site-footer a:hover {
   color: var(--accent-dark);
   margin-bottom: 0.5rem;
 }
+
+/* ---------- Favori (kalp) düğmesi ---------- */
+
+.favori-form {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 3;
+  margin: 0;
+}
+
+.favori-dugme {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--neutral-text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.favori-dugme:hover {
+  transform: scale(1.12);
+  color: var(--accent);
+}
+
+.favori-dugme.is-favori {
+  color: var(--accent);
+}
+
+.detay-favori {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+/* Detay sayfasındaki kalp kart köşesinde değil, akış içinde durur. */
+.detay-favori .favori-form {
+  position: static;
+}

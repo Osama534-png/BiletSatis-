@@ -293,6 +293,79 @@ public class UctanUcaAkisTests : IClassFixture<UygulamaFabrikasi>
         finally { await Temizle(etkinlikId); }
     }
 
+    // ---------- Favoriler ----------
+
+    [Fact]
+    public async Task Favori_EklenipCikarilabilmeli()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("favori"));
+
+            // Başlangıçta favori listesi boş.
+            var bos = await istemci.GetStringAsync("/Favori");
+            Assert.Contains("Henüz favori etkinli", bos);
+
+            await FormGonder(istemci, $"/Etkinlik/Detay?id={etkinlikId}", "/Favori/Degistir",
+                new Dictionary<string, string> { ["etkinlikId"] = etkinlikId.ToString() });
+
+            var dolu = await istemci.GetStringAsync("/Favori");
+            Assert.DoesNotContain("Henüz favori etkinli", dolu);
+            Assert.Contains("ZZ UctanUca", dolu);
+
+            // Aynı düğmeye tekrar basmak çıkarmalı.
+            await FormGonder(istemci, $"/Etkinlik/Detay?id={etkinlikId}", "/Favori/Degistir",
+                new Dictionary<string, string> { ["etkinlikId"] = etkinlikId.ToString() });
+
+            var tekrarBos = await istemci.GetStringAsync("/Favori");
+            Assert.Contains("Henüz favori etkinli", tekrarBos);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    [Fact]
+    public async Task Favori_BaskasininFavorisiGorunmemeli()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur();
+        try
+        {
+            var birinci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("favori-sahip"));
+            await FormGonder(birinci, $"/Etkinlik/Detay?id={etkinlikId}", "/Favori/Degistir",
+                new Dictionary<string, string> { ["etkinlikId"] = etkinlikId.ToString() });
+
+            var ikinci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("favori-yabanci"));
+            var yabancininListesi = await ikinci.GetStringAsync("/Favori");
+
+            Assert.Contains("Henüz favori etkinli", yabancininListesi);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // Dönüş adresi istemciden geliyor; dış bir siteye yönlendirilememeli.
+    [Fact]
+    public async Task Favori_DisAdreseYonlendirmemeli()
+    {
+        var (etkinlikId, _) = await EtkinlikVeBiletlerOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("favori-yonlendirme"));
+
+            var html = await istemci.GetStringAsync($"/Etkinlik/Detay?id={etkinlikId}");
+            var cevap = await istemci.PostAsync("/Favori/Degistir", new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["etkinlikId"] = etkinlikId.ToString(),
+                    ["donusAdresi"] = "https://kotu-site.example/calindi",
+                    ["__RequestVerificationToken"] = UygulamaFabrikasi.AntiforgeryJetonu(html)
+                }));
+
+            var hedef = cevap.Headers.Location?.OriginalString ?? "";
+            Assert.DoesNotContain("kotu-site", hedef);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     // ---------- Başkasının verisine erişim ----------
 
     [Fact]

@@ -5,16 +5,22 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BiletSatis.Web.Models;
+using BiletSatis.Web.Services;
+using BiletSatis.Web.Services.Favoriler;
 
 namespace BiletSatis.Web.Controllers;
 
 public class HomeController : Controller
 {
     private readonly BiletSatisDbContext _db;
+    private readonly IFavoriServisi _favori;
+    private readonly ICurrentUserService _currentUser;
 
-    public HomeController(BiletSatisDbContext db)
+    public HomeController(BiletSatisDbContext db, IFavoriServisi favori, ICurrentUserService currentUser)
     {
         _db = db;
+        _favori = favori;
+        _currentUser = currentUser;
     }
 
     public async Task<IActionResult> Index()
@@ -53,6 +59,9 @@ public class HomeController : Controller
                 .OrderBy(s => s, StringComparer.CurrentCulture)
                 .ToList()
         };
+
+        vm.FavoriEtkinlikIdleri = await _favori.FavoriIdleriAsync(_currentUser.GetKullaniciId());
+
         return View(vm);
     }
 

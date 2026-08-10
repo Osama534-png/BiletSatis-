@@ -140,6 +140,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IBiletRezervasyonServisi, BiletRezervasyonServisi>();
 builder.Services.AddScoped<IKuyrukServisi, KuyrukServisi>();
 builder.Services.AddScoped<IDegerlendirmeServisi, DegerlendirmeServisi>();
+builder.Services.AddScoped<BiletSatis.Web.Services.Favoriler.IFavoriServisi, BiletSatis.Web.Services.Favoriler.FavoriServisi>();
 builder.Services.AddHostedService<CartExpiryWorker>();
 builder.Services.AddHostedService<WaitlistWorker>();
 
