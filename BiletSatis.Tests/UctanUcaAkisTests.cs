@@ -756,4 +756,66 @@ public class UctanUcaAkisTests : IClassFixture<UygulamaFabrikasi>
         // söylemenin gereği yok.
         Assert.False(cevap.Headers.Contains("Server"));
     }
+
+    /// <summary>
+    /// Giriş yapmış kullanıcının sayfaları önbelleğe alınmamalı: ortak bilgisayarda
+    /// çıkış yapıldıktan sonra geri tuşuna basan biri "Biletlerim" sayfasını
+    /// önbellekten görebiliyordu.
+    /// </summary>
+    [Fact]
+    public async Task GirisYapmisKullanicinin_Sayfalari_OnbellegeAlinmamali()
+    {
+        var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("onbellek"));
+
+        var cevap = await istemci.GetAsync("/Biletler/Biletlerim");
+        cevap.EnsureSuccessStatusCode();
+
+        var onbellek = cevap.Headers.CacheControl;
+        Assert.NotNull(onbellek);
+        Assert.True(onbellek!.NoStore, "Cache-Control: no-store yok — sayfa diske yazılabilir.");
+    }
+
+    /// <summary>
+    /// Aynı başlık statik dosyalara konmamalı; konsaydı her sayfa açılışında CSS,
+    /// JS ve görseller yeniden indirilirdi.
+    /// </summary>
+    [Fact]
+    public async Task StatikDosyalar_OnbelleklenebilirKalmali()
+    {
+        var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("onbellek-statik"));
+
+        var cevap = await istemci.GetAsync("/css/site.css");
+        cevap.EnsureSuccessStatusCode();
+
+        Assert.False(cevap.Headers.CacheControl?.NoStore == true,
+            "Statik dosyaya no-store konmuş; her sayfa açılışında yeniden inecek.");
+    }
+
+    /// <summary>
+    /// Şifre asgari uzunluğu 8. Uzunluk, karmaşıklık kurallarından daha etkili bir
+    /// koruma; kısa ama "karmaşık" şifreler kaba kuvvete dayanmıyor.
+    /// </summary>
+    [Fact]
+    public async Task KisaSifreyle_KayitReddedilmeli()
+    {
+        var istemci = _fabrika.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var sayfa = await istemci.GetStringAsync("/Account/KayitOl");
+
+        var cevap = await istemci.PostAsync("/Account/KayitOl", new FormUrlEncodedContent(
+            new Dictionary<string, string>
+            {
+                ["Ad"] = "Kisa Sifre",
+                ["Email"] = BenzersizEposta("kisa-sifre"),
+                ["Sifre"] = "Abc123!",          // 7 karakter
+                ["SifreTekrar"] = "Abc123!",
+                ["__RequestVerificationToken"] = UygulamaFabrikasi.AntiforgeryJetonu(sayfa)
+            }));
+
+        // Kayıt başarılı olsaydı yönlendirme dönerdi; form hatayla yeniden basılmalı.
+        Assert.Equal(HttpStatusCode.OK, cevap.StatusCode);
+    }
 }

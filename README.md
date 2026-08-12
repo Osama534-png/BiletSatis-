@@ -3,7 +3,7 @@
 [![CI](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml/badge.svg)](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml)
 ![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
-![Test](https://img.shields.io/badge/test-211%20ge%C3%A7iyor-2ea44f)
+![Test](https://img.shields.io/badge/test-267%20ge%C3%A7iyor-2ea44f)
 ![Lisans](https://img.shields.io/badge/lisans-MIT-blue)
 
 **Aynı bileti aynı anda 200 kişi isterse ne olur?** Bu proje o soruya kod yazarak değil, **ölçerek** cevap veriyor.
@@ -72,8 +72,10 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
 | İstek yolunda dış servis beklemesi yok | k6, 200 kullanıcı (e-posta kuyruğa alındıktan sonra) | **257,9 istek/s**, p95 2,59 sn |
 | CSP enjekte script'i durduruyor | Tarayıcıda script ve satır içi stil enjeksiyonu | İkisi de engellendi |
 | Veri tutarlı | 23 maddelik SQL bütünlük taraması | 22 temiz, 1 kalıntı (aşağıda) |
+| Bozuk girdi sunucuyu düşürmüyor | 49 uç, sınır değer + tip uyuşmazlığı + enjeksiyon denemesi | Hiçbiri 500 döndürmüyor |
+| Hız sınırı çalışıyor | Tek kullanıcıdan 70 ardışık POST | 60 geçti, 61.'den itibaren engellendi |
 
-**211 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
+**267 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
 
 ### Beş dakikada kendiniz doğrulayın
 
@@ -543,6 +545,9 @@ Bu tarama bir kez de gerçek bir hata yakaladı; ayrıntısı [Kendi kodunu dene
 |---|---|
 | Hesap kilidi (5 hatalı deneme → 5 dk) | Şifre sınırsız denenebiliyordu |
 | Giriş/kayıt **POST**'larında hız sınırı (IP başına 15/dk) | Hesap kilidi tek hesabı korur; bu, çok sayıda hesaba yapılan taramayı yavaşlatır |
+| Tüm **POST**'larda hız sınırı (kullanıcı başına 60/dk) | Hesap uçlarındaki sınır yalnızca giriş/kayıt'ı koruyordu; giriş yapmış biri sepet, favori, kuyruk ve değerlendirme uçlarını sınırsız dövebiliyordu |
+| Şifrede asgari 8 karakter | Uzunluk, karmaşıklık kurallarından daha etkili: `P@ss1!` bütün kuralları geçer ama kaba kuvvete dayanmaz |
+| Giriş yapmış sayfalarda `Cache-Control: no-store` | Ortak bilgisayarda çıkış yapıldıktan sonra geri tuşuyla "Biletlerim" sayfası önbellekten görülebiliyordu |
 | `HttpOnly` + `SameSite=Lax` + üretimde `Secure` çerez | XSS'te oturum çalınmasını ve siteler arası kullanımı zorlaştırır |
 | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` | MIME tahmini, tıklama hırsızlığı ve adres sızıntısına karşı |
 | CSP — script'ler için nonce | Bir gün metin kaçırma atlanırsa enjekte edilen script yine de çalışmasın |
@@ -556,6 +561,8 @@ Bu tarama bir kez de gerçek bir hata yakaladı; ayrıntısı [Kendi kodunu dene
 | Uygulama genelinde `[Authorize]` | Yetki varsayılan olarak kapalı; bir action'a öznitelik koymayı unutmak açık yaratmaz |
 
 Son madde bilinçli bir tercih: yetkilendirme filtresi global olarak eklenir, herkese açık olması gereken sayfalar (`giriş`, `kayıt`, `şifremi unuttum`, hata sayfası) `[AllowAnonymous]` ile işaretlenir. Tersi kurulumda yeni yazılan her action'ın korunması geliştiricinin hatırlamasına kalırdı. Doğrulandı: 18 rota anonim olarak tarandı, korumalı olması gereken 15'i istisnasız giriş sayfasına yönlendi.
+
+Genel sınır **kullanıcı kimliğine** göre bölümlenir, IP'ye göre değil: aynı ağdan (okul, iş yeri, mobil operatör NAT'ı) bağlanan farklı kullanıcılar birbirinin kotasını tüketmesin. Girişi olmayanlar IP'ye göre sayılır. Ölçüldü: 60 istek geçiyor, 61.'den itibaren `/Account/CokFazlaDeneme` sayfasına yönlendiriliyor.
 
 Hız sınırı bilinçli olarak yalnızca **POST** uçlarına uygulanır ve hesap kilidi eşiğinin (5) üstünde tutulur. Sayfa açılışları da sayılsaydı her giriş denemesi iki isteğe mal olur, kullanıcı anlaşılır kilit mesajını görmeden sınıra takılırdı. Sınıra takılan istek çıplak `429` yerine `/Account/CokFazlaDeneme` sayfasına yönlendirilir; yanıt `Retry-After` başlığı taşır.
 
@@ -715,7 +722,7 @@ Herhangi bir SMTP sağlayıcısı çalışır (Brevo, Mailtrap, kurumsal sunucu)
 
 ## Test
 
-**211 test**, hepsi geçiyor — her push'ta CI'da da.
+**267 test**, hepsi geçiyor — her push'ta CI'da da.
 
 ```bash
 dotnet test BiletSatis.Tests

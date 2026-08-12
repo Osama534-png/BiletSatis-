@@ -76,6 +76,29 @@ public static class GuvenlikBasliklari
             headers["Permissions-Policy"] =
                 "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()";
 
+            // Giriş yapmış kullanıcının sayfaları tarayıcı önbelleğinde kalmasın.
+            // Ortak bir bilgisayarda kullanıcı çıkış yaptıktan sonra geri tuşuna
+            // basan biri "Biletlerim" ya da "Profilim" sayfasını önbellekten
+            // görebiliyordu — oturum kapalı olsa bile.
+            //
+            // Yalnızca HTML cevaplarına uygulanıyor: aynı başlık CSS, JS ve
+            // görsellere de konsaydı her sayfa açılışında hepsi yeniden indirilirdi.
+            // İçerik türü ancak cevap üretilirken belli olduğu için karar
+            // OnStarting içinde veriliyor.
+            context.Response.OnStarting(() =>
+            {
+                var htmlMi = context.Response.ContentType?
+                    .StartsWith("text/html", StringComparison.OrdinalIgnoreCase) == true;
+
+                if (htmlMi && context.User.Identity?.IsAuthenticated == true)
+                {
+                    context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+                    context.Response.Headers.Pragma = "no-cache";
+                }
+
+                return Task.CompletedTask;
+            });
+
             await next();
         });
 

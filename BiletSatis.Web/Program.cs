@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System.Globalization;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 
 // Giriş/kayıt uçlarında kullanılan hız sınırı politikasının adı.
@@ -78,7 +79,12 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
-    options.Password.RequiredLength = 6;
+    // Uzunluk, karmaşıklık kurallarından daha etkili bir koruma: "P@ss1!" altı
+    // karakterle bütün kuralları geçer ama kaba kuvvete dayanmaz, "kirmizi bisiklet"
+    // hiçbirini geçmez ama kat kat güçlüdür. NIST SP 800-63B de bu yönde: asgari
+    // uzunluğu yükselt, karmaşıklık dayatma (kullanıcıyı tahmin edilebilir
+    // kalıplara — "Sifre1!" — itiyor).
+    options.Password.RequiredLength = 8;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
     options.Password.RequireDigit = false;
@@ -144,6 +150,36 @@ builder.Services.AddRateLimiter(options =>
                 PermitLimit = 15,
                 Window = TimeSpan.FromMinutes(1)
             }));
+
+    // Hesap uçlarındaki sınır yalnızca giriş/kayıt'ı koruyordu; giriş yapmış bir
+    // kullanıcı sepete ekleme, favori, kuyruk ve değerlendirme uçlarını sınırsız
+    // dövebiliyordu. Her istek veritabanına yazma demek.
+    //
+    // Sınır yalnızca POST'lara uygulanıyor: durum değiştiren istekler onlar.
+    // Sayfa gezinmesi ve statik dosyalar etkilenmiyor — aksi halde tek bir sayfa
+    // açılışı (HTML + CSS + JS + görseller) kotanın önemli bir kısmını yerdi.
+    //
+    // Bölümleme kullanıcı kimliğine göre: aynı ağdaki (okul, iş yeri, mobil NAT)
+    // farklı kullanıcılar birbirinin kotasını tüketmesin. Girişi olmayanlar IP'ye
+    // göre bölümleniyor.
+    //
+    // 60/dakika bir insan için fazlasıyla geniş, otomatik bir betik için dar.
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        if (!hizSiniriAktif || !HttpMethods.IsPost(httpContext.Request.Method))
+        {
+            return RateLimitPartition.GetNoLimiter("sinirsiz");
+        }
+
+        var kimlik = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                     ?? $"ip:{httpContext.Connection.RemoteIpAddress}";
+
+        return RateLimitPartition.GetFixedWindowLimiter(kimlik, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
 
     // Varsayılan davranış çıplak bir 429 hata sayfasıdır. Bunun yerine kullanıcıyı
     // ne olduğunu anlatan normal bir sayfaya yönlendiriyoruz.
