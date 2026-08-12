@@ -1,17 +1,1 @@
-{
-  "version": "0.0.1",
-  "configurations": [
-    {
-      "name": "biletsatis-web",
-      "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "BiletSatis.Web", "--launch-profile", "http"],
-      "port": 5052
-    },
-    {
-      "name": "biletsatis-yuktest",
-      "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "BiletSatis.Web", "--launch-profile", "yuktest"],
-      "port": 5052
-    }
-  ]
-}
+
