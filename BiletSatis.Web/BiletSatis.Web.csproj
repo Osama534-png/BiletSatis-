@@ -9,7 +9,11 @@
 
   <ItemGroup>
     <PackageReference Include="MailKit" Version="4.17.0" />
-    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="9.0.*" />
+    <!-- Sürüm sabit: kayan sürüm (9.0.*) kullanıldığında yeni bir yama yayınlanır
+         yayınlanmaz bu paket EF Core'un daha yeni sürümünü çekiyor, diğer paketler
+         9.0.18'de kaldığı için derleme "CS1705: daha yüksek sürüm kullanıyor"
+         hatasıyla kendi kendine bozuluyordu. Aynı EF Core sürümü her yerde. -->
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="9.0.18" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.18" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.18">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

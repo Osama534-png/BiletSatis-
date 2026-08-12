@@ -7,3 +7,9 @@ logs/
 
 # Admin panelinden yüklenen afişler (hazır afişler img/afis altında kalır)
 BiletSatis.Web/wwwroot/img/afis/yuklenen/
+
+# AI kodlama asistanı becerileri (uipro ile kurulan üçüncü parti dosyalar).
+# Projenin kaynak kodunun parçası değil; geliştiricinin kendi makinesindeki
+# araç kurulumu. 2,8 MB ve depoya girmesinin bir anlamı yok.
+# (.claude/launch.json depoda kalır — o projeye ait bir yapılandırma.)
+**/.claude/skills/

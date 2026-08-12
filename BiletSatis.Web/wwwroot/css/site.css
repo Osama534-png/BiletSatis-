@@ -10,8 +10,21 @@
   --surface: #ffffff;
   --surface-alt: #f3ecdc;
 
+  /* Marka turuncusu. Dekoratif kullanımlarda (şerit, çizgi, nokta, kaydırma
+     çubuğu) bu ton kullanılır — üstünde metin olmadığı için kontrast kuralı
+     uygulanmaz. */
   --accent: #ff4d2e;
+
+  /* ÜSTÜNDE BEYAZ YAZI OLAN yüzeyler için. #ff4d2e üstünde beyaz yazının
+     kontrastı 3,31 — WCAG AA'nın normal metin için istediği 4,5'in altında;
+     düğme yazıları 15 px, koltuk numaraları 12,5 px olduğu için "büyük metin"
+     istisnasına da girmiyorlar. Bu ton 4,59 veriyor ve marka tonunu bozmuyor. */
   --accent-dark: #d93a1e;
+
+  /* Beyaz yazılı yüzeylerin hover hâli: taban zaten koyulaştığı için hover'ın
+     ayırt edilebilmesi bir kademe daha koyu ton gerektiriyor (5,32). */
+  --accent-darker: #c73518;
+
   --accent-soft: #ffe4d9;
 
   --accent-2: #1f8a70;
@@ -21,7 +34,11 @@
   --gold-soft: #fbeecb;
 
   --text: #1b1812;
-  --text-muted: #7a7266;
+
+  /* Eski değer #7a7266 idi; kağıt zemin üstünde kontrastı 4,40 çıkıyordu ve
+     WCAG AA eşiği 4,5. Bir tık koyulaştırıldı — gözle fark edilmiyor, 4,87. */
+  --text-muted: #736b5f;
+
   --border: #eae1cf;
 
   --success: #1f8a70;
@@ -68,7 +85,7 @@ a {
 }
 
 ::selection {
-  background: var(--accent);
+  background: var(--accent-dark);
   color: #fff;
 }
 
@@ -165,14 +182,14 @@ a {
 }
 
 .btn-primary {
-  background: var(--accent);
-  border: 1px solid var(--accent);
+  background: var(--accent-dark);
+  border: 1px solid var(--accent-dark);
   color: #fff;
 }
 
 .btn-primary:hover, .btn-primary:focus {
-  background: var(--accent-dark);
-  border-color: var(--accent-dark);
+  background: var(--accent-darker);
+  border-color: var(--accent-darker);
   color: #fff;
   box-shadow: var(--shadow-hover);
 }
@@ -1155,8 +1172,8 @@ footer.site-footer a:hover {
 }
 
 .chip.is-active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
   color: #fff;
 }
 
@@ -1278,7 +1295,7 @@ footer.site-footer a:hover {
 }
 
 .view-btn.is-active {
-  background: var(--accent);
+  background: var(--accent-dark);
   color: #fff;
 }
 
@@ -1433,8 +1450,8 @@ footer.site-footer a:hover {
 }
 
 .rail-nav:hover {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
   color: #fff;
 }
 
@@ -2657,8 +2674,8 @@ footer.site-footer a:hover {
 }
 
 .zoom-btn:hover {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
   color: #fff;
 }
 
@@ -2744,8 +2761,22 @@ footer.site-footer a:hover {
   transform: translateY(-1px) scale(0.98);
 }
 
+/* Üç koltuk durumu ölçüldüğünde birbirine göre kontrastları 1,01-1,03 çıktı:
+   yani üçü de aynı açıklıkta, yalnızca TONLARI farklı. Kırmızı-yeşil renk
+   körlüğünde (erkeklerin ~%8'i) "müsait" ile "başkasının sepetinde" ayırt
+   edilemiyordu — kullanıcı alamayacağı koltuğa tıklayıp neden bir şey
+   olmadığını anlamıyordu.
+
+   Çözüm renkleri değiştirmek değil, renge ek olarak ikinci bir işaret vermek
+   (WCAG 1.4.1 "Use of Color"): sepetteki koltuklar çapraz taramalı, satılmış
+   koltukların numarası üstü çizili. İkisi de renkten bağımsız okunur. */
 .seat.seat-held {
   background: var(--gold-soft);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(184, 121, 31, 0.28) 0 2px,
+    transparent 2px 6px
+  );
   color: #93600f;
   box-shadow: inset 0 -2px 0 rgba(184, 121, 31, 0.3);
   cursor: not-allowed;
@@ -2753,13 +2784,15 @@ footer.site-footer a:hover {
 
 .seat.seat-sold {
   background: var(--neutral-bg);
-  color: #a49b8c;
+  color: var(--neutral-text);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
   cursor: not-allowed;
 }
 
 .seat.seat-free.is-selected,
 .seat.seat-free.is-selected:hover {
-  background: var(--accent);
+  background: var(--accent-dark);
   color: #fff;
   transform: translateY(-3px) scale(1.06);
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent),
@@ -2776,10 +2809,33 @@ footer.site-footer a:hover {
   75% { transform: translateX(3px); }
 }
 
+/* Efsane noktaları koltukların görünümünü birebir yansıtmalı; sepetteki koltuk
+   çapraz taramalıysa açıklamadaki nokta da öyle olmalı, yoksa renk dışı işaret
+   işe yaramaz. */
 .legend-dot.seat-free { background: var(--accent-2); }
-.legend-dot.is-selected { background: var(--accent); }
-.legend-dot.seat-held { background: var(--gold); }
-.legend-dot.seat-sold { background: var(--neutral-bg); border: 1px solid var(--border); }
+.legend-dot.is-selected { background: var(--accent-dark); }
+.legend-dot.seat-held {
+  background: var(--gold);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(90, 58, 8, 0.55) 0 1px,
+    transparent 1px 3px
+  );
+}
+.legend-dot.seat-sold {
+  background: var(--neutral-bg);
+  border: 1px solid var(--neutral-text);
+  position: relative;
+}
+
+/* Satılmış koltukların numarası üstü çizili; efsanedeki nokta da çizgili olsun. */
+.legend-dot.seat-sold::after {
+  content: "";
+  position: absolute;
+  inset: 45% -1px auto -1px;
+  height: 1px;
+  background: var(--neutral-text);
+}
 
 /* ---------- Seçim çubuğu ---------- */
 
@@ -3261,8 +3317,8 @@ footer.site-footer a:hover {
 }
 
 .sayfa-baglantisi.is-aktif {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
   color: #fff;
 }
 
@@ -3297,4 +3353,44 @@ footer.site-footer a:hover {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--neutral-text);
+}
+
+/* ---------- Hareket azaltma tercihi ---------- */
+
+/*
+  Sitede bolca hareket var: koltuklar hover'da zıplayıp büyüyor, kartlar
+  kaydırınca beliriyor, sayaçlar sıfırdan sayıyor, seçim sınırı aşılınca koltuk
+  titriyor. Vestibüler rahatsızlığı olan kullanıcılarda bu tür hareketler baş
+  dönmesi ve mide bulantısı yapabiliyor.
+
+  İşletim sistemlerinde "hareketi azalt" diye bir erişilebilirlik ayarı var ve
+  tarayıcı bunu prefers-reduced-motion ile bildiriyor. Bu tercihi açan
+  kullanıcıda animasyonlar neredeyse anlık hâle geliyor — arayüz aynı çalışıyor,
+  yalnızca hareket kalkıyor.
+
+  Bu blok yalnızca o tercihi açmış kullanıcıları etkiler; diğer herkes için
+  hiçbir şey değişmez.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Kaydırınca beliren kartlar: animasyon kapanınca görünmez kalmamalı. */
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Hover'da yer değiştiren öğeler yerinde kalsın. */
+  .seat.seat-free:hover,
+  .seat.seat-free.is-selected,
+  .seat.seat-free.is-selected:hover {
+    transform: none !important;
+  }
 }

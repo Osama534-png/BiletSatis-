@@ -461,7 +461,9 @@ Engelleniyor: Razor `@yorum` yazdığında metni otomatik kaçırır, gömülü 
 
 CSP'nin amacı hatayı önlemek değil, **hatayı ölümcül olmaktan çıkarmak.** Tarayıcıya "bu sayfada yalnızca şu kaynaklardan script çalıştır" denir; enjekte edilen script kurala uymadığı için çalışmaz.
 
-Script'ler için **nonce** kullanılır: her istekte rastgele bir değer üretilip hem kendi script etiketlerimize hem de başlığa yazılır. Saldırganın enjekte ettiği script bu değeri bilemez, çünkü her sayfa yüklemesinde değişir. Sadece "satır içi script yasak" denseydi kendi script'lerimiz de çalışmazdı.
+Politika `script-src 'self' 'nonce-…'` diyor: yalnızca kendi sunucumuzdan gelen dosyalar ve o isteğe ait rastgele nonce'u taşıyan etiketler çalışır. Enjekte edilen script ikisine de uymaz — nonce her sayfa yüklemesinde değiştiği için tahmin edilemez.
+
+Uygulamanın kendi script'lerinin tamamı harici dosya (`jquery`, `bootstrap`, `site.js`), yani `'self'` kuralıyla zaten çalışıyorlar; **hiç satır içi script yok**. Nonce altyapısı yine de duruyor, çünkü ileride bir satır içi script gerekirse `unsafe-inline` açmadan eklenebilsin.
 
 **Aşamalı tercih:** script'ler sıkı, stiller şimdilik serbest. İkisi aynı tehlikede değil — enjekte edilen script senin adına istek atar, sayfayı değiştirir, form ekler; enjekte edilen stil yalnızca görüntüyü bozar.
 
