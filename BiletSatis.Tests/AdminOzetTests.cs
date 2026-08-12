@@ -5,9 +5,14 @@ namespace BiletSatis.Tests;
 // Yönetim panelindeki gelir/doluluk özetleri ve silme kilidi bu hesaplamalara dayanıyor.
 public class AdminOzetTests
 {
-    private static AdminEtkinlikOzeti Ozet(int satista, int sepette, int satildi, decimal gelir = 0) => new()
+    private static AdminEtkinlikOzeti Ozet(int satista, int sepette, int satildi, decimal gelir = 0) =>
+        Ozet(satista, sepette, satildi, gelir, DateTime.Now.AddDays(30));
+
+    private static AdminEtkinlikOzeti Ozet(
+        int satista, int sepette, int satildi, decimal gelir, DateTime tarih) => new()
     {
         Ad = "Test",
+        Tarih = tarih,
         SatistaSayisi = satista,
         SepetteSayisi = sepette,
         SatildiSayisi = satildi,
@@ -36,14 +41,41 @@ public class AdminOzetTests
         Assert.Equal(0, Ozet(0, 0, 0).DolulukYuzdesi);
     }
 
-    // Satılmış bilet gerçek bir satın alma kaydı; etkinlik silinememeli.
+    // Silme kuralı iki şeye birden bakar: satış var mı ve etkinlik geçti mi.
+    //
+    // GELECEK etkinlikte satılmış bilet varsa silinemez — insanların elinde
+    // kullanacakları geçerli bilet var. SONA ERMİŞ etkinlikte silinebilir, çünkü
+    // biletler artık kullanılamaz; arşiv temizliği yöneticinin kararıdır.
     [Theory]
     [InlineData(0, true)]
     [InlineData(1, false)]
     [InlineData(13, false)]
-    public void Silinebilir_SatilmisBiletVarsaKapali(int satildi, bool beklenen)
+    public void Silinebilir_GelecekEtkinliktePeSatisVarsaKapali(int satildi, bool beklenen)
     {
         Assert.Equal(beklenen, Ozet(10, 0, satildi).Silinebilir);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(13)]
+    public void Silinebilir_SonaErmisEtkinlikteHerZamanAcik(int satildi)
+    {
+        var ozet = Ozet(10, 0, satildi, gelir: 0, tarih: DateTime.Now.AddDays(-1));
+
+        Assert.True(ozet.SonaErdi);
+        Assert.True(ozet.Silinebilir);
+    }
+
+    // Satış varken uyarı, ne kaybedileceğini açıkça söylemeli: yönetici "sil"e
+    // basmadan önce satış kayıtlarının da gideceğini bilmeli.
+    [Fact]
+    public void SilmeUyarisi_SatisVarsaKaybedilecekleriSoylemeli()
+    {
+        var uyari = Ozet(0, 0, 7, gelir: 0, tarih: DateTime.Now.AddDays(-1)).SilmeUyarisi;
+
+        Assert.Contains("7", uyari);
+        Assert.Contains("kayd", uyari);
     }
 
     [Fact]

@@ -26,6 +26,14 @@ public class KuyrukController : Controller
         var etkinlik = await _db.Etkinlikler.FindAsync(etkinlikId);
         if (etkinlik == null) return NotFound();
 
+        // Sona ermiş etkinliğin kuyruğuna girmenin karşılığı yok: hak tanınsa bile
+        // bilet satın alınamayacak.
+        if (etkinlik.SonaErdi)
+        {
+            TempData["Hata"] = "Bu etkinlik sona erdi, kuyruğa katılamazsınız.";
+            return RedirectToAction("Detay", "Etkinlik", new { id = etkinlikId });
+        }
+
         var kullaniciId = _currentUser.GetKullaniciId();
 
         // "Zaten sırada mı" kontrolü servisin içinde, ekleme ile aynı SQL deyiminde

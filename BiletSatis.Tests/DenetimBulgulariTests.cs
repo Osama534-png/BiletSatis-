@@ -24,6 +24,27 @@ public class DenetimBulgulariTests : IClassFixture<UygulamaFabrikasi>
 
     private static string BenzersizEposta(string on) => $"{on}-{Guid.NewGuid():N}@test.local";
 
+    private static async Task<int> GecmisEtkinlikOlustur(BiletModeli model = BiletModeli.KoltukSecmeli, int koltuk = 3)
+    {
+        using var db = DatabaseFixture.CreateContext();
+        var etkinlik = new Etkinlik
+        {
+            Ad = $"ZZ Gecmis {Guid.NewGuid():N}",
+            Mekan = "Test Salonu, İzmir",
+            Tarih = DateTime.Now.AddDays(-3),
+            BiletModeli = model
+        };
+
+        for (var i = 1; i <= koltuk; i++)
+        {
+            etkinlik.Biletler.Add(new Bilet { KoltukNo = $"A-{i:00}", Fiyat = 300m, Durum = BiletDurumu.Satista });
+        }
+
+        db.Etkinlikler.Add(etkinlik);
+        await db.SaveChangesAsync();
+        return etkinlik.Id;
+    }
+
     private static async Task<int> EtkinlikOlustur(BiletModeli model = BiletModeli.KoltukSecmeli, int koltuk = 3)
 
     {
@@ -270,6 +291,105 @@ public class DenetimBulgulariTests : IClassFixture<UygulamaFabrikasi>
         Assert.True(
             cevap.StatusCode is HttpStatusCode.OK or HttpStatusCode.Found,
             $"Beklenmeyen durum kodu: {(int)cevap.StatusCode}");
+    }
+
+    // ---------- Bulgu 11: geçmiş etkinliğe bilet satılabiliyordu ----------
+
+    /// <summary>
+    /// Satın alma yolunda hiçbir yerde etkinlik tarihine bakılmıyordu: tarihi geçmiş
+    /// bir konserin koltukları listeleniyor, sepete ekleniyor ve ödemesi alınabiliyordu.
+    /// Kullanıcı olmamış bir etkinliğin biletine para ödüyor, karşılığında kapıda
+    /// kullanamayacağı bir QR alıyordu — üstelik iade akışı da yok.
+    ///
+    /// Bilet devrinde tarih kontrolü zaten vardı; eksik olan satın alma yoluydu.
+    /// </summary>
+    [Fact]
+    public async Task GecmisEtkinlik_SepeteEklenememeli()
+    {
+        var etkinlikId = await GecmisEtkinlikOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("gecmis"));
+
+            var sayfa = await istemci.GetStringAsync($"/Etkinlik/Detay?id={etkinlikId}");
+            var jeton = UygulamaFabrikasi.AntiforgeryJetonu(sayfa);
+
+            int biletId;
+            using (var db = DatabaseFixture.CreateContext())
+            {
+                biletId = await db.Biletler.Where(b => b.EtkinlikId == etkinlikId)
+                    .Select(b => b.Id).FirstAsync();
+            }
+
+            var cevap = await istemci.PostAsync("/Biletler/SepeteEkle", new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["etkinlikId"] = etkinlikId.ToString(),
+                    ["biletIds"] = biletId.ToString(),
+                    ["__RequestVerificationToken"] = jeton
+                }));
+
+            Assert.Equal(HttpStatusCode.Found, cevap.StatusCode);
+            Assert.DoesNotContain("Sepetim", cevap.Headers.Location?.OriginalString ?? "");
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var alinan = await kontrol.Biletler.AsNoTracking()
+                .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum != BiletDurumu.Satista);
+
+            Assert.Equal(0, alinan);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    /// <summary>Genel giriş ucu da aynı kuralı uygulamalı.</summary>
+    [Fact]
+    public async Task GecmisEtkinlik_GenelGirisleDeAlinamamali()
+    {
+        var etkinlikId = await GecmisEtkinlikOlustur(BiletModeli.GenelGiris, koltuk: 5);
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("gecmis-gg"));
+            var sayfa = await istemci.GetStringAsync($"/Etkinlik/Detay?id={etkinlikId}");
+
+            var cevap = await istemci.PostAsync("/Biletler/GenelGirisSepeteEkle", new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["etkinlikId"] = etkinlikId.ToString(),
+                    ["adet"] = "2",
+                    ["__RequestVerificationToken"] = UygulamaFabrikasi.AntiforgeryJetonu(sayfa)
+                }));
+
+            Assert.DoesNotContain("Sepetim", cevap.Headers.Location?.OriginalString ?? "");
+
+            using var db = DatabaseFixture.CreateContext();
+            Assert.Equal(0, await db.Biletler.AsNoTracking()
+                .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum != BiletDurumu.Satista));
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    /// <summary>
+    /// Etkinlik sayfası kapanmamalı: geçmiş etkinliğin değerlendirmeleri okunabilmeli,
+    /// yalnızca satın alma kapanmalı. Katılan kişiler yorum bırakmaya devam edebilir.
+    /// </summary>
+    [Fact]
+    public async Task GecmisEtkinlik_DetaySayfasiAcilmali_AmaSatinAlmaGorunmemeli()
+    {
+        var etkinlikId = await GecmisEtkinlikOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("gecmis-detay"));
+
+            var cevap = await istemci.GetAsync($"/Etkinlik/Detay?id={etkinlikId}");
+            Assert.Equal(HttpStatusCode.OK, cevap.StatusCode);
+
+            var html = await cevap.Content.ReadAsStringAsync();
+
+            // Razor Türkçe harfleri HTML varlığına çevirdiği için ASCII parçalar aranıyor.
+            Assert.Contains("Bu etkinlik sona erdi", html);
+            Assert.DoesNotContain($"/Biletler/Index?etkinlikId={etkinlikId}", html);
+        }
+        finally { await Temizle(etkinlikId); }
     }
 
     // ---------- Bulgu 5: kod sürümü sıfır kalan biletlerin QR'ı kapıda reddediliyordu ----------

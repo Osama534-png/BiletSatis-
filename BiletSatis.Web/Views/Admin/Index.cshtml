@@ -73,16 +73,20 @@
                     <a asp-action="EtkinlikDuzenle" asp-route-id="@e.EtkinlikId" class="btn btn-outline-secondary btn-sm">✏️ Düzenle</a>
                     @if (e.Silinebilir)
                     {
-                        @* Onay site.js'te soruluyor: satır içi onsubmit CSP altında çalışmaz. *@
-                        <form asp-action="EtkinlikSil" method="post"
-                              data-onay="@e.Ad etkinliği ve tüm biletleri silinecek. Emin misiniz?">
+                        @* Onay site.js'te soruluyor: satır içi onsubmit CSP altında çalışmaz.
+                           Sona ermiş ve satışı olan etkinlikte uyarı ağırlaşır; silme satış
+                           kayıtlarını ve değerlendirmeleri de götürüyor. *@
+                        <form asp-action="EtkinlikSil" method="post" data-onay="@e.SilmeUyarisi">
                             <input type="hidden" name="etkinlikId" value="@e.EtkinlikId" />
-                            <button type="submit" class="btn btn-outline-danger btn-sm">🗑️ Sil</button>
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                @(e.SonaErdi && e.SatildiSayisi > 0 ? "🗑️ Arşivi sil" : "🗑️ Sil")
+                            </button>
                         </form>
                     }
                     else
                     {
-                        <span class="silme-kilidi" title="Satılmış bilet bulunan etkinlikler silinemez">🔒 Silinemez</span>
+                        <span class="silme-kilidi"
+                              title="Satılmış bileti olan etkinlik, tarihi geçene kadar silinemez — biletler hâlâ geçerli">🔒 Silinemez</span>
                     }
                 </div>
             </div>

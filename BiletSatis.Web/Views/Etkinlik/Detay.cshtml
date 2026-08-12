@@ -91,7 +91,16 @@
         </div>
 
         <div class="detay-cta">
-            @if (Model.Tukendi)
+            @if (Model.SonaErdi)
+            {
+                @* Satın alma kapandı ama sayfa kapanmadı: aşağıdaki değerlendirmeler
+                   okunabilir ve etkinliğe katılmış olanlar yorum bırakabilir. *@
+                <p class="sona-erdi-bildirim">
+                    Bu etkinlik sona erdi. Bilet satışı kapandı; aşağıdan katılanların
+                    değerlendirmelerini okuyabilirsiniz.
+                </p>
+            }
+            else if (Model.Tukendi)
             {
                 <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@Model.Id"
                    class="btn btn-primary">⏳ Kuyruğa Katıl</a>

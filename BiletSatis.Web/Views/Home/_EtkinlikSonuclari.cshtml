@@ -30,7 +30,9 @@ else
         {
             var e = sayfa.Ogeler[i];
             var sira = ((sayfa.Sayfa - 1) * sayfa.SayfaBoyutu) + i + 1;
-            <div class="event-card gecikme-@(i % 10)">
+            @* Sona ermiş etkinlik soluklaştırılır ve satın alma düğmesi yerine
+               "Değerlendirmeleri gör" gösterilir — sayfası kapanmaz, yalnızca satış kapanır. *@
+            <div class="event-card gecikme-@(i % 10) @(e.SonaErdi ? "is-sona-erdi" : "")">
                 <div class="poster">
                     <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
                          alt="@e.Ad afişi" loading="lazy" />
@@ -75,8 +77,16 @@ else
                         }
                     </div>
                     <div class="cta-row">
-                        <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id" class="btn btn-primary btn-sm">🎟️ Bilet Al</a>
-                        <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@e.Id" class="btn btn-outline-secondary btn-sm">⏳ Kuyruk</a>
+                        @if (e.SonaErdi)
+                        {
+                            <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id"
+                               class="btn btn-outline-secondary btn-sm">💬 Değerlendirmeleri gör</a>
+                        }
+                        else
+                        {
+                            <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id" class="btn btn-primary btn-sm">🎟️ Bilet Al</a>
+                            <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@e.Id" class="btn btn-outline-secondary btn-sm">⏳ Kuyruk</a>
+                        }
                     </div>
                 </div>
             </div>

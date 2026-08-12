@@ -52,6 +52,26 @@ public class AdminEtkinlikOzeti
         ? 0
         : (int)Math.Round(SatildiSayisi * 100.0 / ToplamKoltuk);
 
-    /// <summary>Satılmış bilet varsa etkinlik silinemez.</summary>
-    public bool Silinebilir => SatildiSayisi == 0;
+    /// <summary>Etkinliğin zamanı geçti mi.</summary>
+    public bool SonaErdi => Tarih <= DateTime.Now;
+
+    /// <summary>
+    /// Etkinlik silinebilir mi.
+    ///
+    /// Satılmış bileti olan <b>gelecek</b> etkinlikler silinemez: insanların elinde
+    /// kullanacakları geçerli bilet var, etkinliği silmek onları yok ederdi.
+    ///
+    /// <b>Sona ermiş</b> etkinlikler silinebilir — biletler artık kullanılamaz,
+    /// arşiv temizliği yöneticinin kararıdır. Silme, satış kayıtlarını ve
+    /// değerlendirmeleri de götürür; bu yüzden arayüzde ne silineceği açıkça yazılır.
+    ///
+    /// (Asıl kural sunucuda, DELETE'in koşulunda; bu yalnızca düğmenin gösterimi için.)
+    /// </summary>
+    public bool Silinebilir => SatildiSayisi == 0 || SonaErdi;
+
+    /// <summary>Silme onayında gösterilecek uyarı; sona ermiş ve satışı olan etkinlikte ağırlaşır.</summary>
+    public string SilmeUyarisi => SatildiSayisi > 0
+        ? $"{Ad} etkinliği sona erdi. Silerseniz {SatildiSayisi} satış kaydı ve bu etkinliğe " +
+          "bırakılmış değerlendirmeler de kalıcı olarak silinecek. Emin misiniz?"
+        : $"{Ad} etkinliği ve tüm biletleri silinecek. Emin misiniz?";
 }

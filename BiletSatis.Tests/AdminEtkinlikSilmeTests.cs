@@ -18,18 +18,24 @@ namespace BiletSatis.Tests;
 public class AdminEtkinlikSilmeTests
 {
     private static AdminController YeniController(BiletSatisDbContext db) =>
-        new(db, new KuyrukServisi(db, NullLogger<KuyrukServisi>.Instance), new SahteOrtam())
+        new(db,
+            new KuyrukServisi(db, NullLogger<KuyrukServisi>.Instance),
+            new SahteOrtam(),
+            NullLogger<AdminController>.Instance)
         {
             TempData = new TempDataDictionary(new DefaultHttpContext(), new SahteTempDataSaglayici())
         };
 
-    private static async Task<int> EtkinlikOlustur(BiletSatisDbContext db, params Bilet[] biletler)
+    private static Task<int> EtkinlikOlustur(BiletSatisDbContext db, params Bilet[] biletler) =>
+        EtkinlikOlustur(db, DateTime.Now.AddDays(30), biletler);
+
+    private static async Task<int> EtkinlikOlustur(BiletSatisDbContext db, DateTime tarih, params Bilet[] biletler)
     {
         var etkinlik = new Etkinlik
         {
             Ad = $"ZZ Test {Guid.NewGuid():N}",
             Mekan = "Test Salonu, Test",
-            Tarih = DateTime.UtcNow.AddDays(30)
+            Tarih = tarih
         };
         etkinlik.Biletler.AddRange(biletler);
 
@@ -44,6 +50,32 @@ public class AdminEtkinlikSilmeTests
         await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM RezervasyonKuyrugu WHERE EtkinlikId = {etkinlikId}");
         await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM Biletler WHERE EtkinlikId = {etkinlikId}");
         await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM Etkinlikler WHERE Id = {etkinlikId}");
+    }
+
+    // Sona ermiş etkinlik, satılmış bileti olsa bile silinebilir: biletler artık
+    // kullanılamaz, arşiv temizliği yöneticinin kararıdır. Gelecek etkinlikte aynı
+    // durum silmeyi engelliyor (bir alttaki test) — ayrım tarihte.
+    [Fact]
+    public async Task EtkinlikSil_SonaErmisEtkinlikSatilmisBiletleOlsaBileSilinmeli()
+    {
+        using var db = DatabaseFixture.CreateContext();
+        var etkinlikId = await EtkinlikOlustur(db, DateTime.Now.AddDays(-2),
+            new Bilet { KoltukNo = "A-01", Fiyat = 100m, Durum = BiletDurumu.Satildi },
+            new Bilet { KoltukNo = "A-02", Fiyat = 100m, Durum = BiletDurumu.Satista });
+
+        try
+        {
+            var controller = YeniController(db);
+
+            await controller.EtkinlikSil(etkinlikId);
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            Assert.False(await kontrol.Etkinlikler.AnyAsync(e => e.Id == etkinlikId));
+            Assert.Equal(0, await kontrol.Biletler.CountAsync(b => b.EtkinlikId == etkinlikId));
+            Assert.NotNull(controller.TempData["Bilgi"]);
+            Assert.Null(controller.TempData["Hata"]);
+        }
+        finally { await Temizle(etkinlikId); }
     }
 
     [Fact]

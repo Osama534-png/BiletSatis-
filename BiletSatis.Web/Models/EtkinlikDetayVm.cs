@@ -38,6 +38,13 @@ public class EtkinlikDetayVm
     public DegerlendirmeSatiri? KendiDegerlendirmesi { get; set; }
 
     public bool Tukendi => MusaitKoltuk == 0;
+
+    /// <summary>
+    /// Etkinliğin zamanı geçti mi. Geçtiyse satın alma ve kuyruk kapanır; sayfa
+    /// açık kalır, değerlendirmeler okunmaya ve katılanlarca yazılmaya devam eder.
+    /// (Asıl kontrol sunucuda — bu yalnızca arayüzün doğru şeyi göstermesi için.)
+    /// </summary>
+    public bool SonaErdi => Tarih <= DateTime.Now;
     // Bkz. EtkinlikKartVm.KalanGun: etkinlik tarihi takvim saatidir, an değil.
     public int KalanGun => (Tarih.Date - DateTime.Now.Date).Days;
 

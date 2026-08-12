@@ -14,6 +14,7 @@ public class AdminController : Controller
     private readonly BiletSatisDbContext _db;
     private readonly IKuyrukServisi _kuyruk;
     private readonly IWebHostEnvironment _env;
+    private readonly ILogger<AdminController> _logger;
 
     /// <summary>Yüklenen afişlerin kaydedileceği klasör (wwwroot altında).</summary>
     private const string AfisKlasoru = "img/afis/yuklenen";
@@ -21,11 +22,16 @@ public class AdminController : Controller
     private static readonly string[] IzinliUzantilar = [".jpg", ".jpeg", ".png", ".webp"];
     private const long AzamiAfisBoyutu = 4 * 1024 * 1024;
 
-    public AdminController(BiletSatisDbContext db, IKuyrukServisi kuyruk, IWebHostEnvironment env)
+    public AdminController(
+        BiletSatisDbContext db,
+        IKuyrukServisi kuyruk,
+        IWebHostEnvironment env,
+        ILogger<AdminController> logger)
     {
         _db = db;
         _kuyruk = kuyruk;
         _env = env;
+        _logger = logger;
     }
 
     public async Task<IActionResult> Index()
@@ -155,41 +161,61 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EtkinlikSil(int etkinlikId)
     {
-        var ad = await _db.Etkinlikler
+        var bilgi = await _db.Etkinlikler
             .AsNoTracking()
             .Where(e => e.Id == etkinlikId)
-            .Select(e => e.Ad)
+            .Select(e => new { e.Ad, e.Tarih })
             .FirstOrDefaultAsync();
 
-        if (ad == null) return NotFound();
+        if (bilgi == null) return NotFound();
 
-        // Satılmış bilet gerçek bir satın alma kaydıdır; tek tıkla silinmemeli.
-        // Kontrolü ayrı bir sorguyla yapıp sonra silmek yetmez: tam aradaki anda bir
-        // ödeme tamamlanırsa satılmış bilet cascade ile yok olurdu. Bu yüzden koşul
-        // DELETE'in kendi içinde taşınıyor ve etkilenen satır sayısına bakılıyor.
-        // Biletler, kuyruk kayıtları ve değerlendirmeler foreign key'ler üzerinden
-        // cascade ile temizlenir; ayrıca silmeye gerek yok.
+        // Silinecekleri önce sayıyoruz; silme başarılı olursa yöneticiye ne gittiğini
+        // söyleyebilmek ve kalıcı iz bırakabilmek için.
+        var satilan = await _db.Biletler
+            .AsNoTracking()
+            .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum == BiletDurumu.Satildi);
+
+        // Kural iki durumu ayırıyor:
+        //
+        //  - GELECEK etkinlik + satılmış bilet  -> silinemez. İnsanların elinde
+        //    kullanacakları geçerli bilet var; etkinliği silmek onları yok ederdi.
+        //  - SONA ERMİŞ etkinlik                -> silinebilir. Etkinlik olup bitti,
+        //    biletler artık kullanılamaz; arşiv temizliği yöneticinin kararı.
+        //
+        // Koşul yine DELETE'in kendi içinde: ayrı bir sorguyla kontrol edilip sonra
+        // silinseydi, tam aradaki anda tamamlanan bir ödeme cascade ile yok olurdu.
+        // Bilet, kuyruk ve değerlendirme kayıtları foreign key'ler üzerinden temizlenir.
+        var simdi = DateTime.Now;
         var silinen = await _db.Database.ExecuteSqlInterpolatedAsync($"""
             DELETE FROM Etkinlikler
             WHERE Id = {etkinlikId}
-              AND NOT EXISTS (
-                    SELECT 1 FROM Biletler
-                    WHERE EtkinlikId = {etkinlikId} AND Durum = {BiletDurumMetni.Satildi}
+              AND (
+                    Tarih <= {simdi}
+                 OR NOT EXISTS (
+                        SELECT 1 FROM Biletler
+                        WHERE EtkinlikId = {etkinlikId} AND Durum = {BiletDurumMetni.Satildi}
+                    )
                   )
             """);
 
         if (silinen == 0)
         {
-            var satilan = await _db.Biletler
-                .AsNoTracking()
-                .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum == BiletDurumu.Satildi);
-
-            TempData["Hata"] = $"'{ad}' silinemez: {satilan} adet satılmış bilet var. " +
-                               "Satış kaydı bulunan etkinlikler silinemez.";
+            TempData["Hata"] = $"'{bilgi.Ad}' silinemez: {satilan} adet satılmış bilet var ve " +
+                               "etkinlik henüz gerçekleşmedi. Bu biletler hâlâ geçerli. " +
+                               "Etkinlik tarihi geçtikten sonra silebilirsiniz.";
             return RedirectToAction(nameof(Index));
         }
 
-        TempData["Bilgi"] = $"'{ad}' etkinliği silindi.";
+        // Sona ermiş bir etkinliği silmek satış geçmişini de siliyor; bu, geri
+        // alınamayan bir işlem, iz bırakmadan geçmemeli.
+        _logger.LogWarning(
+            "Etkinlik silindi: Ad={Ad} Tarih={Tarih} SatilmisBilet={SatilmisBilet}",
+            bilgi.Ad, bilgi.Tarih, satilan);
+
+        TempData["Bilgi"] = satilan > 0
+            ? $"'{bilgi.Ad}' etkinliği silindi ({satilan} satış kaydı ve değerlendirmeleri de silindi)."
+            : $"'{bilgi.Ad}' etkinliği silindi.";
+
         return RedirectToAction(nameof(Index));
     }
 

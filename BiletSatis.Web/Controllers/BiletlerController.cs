@@ -46,6 +46,14 @@ public class BiletlerController : Controller
 
         if (etkinlik == null) return NotFound();
 
+        // Geçmiş etkinliğin koltuk haritasını açmanın anlamı yok; kullanıcı detay
+        // sayfasına döner ve orada değerlendirmeleri okuyabilir.
+        if (etkinlik.SonaErdi)
+        {
+            TempData["Hata"] = "Bu etkinlik sona erdi, bilet satışı kapandı.";
+            return RedirectToAction("Detay", "Etkinlik", new { id = etkinlikId });
+        }
+
         if (etkinlik.BiletModeli == BiletModeli.GenelGiris)
         {
             return View("GenelGiris", GenelGirisVmOlustur(etkinlik));
@@ -86,15 +94,21 @@ public class BiletlerController : Controller
         // olmayan etkinlikler için anlamlı. Model kontrol edilmediğinde koltuk seçmeli
         // bir etkinliğe de doğrudan POST edilebiliyordu: kullanıcı salon haritasını
         // hiç açmadan rastgele koltukları kaptırıyordu.
-        var model = await _db.Etkinlikler
+        var etkinlik = await _db.Etkinlikler
             .AsNoTracking()
             .Where(e => e.Id == etkinlikId)
-            .Select(e => (BiletModeli?)e.BiletModeli)
+            .Select(e => new { e.BiletModeli, e.Tarih })
             .FirstOrDefaultAsync();
 
-        if (model == null) return NotFound();
+        if (etkinlik == null) return NotFound();
 
-        if (model != BiletModeli.GenelGiris)
+        if (etkinlik.Tarih <= DateTime.Now)
+        {
+            TempData["Hata"] = "Bu etkinlik sona erdi, bilet satışı kapandı.";
+            return RedirectToAction("Detay", "Etkinlik", new { id = etkinlikId });
+        }
+
+        if (etkinlik.BiletModeli != BiletModeli.GenelGiris)
         {
             TempData["Hata"] = "Bu etkinlikte koltuk seçmeniz gerekiyor.";
             return RedirectToAction(nameof(Index), new { etkinlikId });
@@ -199,6 +213,22 @@ public class BiletlerController : Controller
             return RedirectToAction(nameof(Index), new { etkinlikId });
         }
 
+        // Geçmiş etkinliğe bilet satılamaz. Kontrol arayüzde düğmeyi gizlemekle
+        // yapılmaz; form doğrudan da gönderilebilir.
+        var etkinlikTarihi = await _db.Etkinlikler
+            .AsNoTracking()
+            .Where(e => e.Id == etkinlikId)
+            .Select(e => (DateTime?)e.Tarih)
+            .FirstOrDefaultAsync();
+
+        if (etkinlikTarihi == null) return NotFound();
+
+        if (etkinlikTarihi <= DateTime.Now)
+        {
+            TempData["Hata"] = "Bu etkinlik sona erdi, bilet satışı kapandı.";
+            return RedirectToAction("Detay", "Etkinlik", new { id = etkinlikId });
+        }
+
         // Formdan gelen numaralar istemciden geliyor: hepsinin gerçekten bu etkinliğe
         // ait olduğunu doğrulamadan rezervasyon denemesi yapmıyoruz.
         var gecerliSayisi = await _db.Biletler
@@ -271,6 +301,26 @@ public class BiletlerController : Controller
         if (biletler.Count == 0)
         {
             TempData["Hata"] = "Sepetinizde ödeme bekleyen bilet yok.";
+            return RedirectToAction(nameof(Sepetim));
+        }
+
+        // Sepette bilet dururken etkinlik başlamış olabilir: kilit 5 dakika, kullanıcı
+        // ödemeye geç kalırsa aradaki sürede tarih geçebilir. Geçmiş etkinliğin
+        // ödemesini almak, karşılığı verilemeyecek bir tahsilat olurdu.
+        var gecmisEtkinlikler = biletler
+            .Where(b => b.Etkinlik != null && b.Etkinlik.SonaErdi)
+            .Select(b => b.Etkinlik!.Ad)
+            .Distinct()
+            .ToList();
+
+        if (gecmisEtkinlikler.Count > 0)
+        {
+            _logger.LogWarning(
+                "Geçmiş etkinlik için ödeme denendi: KullaniciId={KullaniciId} Etkinlikler={Etkinlikler}",
+                kullaniciId, string.Join(", ", gecmisEtkinlikler));
+
+            TempData["Hata"] = $"{string.Join(", ", gecmisEtkinlikler)} etkinliği sona erdi; " +
+                               "ödeme alınamaz. Lütfen bu biletleri sepetten çıkarın.";
             return RedirectToAction(nameof(Sepetim));
         }
 

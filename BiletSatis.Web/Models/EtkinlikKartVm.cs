@@ -19,6 +19,12 @@ public class EtkinlikKartVm
     // ikisi farklı türde değerler.
     public int KalanGun => (Tarih.Date - DateTime.Now.Date).Days;
 
+    /// <summary>
+    /// Etkinliğin zamanı geçti mi. Geçmişse kart soluklaştırılır ve "Bilet Al"
+    /// yerine değerlendirme bağlantısı gösterilir; satın alma sunucuda da kapalıdır.
+    /// </summary>
+    public bool SonaErdi => Tarih <= DateTime.Now;
+
     /// <summary>Bir haftadan az kaldıysa geri sayım vurgulanır.</summary>
     public bool YaklasanEtkinlik => KalanGun >= 0 && KalanGun <= 7;
 

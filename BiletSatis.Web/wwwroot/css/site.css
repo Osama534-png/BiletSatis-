@@ -3394,3 +3394,36 @@ footer.site-footer a:hover {
     transform: none !important;
   }
 }
+
+/* ---------- Sona ermiş etkinlik ---------- */
+
+/*
+  Tarihi geçmiş etkinliğin bileti satılamaz (kullanıcı olmamış bir konsere para
+  öderdi), ama sayfası kapanmaz: değerlendirmeler okunmaya devam eder ve
+  etkinliğe katılmış kullanıcılar yorum bırakabilir.
+
+  Kart soluklaştırılıyor ama silikleştirilip okunmaz hâle getirilmiyor: metin
+  kontrastı korunsun diye yalnızca afiş griye çevriliyor, yazılar olduğu gibi
+  kalıyor. Ayrıca durumu renkten bağımsız anlatan bir de etiket var
+  ("Sona erdi" geri sayım rozeti), yani ayrım yalnızca renge dayanmıyor.
+*/
+.event-card.is-sona-erdi .poster img {
+  filter: grayscale(1);
+  opacity: 0.65;
+}
+
+.event-card.is-sona-erdi .poster-countdown {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+
+.sona-erdi-bildirim {
+  margin: 0;
+  padding: 0.85rem 1.1rem;
+  background: var(--neutral-bg);
+  border-left: 4px solid var(--neutral-text);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-weight: 600;
+  max-width: 46rem;
+}

@@ -3,7 +3,7 @@
 [![CI](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml/badge.svg)](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml)
 ![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
-![Test](https://img.shields.io/badge/test-203%20ge%C3%A7iyor-2ea44f)
+![Test](https://img.shields.io/badge/test-211%20ge%C3%A7iyor-2ea44f)
 ![Lisans](https://img.shields.io/badge/lisans-MIT-blue)
 
 **Aynı bileti aynı anda 200 kişi isterse ne olur?** Bu proje o soruya kod yazarak değil, **ölçerek** cevap veriyor.
@@ -20,7 +20,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
 |---|---|
 | **Mühendislik kalitesini görmek istiyorum** | [Mimari Kararlar](#mimari-kararlar) — her kararın gerekçesi ve reddedilen alternatifi |
 | **İddialar doğru mu?** | [Ölçülmüş sonuçlar](#ölçülmüş-sonuçlar) · [Beş dakikada doğrulayın](#beş-dakikada-kendiniz-doğrulayın) |
-| **Hata bulup düzeltebiliyor mu?** | [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek) — bulunan 10 hata ve kanıtları |
+| **Hata bulup düzeltebiliyor mu?** | [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek) — bulunan 12 hata ve kanıtları |
 | **Çalıştırmak istiyorum** | [Kurulum](#kurulum) · [Docker ile](#docker-ile-çalıştırma) |
 | **Ne yapmıyor?** | [Bilinen kapsam dışı konular](#bilinen-kapsam-dışı-konular) |
 
@@ -40,6 +40,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
   - [Aynı kullanıcı kuyruğa iki kez giremez — nasıl?](#aynı-kullanıcı-kuyruğa-iki-kez-giremez--nasıl)
   - [Etkinlik düzenlemede `RowVersion`](#etkinlik-düzenlemede-rowversion-optimistic-concurrency)
   - [Zamanın iki türü: "an" ve "takvim saati"](#zamanın-iki-türü-an-ve-takvim-saati)
+  - [Geçmiş etkinliğe neden bilet satılamaz?](#geçmiş-etkinliğe-neden-bilet-satılamaz)
   - [Kapı kontrolü QR kodu neden imzalı?](#kapı-kontrolü-qr-kodu-neden-imzalı)
   - [Çerez imzalama anahtarları neden veritabanında?](#çerez-imzalama-anahtarları-neden-veritabanında)
   - [Uygulamanın iki kopyası aynı anda çalışabilir mi?](#uygulamanın-iki-kopyası-aynı-anda-çalışabilir-mi)
@@ -72,7 +73,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
 | CSP enjekte script'i durduruyor | Tarayıcıda script ve satır içi stil enjeksiyonu | İkisi de engellendi |
 | Veri tutarlı | 23 maddelik SQL bütünlük taraması | 22 temiz, 1 kalıntı (aşağıda) |
 
-**203 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
+**211 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
 
 ### Beş dakikada kendiniz doğrulayın
 
@@ -342,19 +343,39 @@ Ters yönde de bir hata vardı: bilet devri `EtkinlikTarihi <= DateTime.UtcNow` 
 
 Sonuç: karşılaştırmanın iki tarafı da **aynı türde** olmalı. "Tutarlılık" adına hepsini UTC yapmak yanlıştı; doğru olan hangi değerin hangi tür olduğunu ayırmaktı.
 
-### Satılmış bileti olan etkinlik neden silinemiyor?
+### Etkinlik ne zaman silinebilir?
 
-Satılmış bilet gerçek bir satın alma kaydıdır; etkinlik silinirse `Biletler` tablosundaki satırlar cascade ile gider ve kullanıcıların bilet geçmişi yok olur. Kontrol yalnızca arayüzde butonu gizlemekle yapılmaz.
+Satılmış bilet gerçek bir satın alma kaydıdır; etkinlik silinirse `Biletler` tablosundaki satırlar cascade ile gider. Ama "hiç silinemez" de doğru değil — geçmiş etkinlikler birikip paneli kullanılmaz hâle getirir. Ayrım **tarihte**:
 
-Ama "önce sor, sonra sil" de yetmiyor: tam aradaki anda bir ödeme tamamlanırsa satılmış bilet yine yok olurdu. Koşul bu yüzden `DELETE`'in kendi içinde:
+| | Satış yok | Satılmış bilet var |
+|---|---|---|
+| **Gelecek etkinlik** | Silinebilir | **Silinemez** — insanların elinde kullanacakları geçerli bilet var |
+| **Sona ermiş etkinlik** | Silinebilir | Silinebilir — biletler artık kullanılamaz, arşiv temizliği yöneticinin kararı |
+
+"Önce sor, sonra sil" yetmiyor: tam aradaki anda bir ödeme tamamlanırsa satılmış bilet yine yok olurdu. Koşul bu yüzden `DELETE`'in kendi içinde:
 
 ```sql
 DELETE FROM Etkinlikler
 WHERE Id = @id
-  AND NOT EXISTS (SELECT 1 FROM Biletler WHERE EtkinlikId = @id AND Durum = 'Satıldı')
+  AND (
+        Tarih <= @simdi
+     OR NOT EXISTS (SELECT 1 FROM Biletler WHERE EtkinlikId = @id AND Durum = 'Satıldı')
+      )
 ```
 
 Etkilenen satır sayısı 0 ise silme reddedilmiş demektir. Bilet, kuyruk ve değerlendirme kayıtları foreign key'ler üzerinden cascade ile temizlenir.
+
+Sona ermiş bir etkinliği silmek satış geçmişini de götürdüğü için arayüz ne kaybedileceğini açıkça yazıyor ("… 7 satış kaydı ve bu etkinliğe bırakılmış değerlendirmeler de kalıcı olarak silinecek") ve işlem `LogWarning` ile kaydediliyor.
+
+### Geçmiş etkinliğe neden bilet satılamaz?
+
+Satın alma yolunda hiçbir yerde etkinlik tarihine bakılmıyordu: tarihi geçmiş bir konserin koltukları listeleniyor, sepete ekleniyor ve **ödemesi alınabiliyordu**. Kullanıcı olmamış bir etkinliğin biletine para ödüyor, karşılığında kapıda kullanamayacağı bir QR alıyordu — üstelik projede otomatik iade akışı yok.
+
+İlginç olan, kontrolün **bilet devrinde zaten var olması** (`EtkinlikGecmis`): kural biliniyordu, satın alma yoluna uygulanmamıştı.
+
+Kapanan yalnızca satış. Etkinlik sayfası açık kalır: değerlendirmeler okunur ve etkinliğe katılmış kullanıcılar yorum bırakmaya devam eder — zaten yorum hakkı biletin **kapıda okutulmuş** olmasına bağlı, yani ancak geçmiş etkinliklere yorum yazılabiliyor.
+
+Kontrol beş ayrı uçta birden var (koltuk haritası, koltuklu sepete ekleme, genel giriş, ödeme, kuyruğa katılma), çünkü arayüzde düğmeyi gizlemek yeterli değil — formlar doğrudan da gönderilebilir. Ödeme adımındaki kontrol ayrıca şunun için gerekli: sepette bilet dururken etkinlik başlamış olabilir (kilit 5 dakika).
 
 ### Bildirim e-postası neden hak tanıma anında gönderilmiyor?
 
@@ -548,9 +569,9 @@ dotnet user-secrets set "Yonetici:Sifre" "guclu-bir-sifre"
 
 ## Kendi kodunu denetlemek
 
-Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, arayüz çalışıyordu. Sonra dört ayrı yöntemle üstünden geçildi — kod satır satır okundu, veritabanı bağımsız SQL sorgularıyla tarandı, uygulama yük altında ölçüldü ve testler farklı bir makinede (CI) çalıştırıldı.
+Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, arayüz çalışıyordu. Sonra beş ayrı yöntemle üstünden geçildi — kod satır satır okundu, veritabanı bağımsız SQL sorgularıyla tarandı, uygulama yük altında ölçüldü, testler farklı bir makinede (CI) çalıştırıldı ve ürün gerçek bir kullanıcı gözüyle gezildi.
 
-**On gerçek hata çıktı.** Hiçbiri derleyici uyarısı vermiyordu, hiçbiri mevcut testleri kırmıyordu, üçü de README'nin çalıştığını iddia ettiği korumalardı. Her biri için önce hatayı gösteren test yazıldı, kırıldığı görüldü, sonra düzeltildi — testler `BiletSatis.Tests/DenetimBulgulariTests.cs` içinde.
+**On iki gerçek hata çıktı.** Hiçbiri derleyici uyarısı vermiyordu, hiçbiri mevcut testleri kırmıyordu, üçü de README'nin çalıştığını iddia ettiği korumalardı. Her biri için önce hatayı gösteren test yazıldı, kırıldığı görüldü, sonra düzeltildi — testler `BiletSatis.Tests/DenetimBulgulariTests.cs` içinde.
 
 | # | Hata | Nasıl bulundu |
 |---|---|---|
@@ -564,16 +585,20 @@ Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, aray
 | 8 | Kuyruk görevi 2000 etkinlikte turda 4000+ sorgu çalıştırıyordu | Kod okuma |
 | 9 | Yönetici 250,50 TL girerken 25.050 TL'lik bilet oluşuyordu (yüz kat) | **CI** |
 | 10 | Docker kurulumunda bütün fiyat ve tarihler bozuk görünürdü | **CI** |
+| 11 | Tarihi geçmiş etkinliğe bilet satılabiliyor, ödemesi alınabiliyordu | Kullanıcı bildirimi |
+| 12 | Kayan paket sürümü yüzünden derleme kendi kendine bozuldu | Derleme |
 
 Ayrıca: tarih karşılaştırmalarındaki UTC/yerel karışıklığı, hiç çalışmayan bir `catch` bloğu (ham SQL `SqlException` fırlatır, `DbUpdateException` değil), değerlendirme özetinin bütün puanları belleğe çekmesi, bilet ekleme doğrulamalarının eksikliği.
 
-### Üçü neden öğretici
+### Dördü neden öğretici
 
 **Koruma vardı, testi vardı, dokümanı vardı — ve çalışmıyordu.** Satır sürümü (`rowversion`) şemadaydı ve testi geçiyordu. Ama test iki `DbContext` üzerinden EF'in kendi davranışını doğruluyordu; gerçek akış controller'dan geçiyordu ve orada sürüm formda taşınmadığı için karşılaştırma hep kendi kendine eşitti. Kayıp güncelleme koruması bir yıl boyunca hiçbir şey yapmadan durabilirdi. **Bir testin geçmesi, test ettiğini sandığın şeyi test ettiği anlamına gelmiyor.**
 
 **Kodu okuyarak görülemeyen hata.** `KodSurumu` sütunu migration ile `defaultValue: 0` eklenmişti; o güne kadarki bütün biletler sıfır kaldı. Kod çözücü sıfırı geçersiz sayıyor — yani sistem kendi ürettiği QR'ı kapıda reddediyordu. Kodun her satırı doğruydu; yanlış olan verinin kendisiydi. Ancak veritabanına bağımsız sorularla bakınca göründü, ve gerçek hayatta ancak etkinlik günü kapıda fark edilirdi.
 
 **Kendi makinende çalışması bir şey kanıtlamıyor.** 9 ve 10 numaralı hatalar yalnızca geliştirme makinesinin Türkçe olması sayesinde gizleniyordu. HTML'de `<input type="number">` alanı, tarayıcının dili ne olursa olsun değeri noktayla gönderir; Türkçe kültürde nokta binlik ayracıdır. CI'ın asıl değeri hız değil, **farklı bir ortam** olması.
+
+**Hiçbir araç ürünü kullanmanın yerini tutmuyor.** 11 numarayı ne test paketi, ne veritabanı taraması, ne CI buldu — siteyi gezen bir insan sordu: "tarihi geçmiş bir etkinliğe nasıl bilet alınabiliyor?" Kontrol bilet devrinde zaten vardı, yani kural biliniyordu; satın alma yoluna uygulanmamıştı. Araçlar yazdığın kodun doğruluğunu ölçer, **eksik kodu** göstermez.
 
 ### Ölçüm ne gösterdi
 
@@ -690,7 +715,7 @@ Herhangi bir SMTP sağlayıcısı çalışır (Brevo, Mailtrap, kurumsal sunucu)
 
 ## Test
 
-**203 test**, hepsi geçiyor — her push'ta CI'da da.
+**211 test**, hepsi geçiyor — her push'ta CI'da da.
 
 ```bash
 dotnet test BiletSatis.Tests
