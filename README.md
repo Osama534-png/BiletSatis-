@@ -20,7 +20,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
 |---|---|
 | **Mühendislik kalitesini görmek istiyorum** | [Mimari Kararlar](#mimari-kararlar) — her kararın gerekçesi ve reddedilen alternatifi |
 | **İddialar doğru mu?** | [Ölçülmüş sonuçlar](#ölçülmüş-sonuçlar) · [Beş dakikada doğrulayın](#beş-dakikada-kendiniz-doğrulayın) |
-| **Hata bulup düzeltebiliyor mu?** | [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek) — bulunan 12 hata ve kanıtları |
+| **Hata bulup düzeltebiliyor mu?** | [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek) — bulunan 13 hata ve kanıtları |
 | **Çalıştırmak istiyorum** | [Kurulum](#kurulum) · [Docker ile](#docker-ile-çalıştırma) |
 | **Ne yapmıyor?** | [Bilinen kapsam dışı konular](#bilinen-kapsam-dışı-konular) |
 
@@ -562,7 +562,19 @@ Bu tarama bir kez de gerçek bir hata yakaladı; ayrıntısı [Kendi kodunu dene
 
 Son madde bilinçli bir tercih: yetkilendirme filtresi global olarak eklenir, herkese açık olması gereken sayfalar (`giriş`, `kayıt`, `şifremi unuttum`, hata sayfası) `[AllowAnonymous]` ile işaretlenir. Tersi kurulumda yeni yazılan her action'ın korunması geliştiricinin hatırlamasına kalırdı. Doğrulandı: 18 rota anonim olarak tarandı, korumalı olması gereken 15'i istisnasız giriş sayfasına yönlendi.
 
-Genel sınır **kullanıcı kimliğine** göre bölümlenir, IP'ye göre değil: aynı ağdan (okul, iş yeri, mobil operatör NAT'ı) bağlanan farklı kullanıcılar birbirinin kotasını tüketmesin. Girişi olmayanlar IP'ye göre sayılır. Ölçüldü: 60 istek geçiyor, 61.'den itibaren `/Account/CokFazlaDeneme` sayfasına yönlendiriliyor.
+Genel sınır **kullanıcı kimliğine** göre bölümlenir, IP'ye göre değil: aynı ağdan (okul, iş yeri, mobil operatör NAT'ı) bağlanan farklı kullanıcılar birbirinin kotasını tüketmesin. Girişi olmayanlar IP'ye göre sayılır.
+
+**Sıra burada kritik.** `UseRateLimiter()` ilk yazıldığında `UseAuthentication()`'dan önce duruyordu. Sınırlayıcı çalıştığında `HttpContext.User` henüz boş olduğu için bölümleme sessizce IP'ye düşüyordu — kod "kullanıcıya göre bölümlüyorum" diyor, gerçekte bütün giriş yapmış kullanıcılar tek kovayı paylaşıyordu. Hiçbir hata vermiyor, yalnızca yanlış çalışıyordu.
+
+Ölçümle görüldü — aynı IP'den iki farklı kullanıcı:
+
+| | Sıra yanlışken | Düzeltildikten sonra |
+|---|---|---|
+| A: 55 POST | 0 engel | 0 engel |
+| B: 20 POST | **19 engel** | **0 engel** |
+| A: 10 POST daha | — | 5 engel (kendi kotası doldu) |
+
+`UseRouting`'den sonra olması da şart: `[EnableRateLimiting]` öznitelikleri endpoint meta verisinden okunuyor. Doğru sıra: **UseRouting → UseAuthentication → UseRateLimiter → UseAuthorization**.
 
 Hız sınırı bilinçli olarak yalnızca **POST** uçlarına uygulanır ve hesap kilidi eşiğinin (5) üstünde tutulur. Sayfa açılışları da sayılsaydı her giriş denemesi iki isteğe mal olur, kullanıcı anlaşılır kilit mesajını görmeden sınıra takılırdı. Sınıra takılan istek çıplak `429` yerine `/Account/CokFazlaDeneme` sayfasına yönlendirilir; yanıt `Retry-After` başlığı taşır.
 
@@ -576,9 +588,9 @@ dotnet user-secrets set "Yonetici:Sifre" "guclu-bir-sifre"
 
 ## Kendi kodunu denetlemek
 
-Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, arayüz çalışıyordu. Sonra beş ayrı yöntemle üstünden geçildi — kod satır satır okundu, veritabanı bağımsız SQL sorgularıyla tarandı, uygulama yük altında ölçüldü, testler farklı bir makinede (CI) çalıştırıldı ve ürün gerçek bir kullanıcı gözüyle gezildi.
+Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, arayüz çalışıyordu. Sonra altı ayrı yöntemle üstünden geçildi — kod satır satır okundu, veritabanı bağımsız SQL sorgularıyla tarandı, uygulama yük altında ölçüldü, testler farklı bir makinede (CI) çalıştırıldı, ürün gerçek bir kullanıcı gözüyle gezildi ve bağımsız bir güvenlik incelemesinden geçirildi.
 
-**On iki gerçek hata çıktı.** Hiçbiri derleyici uyarısı vermiyordu, hiçbiri mevcut testleri kırmıyordu, üçü de README'nin çalıştığını iddia ettiği korumalardı. Her biri için önce hatayı gösteren test yazıldı, kırıldığı görüldü, sonra düzeltildi — testler `BiletSatis.Tests/DenetimBulgulariTests.cs` içinde.
+**On üç gerçek hata çıktı.** Hiçbiri derleyici uyarısı vermiyordu, hiçbiri mevcut testleri kırmıyordu, üçü de README'nin çalıştığını iddia ettiği korumalardı. Her biri için önce hatayı gösteren test yazıldı, kırıldığı görüldü, sonra düzeltildi — testler `BiletSatis.Tests/DenetimBulgulariTests.cs` içinde.
 
 | # | Hata | Nasıl bulundu |
 |---|---|---|
@@ -594,6 +606,7 @@ Proje bir noktada "bitti" göründü: 189 test geçiyordu, derleme temizdi, aray
 | 10 | Docker kurulumunda bütün fiyat ve tarihler bozuk görünürdü | **CI** |
 | 11 | Tarihi geçmiş etkinliğe bilet satılabiliyor, ödemesi alınabiliyordu | Kullanıcı bildirimi |
 | 12 | Kayan paket sürümü yüzünden derleme kendi kendine bozuldu | Derleme |
+| 13 | Hız sınırı kullanıcıya göre bölümlendiğini söylüyor ama IP'ye düşüyordu | **Bağımsız güvenlik incelemesi** |
 
 Ayrıca: tarih karşılaştırmalarındaki UTC/yerel karışıklığı, hiç çalışmayan bir `catch` bloğu (ham SQL `SqlException` fırlatır, `DbUpdateException` değil), değerlendirme özetinin bütün puanları belleğe çekmesi, bilet ekleme doğrulamalarının eksikliği.
 
@@ -606,6 +619,8 @@ Ayrıca: tarih karşılaştırmalarındaki UTC/yerel karışıklığı, hiç ça
 **Kendi makinende çalışması bir şey kanıtlamıyor.** 9 ve 10 numaralı hatalar yalnızca geliştirme makinesinin Türkçe olması sayesinde gizleniyordu. HTML'de `<input type="number">` alanı, tarayıcının dili ne olursa olsun değeri noktayla gönderir; Türkçe kültürde nokta binlik ayracıdır. CI'ın asıl değeri hız değil, **farklı bir ortam** olması.
 
 **Hiçbir araç ürünü kullanmanın yerini tutmuyor.** 11 numarayı ne test paketi, ne veritabanı taraması, ne CI buldu — siteyi gezen bir insan sordu: "tarihi geçmiş bir etkinliğe nasıl bilet alınabiliyor?" Kontrol bilet devrinde zaten vardı, yani kural biliniyordu; satın alma yoluna uygulanmamıştı. Araçlar yazdığın kodun doğruluğunu ölçer, **eksik kodu** göstermez.
+
+**Kendi kodunu denetleyen kör noktalar bırakır.** 13 numara, korumayı yazan kişinin kendi ölçümünden geçti: hız sınırının çalıştığı canlı olarak doğrulanmıştı — ama ölçüm anonim bir istemciyle yapıldığı için yalnızca IP kovasını sınıyordu, kullanıcı bölümlemesine hiç dokunmuyordu. Bağımsız bir inceleme, kodu okuyarak sıralama hatasını gördü. Test tasarımın, doğrulamak istediğin şeyi gerçekten kapsıyor mu — bunu sormak, testi çalıştırmaktan daha önemli.
 
 ### Ölçüm ne gösterdi
 

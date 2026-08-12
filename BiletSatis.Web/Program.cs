@@ -322,9 +322,20 @@ app.UseGuvenlikBasliklari();
 app.UseSerilogRequestLogging();
 app.UseRouting();
 
+app.UseAuthentication();
+
+// SIRA ÖNEMLİ: hız sınırı, kimlik doğrulamadan SONRA gelmeli.
+//
+// Sınırlayıcı istekleri kullanıcı kimliğine göre bölümlüyor. Kimlik doğrulama
+// henüz çalışmadıysa HttpContext.User boştur ve bölümleme sessizce IP'ye düşer —
+// giriş yapmış bütün kullanıcılar tek kovayı paylaşır. Ölçüldü: iki farklı
+// kullanıcı aynı IP'den istek attığında ikincisi, kendi kotasını hiç kullanmadan
+// engelleniyordu. Kod "kullanıcıya göre bölümlüyorum" diyor ama yapmıyordu.
+//
+// UseRouting'den sonra olması da şart: [EnableRateLimiting] öznitelikleri
+// endpoint meta verisinden okunuyor, o da yönlendirme aşamasında oluşuyor.
 app.UseRateLimiter();
 
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
