@@ -20,7 +20,21 @@ public class EtkinlikFiltresi
     /// <summary>"tumu" | "hafta" | "ay"</summary>
     public string Tarih { get; set; } = "tumu";
 
-    public decimal? EnYuksekFiyat { get; set; }
+    /// <summary>
+    /// Fiyat tavanı. Bilet fiyatı <c>decimal(10,2)</c> olduğu için sütuna sığmayan
+    /// bir değerle karşılaştırma SQL Server'da taşma hatası veriyor ve istek 500 ile
+    /// düşüyordu — adres çubuğuna <c>?enYuksekFiyat=99999999999999999999</c> yazan
+    /// herkes sunucu hatası üretebiliyordu. Değer sütunun taşıyabileceği aralığa
+    /// sıkıştırılıyor; sınırın üstü zaten "hepsi" demek.
+    /// </summary>
+    public const decimal AzamiFiyat = 99_999_999.99m;
+
+    private decimal? _enYuksekFiyat;
+    public decimal? EnYuksekFiyat
+    {
+        get => _enYuksekFiyat;
+        set => _enYuksekFiyat = value is null ? null : Math.Clamp(value.Value, 0m, AzamiFiyat);
+    }
 
     /// <summary>Varsayılan olarak tükenen etkinlikler gizlenir.</summary>
     public bool TukenenleriGoster { get; set; }

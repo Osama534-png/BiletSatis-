@@ -293,6 +293,46 @@ public class DenetimBulgulariTests : IClassFixture<UygulamaFabrikasi>
             $"Beklenmeyen durum kodu: {(int)cevap.StatusCode}");
     }
 
+    // ---------- Bulgu 13: ödeme dönüş ucu eksik/bozuk girdide çöküyordu ----------
+
+    /// <summary>
+    /// <c>/Biletler/OdemeBasarili</c> Stripe'ın geri yönlendirdiği adres. Parametresiz
+    /// ya da uydurma bir <c>session_id</c> ile açıldığında Stripe istemcisi
+    /// <c>StripeException</c> değil <c>ArgumentException</c> fırlatıyor; bu da
+    /// yakalanmadığı için istek 500 ile düşüyordu.
+    ///
+    /// Giriş yapmış herkes adres çubuğuna yazarak tetikleyebilirdi. Ödeme dönüşü
+    /// dış servisten gelen veriyle çalıştığı için burada hiçbir girdi güvenilmez
+    /// kabul edilmeli.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("cs_test_uydurma")]
+    [InlineData("../../etc/passwd")]
+    public async Task OdemeDonusu_GecersizOturumNumarasi_CokmemeliVeSepeteDonmeli(string oturum)
+    {
+        var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("odeme"));
+
+        var cevap = await istemci.GetAsync($"/Biletler/OdemeBasarili?session_id={Uri.EscapeDataString(oturum)}");
+
+        Assert.True(
+            cevap.StatusCode is HttpStatusCode.Found or HttpStatusCode.OK,
+            $"Beklenmeyen durum kodu: {(int)cevap.StatusCode}");
+    }
+
+    /// <summary>Parametre hiç verilmediğinde de aynı davranış beklenir.</summary>
+    [Fact]
+    public async Task OdemeDonusu_ParametresizAcilirsa_Cokmemeli()
+    {
+        var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("odeme-bos"));
+
+        var cevap = await istemci.GetAsync("/Biletler/OdemeBasarili");
+
+        Assert.True(
+            cevap.StatusCode is HttpStatusCode.Found or HttpStatusCode.OK,
+            $"Beklenmeyen durum kodu: {(int)cevap.StatusCode}");
+    }
+
     // ---------- Bulgu 11: geçmiş etkinliğe bilet satılabiliyordu ----------
 
     /// <summary>
