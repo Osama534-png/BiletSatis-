@@ -4,6 +4,7 @@ using BiletSatis.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BiletSatis.Web.Data.Migrations
 {
     [DbContext(typeof(BiletSatisDbContext))]
-    partial class BiletSatisDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260813174250_MekanDizini")]
+    partial class MekanDizini
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -142,18 +145,11 @@ namespace BiletSatis.Web.Data.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime?>("SatisZamani")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Durum", "BildirimGonderildi");
 
                     b.HasIndex("Durum", "KilitBitisZamani");
-
-                    b.HasIndex("Durum", "SatisZamani");
-
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Durum", "SatisZamani"), new[] { "EtkinlikId" });
 
                     b.HasIndex("EtkinlikId", "Durum");
 

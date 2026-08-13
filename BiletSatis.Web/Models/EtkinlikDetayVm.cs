@@ -25,6 +25,12 @@ public class EtkinlikDetayVm
     /// <summary>Aynı kategorideki diğer etkinlikler.</summary>
     public List<EtkinlikKartVm> BenzerEtkinlikler { get; set; } = new();
 
+    /// <summary>
+    /// Aynı mekanda yapılacak diğer yaklaşan etkinlikler; mekan kartında kısa liste
+    /// olarak gösterilir. Tamamı için mekan sayfasına bağlantı verilir.
+    /// </summary>
+    public List<EtkinlikKartVm> MekandakiDigerEtkinlikler { get; set; } = new();
+
     /// <summary>Puan ortalaması, dağılımı ve yorumlar.</summary>
     public DegerlendirmeOzeti Degerlendirmeler { get; set; } = new();
 

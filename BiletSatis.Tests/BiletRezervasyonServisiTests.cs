@@ -487,6 +487,72 @@ public class BiletRezervasyonServisiTests
         finally { await Temizle(etkinlikId); }
     }
 
+    // Trend listesi "son N günde ne satıldı" diye sorar; satış zamanı yazılmazsa
+    // liste sessizce boş kalır — hiçbir hata vermeden, yanlış çalışarak.
+    [Fact]
+    public async Task CompletePaymentManyAsync_SatisZamaniniYazmali()
+    {
+        var (etkinlikId, idler) = await BiletlerOlustur(2);
+        try
+        {
+            var oncesi = DateTime.UtcNow.AddSeconds(-5);
+
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+            await servis.TryAddManyToCartAsync(idler, "kullanici-1");
+            await servis.CompletePaymentManyAsync(idler, "kullanici-1", "sess_zaman");
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var biletler = await kontrol.Biletler.AsNoTracking()
+                .Where(b => idler.Contains(b.Id))
+                .ToListAsync();
+
+            Assert.All(biletler, b =>
+            {
+                Assert.NotNull(b.SatisZamani);
+                // GETUTCDATE() ile yazılıyor: satış zamanı bir "an", takvim saati değil.
+                Assert.InRange(b.SatisZamani!.Value, oncesi, DateTime.UtcNow.AddSeconds(5));
+            });
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    // İptal edilip tekrar satılan bilette trend, ilk satışa değil son satışa bakmalı.
+    [Fact]
+    public async Task CompletePaymentManyAsync_TekrarSatilanBilettteSatisZamaniniGuncellemeli()
+    {
+        var (etkinlikId, biletId) = await BiletOlustur();
+        try
+        {
+            using var db = DatabaseFixture.CreateContext();
+            var servis = YeniServis(db);
+
+            await servis.TryAddToCartAsync(biletId, "kullanici-1");
+            await servis.CompletePaymentAsync(biletId, "kullanici-1");
+
+            var ilkSatis = (await db.Biletler.AsNoTracking().FirstAsync(b => b.Id == biletId)).SatisZamani;
+            Assert.NotNull(ilkSatis);
+
+            // Bileti tekrar satışa açıp yeni bir alıcıya satıyoruz.
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE Biletler
+                SET Durum = N'Satışta', RezerveEdenKullaniciId = NULL, KilitBitisZamani = NULL
+                WHERE Id = {biletId}
+                """);
+
+            await servis.TryAddToCartAsync(biletId, "kullanici-2");
+            await servis.CompletePaymentAsync(biletId, "kullanici-2");
+
+            using var kontrol = DatabaseFixture.CreateContext();
+            var ikinciSatis = (await kontrol.Biletler.AsNoTracking().FirstAsync(b => b.Id == biletId)).SatisZamani;
+
+            Assert.NotNull(ikinciSatis);
+            Assert.True(ikinciSatis >= ilkSatis,
+                "Tekrar satılan biletin satış zamanı ilk satışta kalmış; trend eski satışı gösterir.");
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
     [Fact]
     public async Task ExtendCartHoldsAsync_KendiBiletlerininSuresiniUzatmali()
     {

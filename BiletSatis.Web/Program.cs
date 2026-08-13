@@ -225,6 +225,8 @@ builder.Services.AddScoped<IKuyrukServisi, KuyrukServisi>();
 builder.Services.AddScoped<BiletSatis.Web.Services.Etkinlikler.IEtkinlikSorguServisi, BiletSatis.Web.Services.Etkinlikler.EtkinlikSorguServisi>();
 builder.Services.AddScoped<IDegerlendirmeServisi, DegerlendirmeServisi>();
 builder.Services.AddScoped<BiletSatis.Web.Services.Favoriler.IFavoriServisi, BiletSatis.Web.Services.Favoriler.FavoriServisi>();
+builder.Services.AddScoped<BiletSatis.Web.Services.Mekanlar.IMekanSorguServisi, BiletSatis.Web.Services.Mekanlar.MekanSorguServisi>();
+builder.Services.AddScoped<BiletSatis.Web.Services.Populerlik.IPopulerlikServisi, BiletSatis.Web.Services.Populerlik.PopulerlikServisi>();
 builder.Services.AddHostedService<CartExpiryWorker>();
 builder.Services.AddHostedService<WaitlistWorker>();
 

@@ -1,0 +1,139 @@
+@model BiletSatis.Web.Models.MekanDetayVm
+@{
+    var ozet = Model.Ozet;
+    var sayfa = Model.Etkinlikler;
+    ViewData["Title"] = ozet.SalonAdi;
+
+    Dictionary<string, string> Baglanti(bool gecmis, int sayfaNo) => new()
+    {
+        ["mekan"] = ozet.Mekan,
+        ["gecmis"] = gecmis ? "true" : "false",
+        ["sayfa"] = sayfaNo.ToString()
+    };
+}
+
+<nav class="breadcrumb-trail">
+    <a asp-controller="Home" asp-action="Index">Etkinlikler</a>
+    <span>›</span>
+    @if (!string.IsNullOrEmpty(ozet.Sehir))
+    {
+        <a asp-controller="Home" asp-action="Index" asp-route-sehir="@ozet.Sehir">@ozet.Sehir</a>
+        <span>›</span>
+    }
+    <strong>@ozet.SalonAdi</strong>
+</nav>
+
+<section class="mekan-hero">
+    <div class="mekan-hero-bilgi">
+        <span class="detay-kategori">Mekan</span>
+        <h1>@ozet.SalonAdi</h1>
+        @if (!string.IsNullOrEmpty(ozet.Sehir))
+        {
+            <p class="mekan-sehir">📍 @ozet.Sehir</p>
+        }
+
+        @if (ozet.DegerlendirmeAdedi > 0)
+        {
+            <div class="puan-rozeti">
+                <span class="puan-yildiz">★</span>
+                <strong>@ozet.PuanOrtalamasi!.Value.ToString("0.0")</strong>
+                <span class="puan-adet">(@ozet.DegerlendirmeAdedi değerlendirme)</span>
+            </div>
+        }
+
+        <div class="mekan-ozellik">
+            <span>🚇 Toplu taşımaya yakın</span>
+            <span>♿ Engelli erişimi mevcut</span>
+            <span>🅿️ Ücretli otopark</span>
+        </div>
+    </div>
+
+    <div class="mekan-hero-sayilar">
+        <div class="stat-tile">
+            <div class="stat-icon">🎪</div>
+            <div class="stat-value">@ozet.YaklasanEtkinlik</div>
+            <div class="stat-label">Yaklaşan Etkinlik</div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-icon">🗓️</div>
+            <div class="stat-value">@ozet.GecmisEtkinlik</div>
+            <div class="stat-label">Geçmiş Etkinlik</div>
+        </div>
+        <div class="stat-tile">
+            <div class="stat-icon">🎟️</div>
+            <div class="stat-value">
+                @(ozet.EnDusukFiyat.HasValue ? ozet.EnDusukFiyat.Value.ToString("N0") + "₺" : "—")
+            </div>
+            <div class="stat-label">En Düşük Fiyat</div>
+        </div>
+    </div>
+</section>
+
+<section class="detay-blok">
+    <div class="section-head">
+        <h2>Bu Mekandaki Etkinlikler</h2>
+        <div class="section-tools">
+            <nav class="mekan-sekmeler" aria-label="Etkinlik dönemi">
+                <a class="mekan-sekme @(Model.Gecmis ? "" : "is-active")"
+                   asp-action="Detay" asp-all-route-data="Baglanti(false, 1)"
+                   aria-current="@(Model.Gecmis ? null : "page")">
+                    Yaklaşan (@ozet.YaklasanEtkinlik)
+                </a>
+                <a class="mekan-sekme @(Model.Gecmis ? "is-active" : "")"
+                   asp-action="Detay" asp-all-route-data="Baglanti(true, 1)"
+                   aria-current="@(Model.Gecmis ? "page" : null)">
+                    Geçmiş (@ozet.GecmisEtkinlik)
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    @if (!sayfa.Ogeler.Any())
+    {
+        <p class="text-muted">
+            @(Model.Gecmis
+                ? "Bu mekanda kayıtlı geçmiş etkinlik yok."
+                : "Bu mekanda planlanmış yaklaşan etkinlik yok.")
+        </p>
+    }
+    else
+    {
+        <div class="sonuc-ozeti">@sayfa.ToplamKayit sonuçtan @sayfa.IlkSira–@sayfa.SonSira</div>
+
+        <div class="event-grid">
+            @foreach (var e in sayfa.Ogeler)
+            {
+                <partial name="_EtkinlikKarti" model="e" />
+            }
+        </div>
+
+        @if (sayfa.ToplamSayfa > 1)
+        {
+            <nav class="sayfalama" aria-label="Sayfalar">
+                @if (sayfa.OncekiVarMi)
+                {
+                    <a class="sayfa-baglantisi" asp-action="Detay"
+                       asp-all-route-data="Baglanti(Model.Gecmis, sayfa.Sayfa - 1)" rel="prev">‹ Önceki</a>
+                }
+                else
+                {
+                    <span class="sayfa-baglantisi is-pasif">‹ Önceki</span>
+                }
+
+                <span class="sayfa-baglantisi is-aktif" aria-current="page">
+                    @sayfa.Sayfa / @sayfa.ToplamSayfa
+                </span>
+
+                @if (sayfa.SonrakiVarMi)
+                {
+                    <a class="sayfa-baglantisi" asp-action="Detay"
+                       asp-all-route-data="Baglanti(Model.Gecmis, sayfa.Sayfa + 1)" rel="next">Sonraki ›</a>
+                }
+                else
+                {
+                    <span class="sayfa-baglantisi is-pasif">Sonraki ›</span>
+                }
+            </nav>
+        }
+    }
+</section>

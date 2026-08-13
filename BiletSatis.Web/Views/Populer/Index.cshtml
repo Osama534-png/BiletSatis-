@@ -1,0 +1,106 @@
+@model BiletSatis.Web.Models.PopulerListeVm
+@using BiletSatis.Web.Services.Populerlik
+@{
+    ViewData["Title"] = "En Çok Satanlar";
+}
+
+<nav class="breadcrumb-trail">
+    <a asp-controller="Home" asp-action="Index">Etkinlikler</a>
+    <span>›</span>
+    <strong>En Çok Satanlar</strong>
+</nav>
+
+<div class="hero hero-dar">
+    <span class="eyebrow">🔥 Popüler</span>
+    <h1>En Çok Satanlar</h1>
+    <p>Sıralama gerçek satış sayısına göre; yalnızca bilet alabileceğiniz etkinlikler listelenir.</p>
+</div>
+
+<section class="detay-blok">
+    <div class="section-head">
+        <h2>Sıralama</h2>
+        <div class="section-tools">
+            <nav class="mekan-sekmeler" aria-label="Dönem">
+                @foreach (var d in PopulerlikDonemleri.Tumu)
+                {
+                    <a class="mekan-sekme @(Model.Donem == d ? "is-active" : "")"
+                       asp-action="Index" asp-route-donem="@d.Anahtar()"
+                       aria-current="@(Model.Donem == d ? "page" : null)">@d.Ad()</a>
+                }
+            </nav>
+        </div>
+    </div>
+
+    @if (Model.DonemBos)
+    {
+        @* Boş liste burada "hata" değil: ya o aralıkta satış olmadı, ya da satışlar
+           satış zamanı sütunu eklenmeden önce yapıldı. İkisi de açıkça söyleniyor. *@
+        <p class="text-muted">
+            Bu dönemde kayıtlı satış yok. Satış zamanı yalnızca bu özellik eklendikten
+            sonraki satışlar için tutuluyor; daha eski satışlar
+            <a asp-action="Index" asp-route-donem="tumu">tüm zamanlar</a> sıralamasında görünür.
+        </p>
+    }
+    else if (!Model.Etkinlikler.Any())
+    {
+        <p class="text-muted">Henüz satılmış bilet yok.</p>
+    }
+    else
+    {
+        <ol class="populer-liste">
+            @for (var i = 0; i < Model.Etkinlikler.Count; i++)
+            {
+                var satir = Model.Etkinlikler[i];
+                var e = satir.Kart;
+                <li class="populer-satir">
+                    <span class="populer-sira">@(i + 1)</span>
+
+                    <a class="populer-afis" asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id">
+                        <img src="@(string.IsNullOrWhiteSpace(e.AfisUrl) ? "/img/afis/varsayilan.svg" : e.AfisUrl)"
+                             alt="@e.Ad afişi" loading="lazy" />
+                    </a>
+
+                    <div class="populer-bilgi">
+                        <a class="populer-ad" asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id">@e.Ad</a>
+                        <div class="meta">
+                            <span class="date-pill">📅 @e.Tarih.ToString("dd.MM.yyyy · HH:mm")</span>
+                            @if (!string.IsNullOrWhiteSpace(e.Mekan))
+                            {
+                                <a class="venue-line" asp-controller="Mekan" asp-action="Detay" asp-route-mekan="@e.Mekan">📍 @e.Mekan</a>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="populer-sayilar">
+                        <div class="populer-satis">
+                            <strong>@satir.SatilanBilet</strong>
+                            <small>@(Model.Donem == PopulerlikDonemi.TumZamanlar ? "bilet satıldı" : "bilet · " + Model.Donem.Ad().ToLower())</small>
+                        </div>
+                        <div class="populer-doluluk" title="Kapasitenin ne kadarı satıldı">
+                            <span class="doluluk-cubuk"><span data-genislik-yuzde="@satir.DolulukYuzdesi"></span></span>
+                            <small>%@satir.DolulukYuzdesi dolu</small>
+                        </div>
+                    </div>
+
+                    <div class="populer-cta">
+                        @if (e.MusaitKoltukSayisi == 0)
+                        {
+                            <span class="badge badge-satildi">Tükendi</span>
+                            <a asp-controller="Kuyruk" asp-action="Durum" asp-route-etkinlikId="@e.Id"
+                               class="btn btn-outline-secondary btn-sm">⏳ Kuyruk</a>
+                        }
+                        else
+                        {
+                            @if (e.SonBiletler)
+                            {
+                                <span class="stok-uyari">🔥 Son @e.MusaitKoltukSayisi bilet!</span>
+                            }
+                            <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@e.Id"
+                               class="btn btn-primary btn-sm">🎟️ Bilet Al</a>
+                        }
+                    </div>
+                </li>
+            }
+        </ol>
+    }
+</section>

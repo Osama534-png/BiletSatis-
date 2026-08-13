@@ -222,7 +222,8 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
                 KilitBitisZamani = NULL,
                 BildirimGonderildi = 0,
                 RezerveEdenKullaniciId = {kullaniciId},
-                OdemeReferansi = {odemeReferansi}
+                OdemeReferansi = {odemeReferansi},
+                SatisZamani = GETUTCDATE()
             WHERE Id IN (SELECT CAST(value AS INT) FROM STRING_SPLIT({IdListesi(idler)}, ','))
               AND (
                     (Durum = {BiletDurumMetni.Sepette} AND RezerveEdenKullaniciId = {kullaniciId})

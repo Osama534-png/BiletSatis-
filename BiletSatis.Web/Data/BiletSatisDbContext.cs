@@ -66,6 +66,11 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
             e.HasIndex(x => x.Tarih);
             e.HasIndex(x => new { x.Sehir, x.Tarih });
             e.HasIndex(x => new { x.Kategori, x.Tarih });
+
+            // Mekan sayfası bu mekandaki etkinlikleri tarihe göre sıralı okur.
+            // Dizin olmadan her mekan görüntülemesi tüm etkinlik tablosunu tarar;
+            // sıralama da ayrıca bir sort adımı gerektirirdi.
+            e.HasIndex(x => new { x.Mekan, x.Tarih });
             e.Property(x => x.AfisUrl).HasMaxLength(400).HasDefaultValue("");
             e.Property(x => x.Aciklama).HasMaxLength(2000).HasDefaultValue("");
 
@@ -110,6 +115,11 @@ public class BiletSatisDbContext : IdentityDbContext<ApplicationUser>, IDataProt
 
             // Bildirim görevi "satılmış ama bildirilmemiş" biletleri tarar.
             b.HasIndex(x => new { x.Durum, x.BildirimGonderildi });
+
+            // Trend listesi "son N günde satılmış biletleri etkinliğe göre grupla"
+            // sorar. EtkinlikId dizine dahil edilince gruplama yalnızca dizinden
+            // okunur, bilet tablosuna hiç gidilmez.
+            b.HasIndex(x => new { x.Durum, x.SatisZamani }).IncludeProperties(x => x.EtkinlikId);
 
             // Admin panelindeki giriş sayacı etkinlik bazında bu alanı sayar.
             b.HasIndex(x => new { x.EtkinlikId, x.GirisYapildi });

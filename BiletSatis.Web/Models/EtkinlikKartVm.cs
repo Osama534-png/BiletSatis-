@@ -1,7 +1,33 @@
+using System.Linq.Expressions;
+using BiletSatis.Web.Domain;
+
 namespace BiletSatis.Web.Models;
 
 public class EtkinlikKartVm
 {
+    /// <summary>
+    /// Etkinlik satırını kart görünümüne çeviren tek projeksiyon. Ana sayfa listesi,
+    /// benzer etkinlikler, mekan sayfası ve popülerlik şeritleri aynı kartı gösterir;
+    /// projeksiyon her yerde ayrı yazıldığında biri güncellenip diğerleri unutuluyordu.
+    ///
+    /// <c>Expression</c> olarak durması şart: derlenmiş bir <c>Func</c> olsaydı EF
+    /// bunu SQL'e çeviremez, tüm satırları belleğe çekip orada dönüştürürdü.
+    /// </summary>
+    public static readonly Expression<Func<Etkinlik, EtkinlikKartVm>> Projeksiyon = e => new EtkinlikKartVm
+    {
+        Id = e.Id,
+        Ad = e.Ad,
+        Mekan = e.Mekan,
+        AfisUrl = e.AfisUrl,
+        Kategori = e.Kategori,
+        Tarih = e.Tarih,
+        MusaitKoltukSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Satista),
+        EnDusukFiyat = e.Biletler
+            .Where(b => b.Durum == BiletDurumu.Satista)
+            .Select(b => (decimal?)b.Fiyat)
+            .Min()
+    };
+
     public int Id { get; set; }
     public string Ad { get; set; } = "";
     public string Mekan { get; set; } = "";

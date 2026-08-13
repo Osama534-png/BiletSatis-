@@ -105,20 +105,7 @@ public class EtkinlikSorguServisi : IEtkinlikSorguServisi
         var ogeler = await sorgu
             .Skip((sayfa - 1) * filtre.SayfaBoyutu)
             .Take(filtre.SayfaBoyutu)
-            .Select(e => new EtkinlikKartVm
-            {
-                Id = e.Id,
-                Ad = e.Ad,
-                Mekan = e.Mekan,
-                AfisUrl = e.AfisUrl,
-                Kategori = e.Kategori,
-                Tarih = e.Tarih,
-                MusaitKoltukSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Satista),
-                EnDusukFiyat = e.Biletler
-                    .Where(b => b.Durum == BiletDurumu.Satista)
-                    .Select(b => (decimal?)b.Fiyat)
-                    .Min()
-            })
+            .Select(EtkinlikKartVm.Projeksiyon)
             .ToListAsync(ct);
 
         return new SayfaliListe<EtkinlikKartVm>

@@ -2359,6 +2359,282 @@ footer.site-footer a:hover {
   color: var(--text-muted);
 }
 
+/* Etkinlik detayındaki mekan kartının "bu mekandaki diğer etkinlikler" kısmı. */
+.mekan-diger {
+  padding-top: 0.9rem;
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+
+.mekan-diger h4 {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.mekan-diger-liste {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mekan-diger-liste a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background 0.18s var(--ease);
+}
+
+.mekan-diger-liste a:hover,
+.mekan-diger-liste a:focus-visible {
+  background: var(--surface-alt);
+}
+
+.mekan-diger-ad {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mekan-diger-tarih {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* =========================================================
+   Mekan sayfası
+   ========================================================= */
+
+.mekan-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 1.6rem;
+  margin-bottom: 1.75rem;
+}
+
+@media (max-width: 820px) {
+  .mekan-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mekan-hero-bilgi h1 {
+  font-size: 1.9rem;
+  margin: 0.5rem 0 0.35rem;
+}
+
+.mekan-hero-bilgi .puan-rozeti {
+  margin-bottom: 1rem;
+}
+
+.mekan-hero-sayilar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.mekan-hero-sayilar .stat-tile {
+  padding: 0.9rem 0.5rem;
+}
+
+.mekan-hero-sayilar .stat-value {
+  font-size: 1.25rem;
+}
+
+.mekan-sekmeler {
+  display: inline-flex;
+  gap: 0.3rem;
+  background: var(--surface-alt);
+  border-radius: var(--radius-pill);
+  padding: 0.25rem;
+}
+
+.mekan-sekme {
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.mekan-sekme:hover,
+.mekan-sekme:focus-visible {
+  color: var(--text);
+}
+
+.mekan-sekme.is-active {
+  background: var(--accent-dark);
+  color: #fff;
+}
+
+/* =========================================================
+   Popülerlik listesi (en çok satanlar / trend)
+   ========================================================= */
+
+.hero-dar {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.populer-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  counter-reset: populer;
+}
+
+.populer-satir {
+  display: grid;
+  grid-template-columns: 2.2rem 4.2rem minmax(0, 1fr) auto auto;
+  gap: 1rem;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.8rem 1.1rem;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
+}
+
+.populer-satir:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.populer-sira {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+  text-align: center;
+}
+
+.populer-afis {
+  display: block;
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+
+.populer-afis img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.populer-bilgi {
+  min-width: 0;
+}
+
+.populer-ad {
+  display: block;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+  margin-bottom: 0.25rem;
+}
+
+.populer-ad:hover {
+  color: var(--accent-dark);
+}
+
+.populer-sayilar {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.populer-satis {
+  text-align: center;
+  line-height: 1.2;
+}
+
+.populer-satis strong {
+  display: block;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.25rem;
+  color: var(--accent-dark);
+}
+
+.populer-satis small,
+.populer-doluluk small {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.populer-doluluk {
+  min-width: 7rem;
+}
+
+/* Genişlik satır içi stil değil, data-genislik-yuzde özniteliğinden JS ile
+   atanır — CSP style-src 'unsafe-inline' açmadan çalışsın diye (bkz. site.js). */
+.doluluk-cubuk {
+  display: block;
+  height: 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  overflow: hidden;
+  margin-bottom: 0.25rem;
+}
+
+.doluluk-cubuk > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.populer-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+@media (max-width: 900px) {
+  .populer-satir {
+    grid-template-columns: 2rem 3.4rem minmax(0, 1fr);
+    row-gap: 0.6rem;
+  }
+
+  .populer-sayilar,
+  .populer-cta {
+    grid-column: 2 / -1;
+  }
+
+  .populer-cta {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+  }
+}
+
 /* =========================================================
    Salon haritası (SAHNE + bloklar + koltuk ızgarası)
    ========================================================= */

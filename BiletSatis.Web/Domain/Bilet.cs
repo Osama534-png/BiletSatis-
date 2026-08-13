@@ -42,6 +42,21 @@ public class Bilet
     /// </summary>
     public int KodSurumu { get; set; } = 1;
 
+    /// <summary>
+    /// Biletin satıldığı an (UTC). "Son 7 günde en çok satan" gibi trend sorularının
+    /// cevabı bu sütunda: satılmış bilet sayısı tek başına zaman bilgisi taşımaz,
+    /// bir yıl önce satılmış bilet de bugün satılmış bilet de aynı görünürdü.
+    ///
+    /// Ödeme tamamlanırken yazılır. İptal edilip tekrar satılan bilette değer yeni
+    /// satışla güncellenir — trend "en son ne zaman satıldı" bilgisine dayanır.
+    ///
+    /// <para>Sütun eklenmeden önce satılmış biletlerde <c>null</c> kalır ve bilinçli
+    /// olarak geriye doldurulmaz: o biletlerin ne zaman satıldığı hiçbir yerde
+    /// yazmıyor, uydurulmuş bir tarih ise trend listesini yanlış gösterirdi. Bu
+    /// kayıtlar "tüm zamanlar" sıralamasına girer, dönem sıralamalarına girmez.</para>
+    /// </summary>
+    public DateTime? SatisZamani { get; set; }
+
     /// <summary>Kapıda QR okutulup giriş onaylandı mı. Bir bilet yalnızca bir kez giriş sağlar.</summary>
     public bool GirisYapildi { get; set; }
 

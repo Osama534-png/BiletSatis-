@@ -818,4 +818,231 @@ public class UctanUcaAkisTests : IClassFixture<UygulamaFabrikasi>
         // Kayıt başarılı olsaydı yönlendirme dönerdi; form hatayla yeniden basılmalı.
         Assert.Equal(HttpStatusCode.OK, cevap.StatusCode);
     }
+
+    // ---------- Mekan sayfası ----------
+    //
+    // Servis testleri sorguların doğru sonucu döndüğünü kanıtlıyor ama sayfanın
+    // gerçekten açıldığını kanıtlamıyor: rota, mekan metninin adres çubuğunda
+    // kodlanıp çözülmesi ve Razor görünümü ancak bu seviyede kapsanıyor.
+
+    /// <summary>Aynı mekanda iki etkinlik oluşturur.</summary>
+    private static async Task<(string Mekan, int BirinciId, int IkinciId)> AyniMekandaIkiEtkinlik(
+        int ikincininGunu = 20)
+    {
+        var mekan = $"ZZ Mekan {Guid.NewGuid():N}, Eskisehir";
+
+        using var db = DatabaseFixture.CreateContext();
+
+        var birinci = new Etkinlik { Ad = $"ZZ MekanBir {Guid.NewGuid():N}", Mekan = mekan, Tarih = DateTime.Now.AddDays(10) };
+        var ikinci = new Etkinlik { Ad = $"ZZ MekanIki {Guid.NewGuid():N}", Mekan = mekan, Tarih = DateTime.Now.AddDays(ikincininGunu) };
+
+        birinci.Biletler.Add(new Bilet { KoltukNo = "A-01", Fiyat = 250m, Durum = BiletDurumu.Satista });
+        ikinci.Biletler.Add(new Bilet { KoltukNo = "A-01", Fiyat = 400m, Durum = BiletDurumu.Satista });
+
+        db.Etkinlikler.AddRange(birinci, ikinci);
+        await db.SaveChangesAsync();
+
+        return (mekan, birinci.Id, ikinci.Id);
+    }
+
+    private static async Task MekaniTemizle(string mekan)
+    {
+        using var db = DatabaseFixture.CreateContext();
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM Etkinlikler WHERE Mekan = {mekan}");
+    }
+
+    [Fact]
+    public async Task MekanSayfasi_MekandakiEtkinlikleriListelemeli()
+    {
+        var (mekan, birinciId, ikinciId) = await AyniMekandaIkiEtkinlik();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("mekan"));
+
+            var html = await istemci.GetStringAsync($"/Mekan/Detay?mekan={Uri.EscapeDataString(mekan)}");
+
+            // İki etkinlik de listede olmalı.
+            Assert.Contains($"/Etkinlik/Detay/{birinciId}", html);
+            Assert.Contains($"/Etkinlik/Detay/{ikinciId}", html);
+
+            // Yaklaşan/geçmiş sekmeleri ve sayaçlar basılmalı.
+            Assert.Contains("mekan-sekme", html);
+            Assert.Contains("Bu Mekandaki Etkinlikler", html);
+        }
+        finally { await MekaniTemizle(mekan); }
+    }
+
+    [Fact]
+    public async Task MekanSayfasi_OlmayanMekanda404Donmeli()
+    {
+        var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("mekan-yok"));
+
+        var cevap = await istemci.GetAsync($"/Mekan/Detay?mekan={Uri.EscapeDataString($"ZZ Yok {Guid.NewGuid():N}, Hicbiryer")}");
+
+        Assert.Equal(HttpStatusCode.NotFound, cevap.StatusCode);
+    }
+
+    /// <summary>
+    /// Yaklaşan etkinliği kalmamış bir mekana gelindiğinde sayfa, arşivi doluyken
+    /// "hiç etkinlik yok" dememeli; geçmiş sekmesi kendiliğinden açılmalı.
+    /// </summary>
+    [Fact]
+    public async Task MekanSayfasi_YalnizcaGecmisiVarsaGecmisSekmesiniAcmali()
+    {
+        var (mekan, birinciId, _) = await AyniMekandaIkiEtkinlik(ikincininGunu: -30);
+        using (var db = DatabaseFixture.CreateContext())
+        {
+            // Birinci etkinliği de geçmişe alarak mekanda hiç yaklaşan etkinlik bırakmıyoruz.
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE Etkinlikler SET Tarih = DATEADD(DAY, -5, GETDATE()) WHERE Id = {birinciId}");
+        }
+
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("mekan-arsiv"));
+
+            var html = await istemci.GetStringAsync($"/Mekan/Detay?mekan={Uri.EscapeDataString(mekan)}");
+
+            Assert.Contains($"/Etkinlik/Detay/{birinciId}", html);
+            Assert.DoesNotContain("Bu mekanda planlanm", html);
+        }
+        finally { await MekaniTemizle(mekan); }
+    }
+
+    // ---------- En çok satanlar / trend ----------
+
+    /// <summary>
+    /// Çok satmış, yaklaşan bir etkinlik kurar. Sayı bilerek yüksek: liste ortak
+    /// test veritabanındaki diğer satışlarla aynı sıralamaya girdiği için etkinliğin
+    /// ilk sıralarda çıkması garanti olmalı.
+    /// </summary>
+    private static async Task<(int EtkinlikId, string Ad)> CokSatanEtkinlikOlustur(
+        int satilan = 60, double satisGunOnce = 2)
+    {
+        using var db = DatabaseFixture.CreateContext();
+        var ad = $"ZZ CokSatan {Guid.NewGuid():N}";
+        var etkinlik = new Etkinlik { Ad = ad, Mekan = "Test Salonu, Eskisehir", Tarih = DateTime.Now.AddDays(15) };
+
+        for (var i = 1; i <= satilan; i++)
+        {
+            etkinlik.Biletler.Add(new Bilet
+            {
+                KoltukNo = $"A-{i:000}",
+                Fiyat = 300m,
+                Durum = BiletDurumu.Satildi,
+                RezerveEdenKullaniciId = "alici",
+                SatisZamani = DateTime.UtcNow.AddDays(-satisGunOnce)
+            });
+        }
+
+        // Birkaç bilet satışta kalsın ki kart "Tükendi" değil "Bilet Al" göstersin.
+        for (var i = 1; i <= 5; i++)
+        {
+            etkinlik.Biletler.Add(new Bilet { KoltukNo = $"B-{i:000}", Fiyat = 300m, Durum = BiletDurumu.Satista });
+        }
+
+        db.Etkinlikler.Add(etkinlik);
+        await db.SaveChangesAsync();
+        return (etkinlik.Id, ad);
+    }
+
+    [Fact]
+    public async Task PopulerSayfasi_EnCokSatanlariVeDonemSekmeleriniGostermeli()
+    {
+        var (etkinlikId, _) = await CokSatanEtkinlikOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("populer"));
+            _fabrika.OnbellegiTemizle();
+
+            var html = await istemci.GetStringAsync("/Populer");
+
+            Assert.Contains($"/Etkinlik/Detay/{etkinlikId}", html);
+            Assert.Contains("populer-liste", html);
+
+            // Üç dönem sekmesi de bağlantı olarak basılmalı.
+            Assert.Contains("donem=hafta", html);
+            Assert.Contains("donem=ay", html);
+            Assert.Contains("donem=tumu", html);
+
+            // Doluluk çubuğu satır içi stil değil, data-* özniteliğiyle taşınmalı (CSP).
+            Assert.Contains("data-genislik-yuzde", html);
+            Assert.DoesNotContain("<span style=", html);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    /// <summary>
+    /// Dönem penceresi sunucuda uygulanmalı: satışları eski olan etkinlik "son 7 gün"
+    /// listesinde çıkmamalı. Pencere çalışmazsa liste hiçbir hata vermeden
+    /// "tüm zamanlar" ile aynı sonucu verir.
+    /// </summary>
+    [Fact]
+    public async Task PopulerSayfasi_HaftaDonemiEskiSatislariGostermemeli()
+    {
+        var (etkinlikId, _) = await CokSatanEtkinlikOlustur(satisGunOnce: 60);
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("populer-donem"));
+            _fabrika.OnbellegiTemizle();
+
+            var tumZamanlar = await istemci.GetStringAsync("/Populer?donem=tumu");
+            Assert.Contains($"/Etkinlik/Detay/{etkinlikId}", tumZamanlar);
+
+            var hafta = await istemci.GetStringAsync("/Populer?donem=hafta");
+            Assert.DoesNotContain($"/Etkinlik/Detay/{etkinlikId}", hafta);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    /// <summary>
+    /// En çok satanlar listesi ana sayfada değil, kendi sayfasında durur. Ana sayfanın
+    /// işi keşif (filtreler, kategoriler, yaklaşan etkinlikler); popülerlik sıralaması
+    /// oraya ayrı bir liste daha ekleyip sayfayı uzatıyordu.
+    ///
+    /// Test iki şeyi birden koruyor: liste ana sayfaya geri sızmasın ve menüden
+    /// erişilebilir kalsın — ikincisi olmadan sayfaya gidecek yol kalmaz.
+    /// </summary>
+    [Fact]
+    public async Task AnaSayfa_EnCokSatanlarListesiniGostermemeli()
+    {
+        var (etkinlikId, _) = await CokSatanEtkinlikOlustur();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("anasayfa-populer"));
+            _fabrika.OnbellegiTemizle();
+
+            var html = await istemci.GetStringAsync("/");
+
+            Assert.DoesNotContain("populer-liste", html);
+            Assert.DoesNotContain("doluluk-cubuk", html);
+
+            // Menüdeki bağlantı duruyor: sayfaya buradan gidiliyor.
+            Assert.Contains("/Populer", html);
+        }
+        finally { await Temizle(etkinlikId); }
+    }
+
+    [Fact]
+    public async Task EtkinlikDetayi_MekanSayfasinaBaglantiVeDigerEtkinlikleriGostermeli()
+    {
+        var (mekan, birinciId, ikinciId) = await AyniMekandaIkiEtkinlik();
+        try
+        {
+            var istemci = await _fabrika.GirisYapmisIstemciAsync(BenzersizEposta("mekan-detay"));
+
+            var html = await istemci.GetStringAsync($"/Etkinlik/Detay/{birinciId}");
+
+            // Mekan kartında aynı mekandaki diğer etkinlik ve mekan sayfası bağlantısı.
+            Assert.Contains("mekan-diger", html);
+            Assert.Contains($"/Etkinlik/Detay/{ikinciId}", html);
+            Assert.Contains("/Mekan/Detay", html);
+
+            // Etkinliğin kendisi "diğer etkinlikler" listesine girmemeli.
+            var digerBolumu = html[html.IndexOf("mekan-diger-liste", StringComparison.Ordinal)..];
+            digerBolumu = digerBolumu[..digerBolumu.IndexOf("</ul>", StringComparison.Ordinal)];
+            Assert.DoesNotContain($"/Etkinlik/Detay/{birinciId}", digerBolumu);
+        }
+        finally { await MekaniTemizle(mekan); }
+    }
 }

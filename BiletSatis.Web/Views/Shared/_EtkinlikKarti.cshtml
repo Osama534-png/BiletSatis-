@@ -1,0 +1,64 @@
+@model BiletSatis.Web.Models.EtkinlikKartVm
+@using BiletSatis.Web.Domain
+
+@* Ana sayfa listesi dışındaki her yerde kullanılan sade etkinlik kartı: benzer
+   etkinlikler, mekan sayfası ve popülerlik listeleri. Ana sayfadaki kartın kendi
+   kopyası var; orada sıra numarası, favori düğmesi ve sayfa çözümlenirken
+   uygulanan animasyon gecikme sınıfları (.gecikme-N) var — o kart bilerek ayrı
+   tutuldu, ortaklaştırmak listeye özgü davranışı buraya taşırdı. *@
+<div class="event-card @(Model.SonaErdi ? "is-sona-erdi" : "")">
+    <div class="poster">
+        <img src="@(string.IsNullOrWhiteSpace(Model.AfisUrl) ? "/img/afis/varsayilan.svg" : Model.AfisUrl)"
+             alt="@Model.Ad afişi" loading="lazy" />
+        <span class="poster-category">@KategoriMetni.Ad(Model.Kategori)</span>
+    </div>
+    <div class="body">
+        <div class="card-main">
+            <h2>@Model.Ad</h2>
+            <div class="meta">
+                <span class="date-pill">📅 @Model.Tarih.ToString("dd.MM.yyyy · HH:mm")</span>
+                @if (!string.IsNullOrWhiteSpace(Model.Mekan))
+                {
+                    <span class="venue-line">📍 @Model.Mekan</span>
+                }
+                @if (!Model.SonaErdi)
+                {
+                    @if (Model.MusaitKoltukSayisi == 0)
+                    {
+                        <span class="stok-uyari tukendi">🚫 Tükendi</span>
+                    }
+                    else if (Model.SonBiletler)
+                    {
+                        <span class="stok-uyari">🔥 Son @Model.MusaitKoltukSayisi bilet!</span>
+                    }
+                    else
+                    {
+                        <span>🎟️ @Model.MusaitKoltukSayisi koltuk müsait</span>
+                    }
+                }
+            </div>
+        </div>
+        <div class="price-row">
+            @if (Model.SonaErdi)
+            {
+                <span class="badge badge-satildi">Sona erdi</span>
+            }
+            else if (Model.EnDusukFiyat.HasValue)
+            {
+                <span class="price">@Model.EnDusukFiyat.Value.ToString("N0")<small>₺'den itibaren</small></span>
+            }
+            else
+            {
+                <span class="badge badge-satildi">Tükendi</span>
+            }
+        </div>
+        <div class="cta-row">
+            @* Sona ermiş etkinlikte satın alma kapalı; sayfası açık kalır ve
+               değerlendirmeler okunmaya devam eder. *@
+            <a asp-controller="Etkinlik" asp-action="Detay" asp-route-id="@Model.Id"
+               class="btn @(Model.SonaErdi ? "btn-outline-secondary" : "btn-primary") btn-sm">
+                @(Model.SonaErdi ? "💬 Değerlendirmeleri gör" : "İncele")
+            </a>
+        </div>
+    </div>
+</div>

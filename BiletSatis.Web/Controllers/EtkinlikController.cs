@@ -4,6 +4,7 @@ using BiletSatis.Web.Models;
 using BiletSatis.Web.Services;
 using BiletSatis.Web.Services.Degerlendirmeler;
 using BiletSatis.Web.Services.Favoriler;
+using BiletSatis.Web.Services.Mekanlar;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,20 +12,26 @@ namespace BiletSatis.Web.Controllers;
 
 public class EtkinlikController : Controller
 {
+    /// <summary>Mekan kartındaki kısa listede gösterilecek etkinlik sayısı.</summary>
+    private const int MekandakiDigerSayisi = 3;
+
     private readonly BiletSatisDbContext _db;
     private readonly IDegerlendirmeServisi _degerlendirme;
     private readonly IFavoriServisi _favori;
+    private readonly IMekanSorguServisi _mekan;
     private readonly ICurrentUserService _currentUser;
 
     public EtkinlikController(
         BiletSatisDbContext db,
         IDegerlendirmeServisi degerlendirme,
         IFavoriServisi favori,
+        IMekanSorguServisi mekan,
         ICurrentUserService currentUser)
     {
         _db = db;
         _degerlendirme = degerlendirme;
         _favori = favori;
+        _mekan = mekan;
         _currentUser = currentUser;
     }
 
@@ -61,20 +68,7 @@ public class EtkinlikController : Controller
             .Where(e => e.Kategori == etkinlik.Kategori && e.Id != etkinlik.Id)
             .OrderBy(e => e.Tarih)
             .Take(4)
-            .Select(e => new EtkinlikKartVm
-            {
-                Id = e.Id,
-                Ad = e.Ad,
-                Mekan = e.Mekan,
-                AfisUrl = e.AfisUrl,
-                Kategori = e.Kategori,
-                Tarih = e.Tarih,
-                MusaitKoltukSayisi = e.Biletler.Count(b => b.Durum == BiletDurumu.Satista),
-                EnDusukFiyat = e.Biletler
-                    .Where(b => b.Durum == BiletDurumu.Satista)
-                    .Select(b => (decimal?)b.Fiyat)
-                    .Min()
-            })
+            .Select(EtkinlikKartVm.Projeksiyon)
             .ToListAsync();
 
         var vm = new EtkinlikDetayVm
@@ -93,6 +87,8 @@ public class EtkinlikController : Controller
             EnYuksekFiyat = satistakiler.Count == 0 ? null : satistakiler.Max(b => b.Fiyat),
             Fiyatlar = fiyatlar,
             BenzerEtkinlikler = benzerler,
+            MekandakiDigerEtkinlikler = await _mekan.DigerEtkinliklerAsync(
+                etkinlik.Mekan, etkinlik.Id, MekandakiDigerSayisi),
             Degerlendirmeler = await _degerlendirme.OzetAsync(id)
         };
 

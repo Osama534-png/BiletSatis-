@@ -26,7 +26,12 @@ public static class DbSeeder
             var ilk = new Etkinlik
             {
                 Ad = "Yaz Konseri 2026",
-                Mekan = "Harbiye Cemil Topuzlu Açıkhava Tiyatrosu",
+
+                // Şehir kısmı şart: Sehir sütunu bu metnin virgülden sonrasından
+                // türetiliyor (bkz. BiletSatisDbContext.SehirleriGuncelle). Virgülsüz
+                // yazıldığında şehir boş kalıyor, etkinlik şehir seçicisinde hiç
+                // görünmüyor ve mekan sayfası şehirsiz açılıyordu.
+                Mekan = "Harbiye Cemil Topuzlu Açıkhava Tiyatrosu, İstanbul",
                 Tarih = new DateTime(2026, 9, 15, 20, 0, 0, DateTimeKind.Utc)
             };
 
@@ -346,6 +351,63 @@ public static class DbSeeder
                        "Balonlarla gökyüzüne açılan bir yolculuğun hikâyesi, çocukların da sahneye katıldığı " +
                        "interaktif bölümlerle anlatılıyor. Oyun 50 dakika sürmektedir, ara yoktur.",
             YasSiniri = 0
+        },
+
+        // Aşağıdaki üç etkinlik, katalogda zaten kullanılan mekanlarda geçiyor.
+        //
+        // Sebebi mimari: gerçek bir mekan yılda onlarca etkinlik ağırlar, her mekanda
+        // tek etkinlik olması gerçekçi değil. Demo veri öyle kurulduğu için mekan
+        // sayfası ve "bu mekandaki diğer etkinlikler" hiçbir yerde karşılık bulmuyor,
+        // çalışan bir özellik bozukmuş gibi görünüyordu.
+        new("Teoman — Yaz Akşamı",
+            "Volkswagen Arena, İstanbul",
+            "/img/afis/varsayilan.svg",
+            EtkinlikKategorisi.Konser,
+            new DateTime(2026, 10, 17, 21, 0, 0, DateTimeKind.Utc),
+            [
+                new("A", 22, 3600m),
+                new("B", 34, 2700m),
+                new("C", 46, 1900m),
+                new("D", 58, 1100m)
+            ])
+        {
+            Aciklama = "Teoman, uzun bir aradan sonra kapalı salon konseriyle sahneye dönüyor. " +
+                       "Repertuvarında ilk albümlerinden seçkiler ve son dönem şarkıları birlikte yer alıyor. " +
+                       "Konser tek bölüm halinde, arasız gerçekleşecektir.",
+            YasSiniri = 7
+        },
+
+        new("Bir Delinin Hatıra Defteri",
+            "Zorlu PSM Turkcell Sahnesi, İstanbul",
+            "/img/afis/tiyatro.svg",
+            EtkinlikKategorisi.Tiyatro,
+            new DateTime(2026, 10, 9, 20, 0, 0, DateTimeKind.Utc),
+            [
+                new("A", 26, 1500m),
+                new("B", 38, 1100m),
+                new("C", 50, 750m)
+            ])
+        {
+            Aciklama = "Gogol'ün aynı adlı öyküsünden uyarlanan tek kişilik oyun, bir memurun günlüğü üzerinden " +
+                       "aklın sınırlarında gezinen bir portre çiziyor. Sade sahne tasarımı ve canlı müzik eşliğinde " +
+                       "sahneleniyor. Oyun iki perde, 15 dakika aralıdır.",
+            YasSiniri = 15
+        },
+
+        new("Perşembe Sahnesi — Açık Mikrofon",
+            "Jolly Joker, Ankara",
+            "/img/afis/stand-up.svg",
+            EtkinlikKategorisi.StandUp,
+            new DateTime(2026, 10, 1, 21, 30, 0, DateTimeKind.Utc),
+            [
+                new("A", 28, 700m),
+                new("B", 44, 500m)
+            ])
+        {
+            Aciklama = "Her hafta farklı komedyenlerin sahne aldığı açık mikrofon gecesi. " +
+                       "Programda hem tanınmış isimler hem de ilk kez sahneye çıkanlar yer alıyor. " +
+                       "Gece yaklaşık iki saat sürüyor, tek ara veriliyor.",
+            YasSiniri = 18
         }
     ];
 }
