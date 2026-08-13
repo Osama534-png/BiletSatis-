@@ -2,6 +2,7 @@ using BiletSatis.Web.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -121,6 +122,26 @@ public class UygulamaFabrikasi : WebApplicationFactory<Program>
         return istemci;
     }
 
+    /// <summary>
+    /// Uygulamanın bellek önbelleğini boşaltır.
+    ///
+    /// <para><b>Neden gerekli:</b> <c>IMemoryCache</c> singleton'dır ve test sunucusu
+    /// bütün testler boyunca ayakta kalır. Ana sayfa sayaçları, şehir listesi ve
+    /// popülerlik sıralaması 30 saniye önbelleklendiği için bir testin ürettiği liste
+    /// —o testin verisi silindikten sonra bile— sonraki teste sızıyor. Belirtisi
+    /// kafa karıştırıcı: test tek başına geçiyor, pakette kalıyor.</para>
+    ///
+    /// <para>Önbelleğe dayanan bir sayfayı uçtan uca test eden her yer bunu istekten
+    /// önce çağırmalı.</para>
+    /// </summary>
+    public void OnbellegiTemizle()
+    {
+        if (Services.GetRequiredService<IMemoryCache>() is MemoryCache onbellek)
+        {
+            onbellek.Clear();
+        }
+    }
+
     /// <summary>Formdaki gizli antiforgery alanını okur; olmadan POST'lar reddedilir.</summary>
     public static string AntiforgeryJetonu(string html)
     {
@@ -128,6 +149,10 @@ public class UygulamaFabrikasi : WebApplicationFactory<Program>
             html, """name="__RequestVerificationToken"[^>]*value="([^"]+)""");
 
         if (!eslesme.Success) throw new InvalidOperationException("Antiforgery jetonu bulunamadı.");
-        return eslesme.Groups[1].Value;
+
+        // Ham öznitelik değil, çözülmüş değer döner: Razor '+' gibi karakterleri
+        // varlığa çevirir ('&#x2B;') ve ham hâli geri gönderilirse jeton bozulur.
+        // Tarayıcı da varlığı çözüp gönderdiği için doğru olan bu.
+        return System.Net.WebUtility.HtmlDecode(eslesme.Groups[1].Value);
     }
 }

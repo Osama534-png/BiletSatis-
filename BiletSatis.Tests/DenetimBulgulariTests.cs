@@ -174,7 +174,16 @@ public class DenetimBulgulariTests : IClassFixture<UygulamaFabrikasi>
 
         Assert.True(eslesme.Success, "Düzenleme formunda gizli SatirSurumu alanı yok — kayıp güncelleme koruması bağlanmamış.");
 
-        var deger = eslesme.Groups[1].Value;
+        // HTML varlıkları çözülmeli. Satır sürümü base64'tür ve içinde '+' geçebilir;
+        // Razor onu özniteliğe '&#x2B;' diye yazar. Ham değer geri gönderilirse base64
+        // bozulur, byte[] bağlanamaz ve istek "doğrulama hatası" ile döner — koruma
+        // çalışmıyor sanılır. Gerçek tarayıcı varlığı çözüp '+' gönderdiği için bu
+        // yalnızca testin hatasıydı; üretim akışı doğru çalışıyor (ölçüldü: 302).
+        //
+        // Hata uzun süre görünmedi çünkü satır sürümü veritabanı genelinde artan bir
+        // sayaç: base64'ünde '+' çıkana kadar sorun ortaya çıkmıyor. Kodun her satırı
+        // doğruydu, değişen veriydi.
+        var deger = System.Net.WebUtility.HtmlDecode(eslesme.Groups[1].Value);
 
         // Alan base64 taşımalı. byte[] düz ToString() ile basılırsa "System.Byte[]"
         // yazılır ve geri bağlanamaz; koruma her kaydetmede çakışma sanır.
