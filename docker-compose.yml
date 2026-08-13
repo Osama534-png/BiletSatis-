@@ -26,7 +26,13 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
-      ConnectionStrings__DefaultConnection: "Server=db;Database=BiletSatisDb;User Id=sa;Password=${DB_SA_PASSWORD:?DB_SA_PASSWORD .env dosyasında tanımlanmalı};TrustServerCertificate=True"
+      # MultipleActiveResultSets, yerel geliştirme dizesinde vardı ama burada yoktu.
+      # Testlerin tamamı MARS açık bir bağlantıyla koşuyor; Docker'ı farklı bırakmak,
+      # hiç test edilmemiş bir yapılandırmayı üretime çıkarmak demekti. İkisi eşitlendi.
+      #
+      # Application Name, SQL Server tarafında bağlantıların hangi uygulamadan
+      # geldiğini gösterir (sp_who2, Extended Events, Query Store).
+      ConnectionStrings__DefaultConnection: "Server=db;Database=BiletSatisDb;User Id=sa;Password=${DB_SA_PASSWORD:?DB_SA_PASSWORD .env dosyasında tanımlanmalı};TrustServerCertificate=True;MultipleActiveResultSets=true;Application Name=BiletSatis"
       Stripe__SecretKey: "${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY .env dosyasında tanımlanmalı}"
 
       # Bilet QR kodlarının imza anahtarı. Üretim ortamında tanımlı değilse uygulama

@@ -30,50 +30,63 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
         var idler = biletIdleri.Distinct().ToArray();
         if (idler.Length == 0) return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
 
-        // Tek koltukta olduğu gibi burada da okuma-sonra-yazma yok: tek UPDATE hem
-        // "hâlâ satışta mı" kontrolünü hem de kilidi atıyor. Tek koltuktan farkı,
-        // sorgunun birden çok satırı etkileyebilmesi — bu yüzden sonucu ancak
-        // etkilenen satır sayısına bakarak değerlendirebiliyoruz ve değerlendirme
-        // bitene kadar satırların kilitli kalması için işlem (transaction) gerekiyor.
-        await using var islem = await _db.Database.BeginTransactionAsync(ct);
-
-        int etkilenen;
-        try
+        // İşlem, yürütme stratejisinin içinde açılıyor. Sebebi: bağlantı dizesinde
+        // geçici hata yeniden denemesi (EnableRetryOnFailure) açık. EF, kendi açtığın
+        // bir işlemi yeniden deneyemez — çünkü kesinti anında işlemin ne kadarının
+        // sunucuya ulaştığını bilemez — ve bu yüzden strateji dışında açılan işlemde
+        // "does not support user-initiated transactions" diyerek çalışma anında hata
+        // verir. Sarmalayınca yeniden deneme işlemin TAMAMINI baştan çalıştırır.
+        //
+        // Gövdenin tekrar çalıştırılabilir olması şart. Burada öyle: UPDATE koşullu
+        // (WHERE Durum='Satışta'), ikinci denemede kendi yazdığı satırları saymaz,
+        // etkilenen sayı tutmazsa geri alınır. Yani tekrar çalışmak sonucu bozmuyor.
+        return await _db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
-            etkilenen = await KilitleAsync(idler, kullaniciId, ct);
-        }
-        catch (SqlException ex) when (ex.Number == 1205)
-        {
-            // Kilitlenme (deadlock): iki kullanıcı kesişen koltuk kümelerini aynı anda
-            // istedi ve SQL Server bizi kurban seçti. İşlem zaten geri alındı.
-            _logger.LogWarning(ex, "Çoklu rezervasyon kilitlenmeye takıldı: KullaniciId={KullaniciId}", kullaniciId);
-            return CokluSepeteEklemeSonucu.Olumsuz(await AlinamayanKoltuklarAsync(idler, ct));
-        }
+            // Tek koltukta olduğu gibi burada da okuma-sonra-yazma yok: tek UPDATE hem
+            // "hâlâ satışta mı" kontrolünü hem de kilidi atıyor. Tek koltuktan farkı,
+            // sorgunun birden çok satırı etkileyebilmesi — bu yüzden sonucu ancak
+            // etkilenen satır sayısına bakarak değerlendirebiliyoruz ve değerlendirme
+            // bitene kadar satırların kilitli kalması için işlem (transaction) gerekiyor.
+            await using var islem = await _db.Database.BeginTransactionAsync(ct);
 
-        if (etkilenen != idler.Length)
-        {
-            // Koltuklardan en az biri araya girildi. Yarım rezervasyon bırakmak yerine
-            // tamamını geri alıyoruz; kullanıcı ya istediği koltukların hepsini alır ya hiçbirini.
-            await islem.RollbackAsync(ct);
+            int etkilenen;
+            try
+            {
+                etkilenen = await KilitleAsync(idler, kullaniciId, ct);
+            }
+            catch (SqlException ex) when (ex.Number == 1205)
+            {
+                // Kilitlenme (deadlock): iki kullanıcı kesişen koltuk kümelerini aynı anda
+                // istedi ve SQL Server bizi kurban seçti. İşlem zaten geri alındı.
+                _logger.LogWarning(ex, "Çoklu rezervasyon kilitlenmeye takıldı: KullaniciId={KullaniciId}", kullaniciId);
+                return CokluSepeteEklemeSonucu.Olumsuz(await AlinamayanKoltuklarAsync(idler, ct));
+            }
 
-            // Geri alma bittikten sonra sorguluyoruz, aksi halde kendi yazdığımız
-            // satırları "sepette" görürdük.
-            var alinamayanlar = await AlinamayanKoltuklarAsync(idler, ct);
+            if (etkilenen != idler.Length)
+            {
+                // Koltuklardan en az biri araya girildi. Yarım rezervasyon bırakmak yerine
+                // tamamını geri alıyoruz; kullanıcı ya istediği koltukların hepsini alır ya hiçbirini.
+                await islem.RollbackAsync(ct);
+
+                // Geri alma bittikten sonra sorguluyoruz, aksi halde kendi yazdığımız
+                // satırları "sepette" görürdük.
+                var alinamayanlar = await AlinamayanKoltuklarAsync(idler, ct);
+
+                _logger.LogInformation(
+                    "Çoklu sepete ekleme başarısız: KullaniciId={KullaniciId} İstenen={Istenen} Alinabilen={Alinabilen}",
+                    kullaniciId, idler.Length, etkilenen);
+
+                return CokluSepeteEklemeSonucu.Olumsuz(alinamayanlar);
+            }
+
+            await islem.CommitAsync(ct);
 
             _logger.LogInformation(
-                "Çoklu sepete ekleme başarısız: KullaniciId={KullaniciId} İstenen={Istenen} Alinabilen={Alinabilen}",
-                kullaniciId, idler.Length, etkilenen);
+                "Çoklu sepete ekleme başarılı: KullaniciId={KullaniciId} KoltukSayisi={KoltukSayisi}",
+                kullaniciId, idler.Length);
 
-            return CokluSepeteEklemeSonucu.Olumsuz(alinamayanlar);
-        }
-
-        await islem.CommitAsync(ct);
-
-        _logger.LogInformation(
-            "Çoklu sepete ekleme başarılı: KullaniciId={KullaniciId} KoltukSayisi={KoltukSayisi}",
-            kullaniciId, idler.Length);
-
-        return CokluSepeteEklemeSonucu.Olumlu();
+            return CokluSepeteEklemeSonucu.Olumlu();
+        });
     }
 
     private Task<int> KilitleAsync(int[] idler, string kullaniciId, CancellationToken ct) =>
@@ -99,52 +112,59 @@ public class BiletRezervasyonServisi : IBiletRezervasyonServisi
     {
         if (adet <= 0) return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
 
-        // Koltuk seçmeli akışta "şu belirli biletleri ver" diyoruz. Burada ise
-        // "hangisi olursa olsun N tane ver" deniyor: UPDATE TOP (n), müsait
-        // satırlardan istenen kadarını tek seferde kilitler. OUTPUT ile hangilerini
-        // aldığımızı öğreniyoruz.
-        //
-        // Yeterli müsait bilet yoksa sorgu bulabildiği kadarını alır — yine kısmi
-        // başarı. Koltuk seçmeli akıştaki gibi işlem içinde yapıp sayı tutmazsa
-        // tamamını geri alıyoruz; kullanıcı 4 bilet isteyip 2 biletle kalmasın.
-        await using var islem = await _db.Database.BeginTransactionAsync(ct);
+        // İşlem yürütme stratejisinin içinde; gerekçesi TryAddManyToCartAsync'te.
+        // Buradaki gövde de tekrar çalıştırılabilir: UPDATE TOP koşullu çalışıyor,
+        // ikinci denemede yalnızca hâlâ satışta olan satırları alır ve sayı tutmazsa
+        // tamamı geri alınır.
+        return await _db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            // Koltuk seçmeli akışta "şu belirli biletleri ver" diyoruz. Burada ise
+            // "hangisi olursa olsun N tane ver" deniyor: UPDATE TOP (n), müsait
+            // satırlardan istenen kadarını tek seferde kilitler. OUTPUT ile hangilerini
+            // aldığımızı öğreniyoruz.
+            //
+            // Yeterli müsait bilet yoksa sorgu bulabildiği kadarını alır — yine kısmi
+            // başarı. Koltuk seçmeli akıştaki gibi işlem içinde yapıp sayı tutmazsa
+            // tamamını geri alıyoruz; kullanıcı 4 bilet isteyip 2 biletle kalmasın.
+            await using var islem = await _db.Database.BeginTransactionAsync(ct);
 
-        List<int> alinanlar;
-        try
-        {
-            alinanlar = await _db.Database.SqlQuery<int>($"""
-                UPDATE TOP ({adet}) Biletler
-                SET Durum = {BiletDurumMetni.Sepette},
-                    KilitBitisZamani = DATEADD(MINUTE, {KilitDakikasi}, GETUTCDATE()),
-                    RezerveEdenKullaniciId = {kullaniciId}
-                OUTPUT INSERTED.Id
-                WHERE EtkinlikId = {etkinlikId} AND Durum = {BiletDurumMetni.Satista}
-                """).ToListAsync(ct);
-        }
-        catch (SqlException ex) when (ex.Number == 1205)
-        {
-            _logger.LogWarning(ex, "Genel giriş rezervasyonu kilitlenmeye takıldı: EtkinlikId={EtkinlikId}", etkinlikId);
-            return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
-        }
+            List<int> alinanlar;
+            try
+            {
+                alinanlar = await _db.Database.SqlQuery<int>($"""
+                    UPDATE TOP ({adet}) Biletler
+                    SET Durum = {BiletDurumMetni.Sepette},
+                        KilitBitisZamani = DATEADD(MINUTE, {KilitDakikasi}, GETUTCDATE()),
+                        RezerveEdenKullaniciId = {kullaniciId}
+                    OUTPUT INSERTED.Id
+                    WHERE EtkinlikId = {etkinlikId} AND Durum = {BiletDurumMetni.Satista}
+                    """).ToListAsync(ct);
+            }
+            catch (SqlException ex) when (ex.Number == 1205)
+            {
+                _logger.LogWarning(ex, "Genel giriş rezervasyonu kilitlenmeye takıldı: EtkinlikId={EtkinlikId}", etkinlikId);
+                return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
+            }
 
-        if (alinanlar.Count != adet)
-        {
-            await islem.RollbackAsync(ct);
+            if (alinanlar.Count != adet)
+            {
+                await islem.RollbackAsync(ct);
+
+                _logger.LogInformation(
+                    "Genel giriş rezervasyonu başarısız: EtkinlikId={EtkinlikId} İstenen={Istenen} Bulunan={Bulunan}",
+                    etkinlikId, adet, alinanlar.Count);
+
+                return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
+            }
+
+            await islem.CommitAsync(ct);
 
             _logger.LogInformation(
-                "Genel giriş rezervasyonu başarısız: EtkinlikId={EtkinlikId} İstenen={Istenen} Bulunan={Bulunan}",
-                etkinlikId, adet, alinanlar.Count);
+                "Genel giriş rezervasyonu başarılı: EtkinlikId={EtkinlikId} KullaniciId={KullaniciId} Adet={Adet}",
+                etkinlikId, kullaniciId, adet);
 
-            return CokluSepeteEklemeSonucu.Olumsuz(Array.Empty<string>());
-        }
-
-        await islem.CommitAsync(ct);
-
-        _logger.LogInformation(
-            "Genel giriş rezervasyonu başarılı: EtkinlikId={EtkinlikId} KullaniciId={KullaniciId} Adet={Adet}",
-            etkinlikId, kullaniciId, adet);
-
-        return CokluSepeteEklemeSonucu.Olumlu();
+            return CokluSepeteEklemeSonucu.Olumlu();
+        });
     }
 
     public async Task<int> ReleaseExpiredCartHoldsAsync(CancellationToken ct = default)

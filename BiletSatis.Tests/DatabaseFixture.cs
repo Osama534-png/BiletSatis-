@@ -37,6 +37,27 @@ public class DatabaseFixture : IAsyncLifetime
             .Options;
         return new BiletSatisDbContext(options);
     }
+
+    /// <summary>
+    /// Uygulamanın gerçek yapılandırmasındaki gibi geçici hata yeniden denemesi
+    /// açık bir bağlam üretir.
+    ///
+    /// Fark önemli: yeniden deneme açıkken EF, kendi açtığın bir işlemi (transaction)
+    /// yürütme stratejisinin dışında görürse çalışma anında hata verir. Servis
+    /// testlerinin varsayılan bağlamı bu ayarı taşımadığı için o hatayı hiç
+    /// göremiyordu — yani rezervasyon akışının üretimdeki gibi çalıştığını
+    /// kanıtlamıyordu.
+    /// </summary>
+    public static BiletSatisDbContext CreateContextWithRetry()
+    {
+        var options = new DbContextOptionsBuilder<BiletSatisDbContext>()
+            .UseSqlServer(ConnectionString, sql => sql.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorNumbersToAdd: null))
+            .Options;
+        return new BiletSatisDbContext(options);
+    }
 }
 
 [CollectionDefinition("Veritabanı")]

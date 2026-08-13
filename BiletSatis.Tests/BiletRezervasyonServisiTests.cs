@@ -11,6 +11,77 @@ public class BiletRezervasyonServisiTests
     private static BiletRezervasyonServisi YeniServis(BiletSatis.Web.Data.BiletSatisDbContext db) =>
         new(db, NullLogger<BiletRezervasyonServisi>.Instance);
 
+    // ---------- Geçici hata yeniden denemesiyle uyum ----------
+    //
+    // Uygulama bağlantısında EnableRetryOnFailure açık. O ayar açıkken EF, kendi
+    // açtığın işlemleri (BeginTransaction) yürütme stratejisinin içinde görmek
+    // ister; dışarıda kalırsa çalışma anında şu hatayı verir:
+    //
+    //   "The configured execution strategy 'SqlServerRetryingExecutionStrategy'
+    //    does not support user-initiated transactions."
+    //
+    // Derleme sırasında değil, yalnızca o kod yolu çalıştığında. Çoklu koltuk ve
+    // genel giriş rezervasyonu işlem kullanan tek iki yer — yani hata tam da
+    // projenin çekirdek özelliğinde patlardı.
+    //
+    // Aşağıdaki iki test, servisi yeniden deneme AÇIK bir bağlamla çalıştırıyor.
+    // Sarmalama kaldırılırsa bu testler kırılır.
+
+    [Fact]
+    public async Task CokluKoltuk_YenidenDenemeAcikkenDeCalismali()
+    {
+        var (etkinlikId, biletIdleri) = await BiletlerOlustur(3);
+
+        await using var db = DatabaseFixture.CreateContextWithRetry();
+        var servis = YeniServis(db);
+
+        var sonuc = await servis.TryAddManyToCartAsync(biletIdleri, "kullanici-yeniden-deneme");
+
+        Assert.True(sonuc.Basarili);
+
+        await using var kontrol = DatabaseFixture.CreateContext();
+        Assert.Equal(3, await kontrol.Biletler
+            .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum == BiletDurumu.Sepette));
+    }
+
+    [Fact]
+    public async Task GenelGiris_YenidenDenemeAcikkenDeCalismali()
+    {
+        var (etkinlikId, _) = await BiletlerOlustur(5);
+
+        await using var db = DatabaseFixture.CreateContextWithRetry();
+        var servis = YeniServis(db);
+
+        var sonuc = await servis.TryClaimAnyAsync(etkinlikId, 3, "kullanici-yeniden-deneme");
+
+        Assert.True(sonuc.Basarili);
+
+        await using var kontrol = DatabaseFixture.CreateContext();
+        Assert.Equal(3, await kontrol.Biletler
+            .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum == BiletDurumu.Sepette));
+    }
+
+    /// <summary>
+    /// "Hepsi ya da hiçbiri" garantisi yeniden deneme açıkken de geçerli olmalı:
+    /// geri alma (rollback) yolu da işlem içinde çalışıyor.
+    /// </summary>
+    [Fact]
+    public async Task GenelGiris_YenidenDenemeAcikken_YetersizBilettteHicbiriAlinmamali()
+    {
+        var (etkinlikId, _) = await BiletlerOlustur(2);
+
+        await using var db = DatabaseFixture.CreateContextWithRetry();
+        var servis = YeniServis(db);
+
+        var sonuc = await servis.TryClaimAnyAsync(etkinlikId, 5, "kullanici-yeniden-deneme");
+
+        Assert.False(sonuc.Basarili);
+
+        await using var kontrol = DatabaseFixture.CreateContext();
+        Assert.Equal(0, await kontrol.Biletler
+            .CountAsync(b => b.EtkinlikId == etkinlikId && b.Durum != BiletDurumu.Satista));
+    }
+
     private static async Task<(int etkinlikId, int biletId)> BiletOlustur(decimal fiyat = 100m)
     {
         using var db = DatabaseFixture.CreateContext();

@@ -3,7 +3,7 @@
 [![CI](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml/badge.svg)](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml)
 ![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
-![Test](https://img.shields.io/badge/test-267%20ge%C3%A7iyor-2ea44f)
+![Test](https://img.shields.io/badge/test-270%20ge%C3%A7iyor-2ea44f)
 ![Lisans](https://img.shields.io/badge/lisans-MIT-blue)
 
 **Aynı bileti aynı anda 200 kişi isterse ne olur?** Bu proje o soruya kod yazarak değil, **ölçerek** cevap veriyor.
@@ -46,6 +46,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
   - [Uygulamanın iki kopyası aynı anda çalışabilir mi?](#uygulamanın-iki-kopyası-aynı-anda-çalışabilir-mi)
   - [CSP neden var, XSS zaten engellenmiyor mu?](#csp-neden-var-xss-zaten-engellenmiyor-mu)
   - [Ana sayfa neden sunucuda sayfalanıyor?](#ana-sayfa-neden-sunucuda-sayfalanıyor)
+  - [Bağlantı havuzu ve geçici hatalar](#bağlantı-havuzu-ve-geçici-hatalar)
   - [Veritabanı bütünlüğü](#veritabanı-bütünlüğü)
   - [Güvenlik önlemleri](#güvenlik-önlemleri)
 - [Kendi kodunu denetlemek](#kendi-kodunu-denetlemek)
@@ -75,7 +76,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
 | Bozuk girdi sunucuyu düşürmüyor | 49 uç, sınır değer + tip uyuşmazlığı + enjeksiyon denemesi | Hiçbiri 500 döndürmüyor |
 | Hız sınırı çalışıyor | Tek kullanıcıdan 70 ardışık POST | 60 geçti, 61.'den itibaren engellendi |
 
-**267 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
+**270 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
 
 ### Beş dakikada kendiniz doğrulayın
 
@@ -522,6 +523,30 @@ Bunun üç yan etkisi oldu:
 
 Bilinen sınır: arama `LIKE '%...%'` kullanır ve dizin kullanamaz. Etkinlik sayısı çok daha büyürse tam metin arama (full-text index) gerekir.
 
+### Bağlantı havuzu ve geçici hatalar
+
+Havuz ayarları varsayılan bırakıldı (`Max Pool Size=100`, `Min Pool Size=0`) ve bu bilinçli: ölçümde 200 eşzamanlı kullanıcı, 257 istek/sn, **0 başarısız istek** — havuz tükenmiyor. İstek başına paralel veritabanı işi yok, arka plan görevleri 10-20 saniyede bir tek kapsam açıyor. Sayıyı büyütmek ölçüme dayanmayan bir değişiklik olurdu.
+
+Değiştirilenler:
+
+**Geçici hata yeniden denemesi** (`EnableRetryOnFailure`). Ağ kesintisi, sunucu yeniden başlatma ya da bulut sağlayıcısının bağlantıyı düşürmesi doğrudan başarısız isteğe dönüşüyordu. Docker Compose kurulumunda uygulama container'ı, veritabanı hazır olmadan da ayağa kalkabildiği için ilk sorgular düşebiliyordu.
+
+**Ama bu ayar tek başına eklenemez** — ve bu, EF Core'un en sinsi tuzaklarından biri. Yeniden deneme açıkken EF, kendi açtığın işlemleri yürütme stratejisinin içinde görmek ister; dışarıda kalırsa **çalışma anında** hata verir:
+
+> The configured execution strategy 'SqlServerRetryingExecutionStrategy' does not support user-initiated transactions.
+
+Derleme sırasında değil, yalnızca o kod yolu çalıştığında. Projede işlem kullanan tek iki yer var: çoklu koltuk ve genel giriş rezervasyonu — yani hata tam da **projenin çekirdek özelliğinde** patlardı. Tekil koltuk alımı çalışmaya devam ettiği için gözden kaçması da kolaydı.
+
+İkisi de `CreateExecutionStrategy().ExecuteAsync(...)` ile sarmalandı. Sarmalama, gövdenin **tekrar çalıştırılabilir** olmasını gerektiriyor; burada öyle: `UPDATE ... WHERE Durum='Satışta'` koşullu çalışıyor, ikinci denemede kendi yazdığı satırları saymıyor, sayı tutmazsa geri alınıyor.
+
+Ölçüldü: sarmalama kaldırıldığında ilgili testler yukarıdaki hatayla 2/2 kırılıyor, geri konduğunda geçiyor.
+
+**MARS uyuşmazlığı.** Yerel bağlantı dizesinde `MultipleActiveResultSets=true` vardı, Docker'da yoktu. Testlerin tamamı MARS açık koşuyor; Docker'ı farklı bırakmak, hiç test edilmemiş bir yapılandırmayı üretime çıkarmak demekti. İkisi eşitlendi.
+
+**`Application Name=BiletSatis`** eklendi: SQL Server tarafında `sp_who2`, Extended Events ve Query Store'da bağlantıların hangi uygulamadan geldiği görünüyor.
+
+Not: `AddDbContextPool` bilinçli olarak kullanılmadı. Sık karıştırılıyor — o, bağlantıları değil `DbContext` *nesnelerini* havuzlar; bağlantı havuzunu zaten ADO.NET yönetiyor ve ikisinde de aynı. Kazanç birkaç mikrosaniyelik ayırma tasarrufu; ölçülen p95 zaten sorunlu değil.
+
 ### Veritabanı bütünlüğü
 
 Şema denetiminde iki eksik bulundu ve kapatıldı:
@@ -737,7 +762,7 @@ Herhangi bir SMTP sağlayıcısı çalışır (Brevo, Mailtrap, kurumsal sunucu)
 
 ## Test
 
-**267 test**, hepsi geçiyor — her push'ta CI'da da.
+**270 test**, hepsi geçiyor — her push'ta CI'da da.
 
 ```bash
 dotnet test BiletSatis.Tests

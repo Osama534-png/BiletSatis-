@@ -60,7 +60,26 @@ builder.Services.AddControllersWithViews(options =>
     options.ModelBinderProviders.Insert(0, new OndalikModelBaglayiciSaglayicisi());
 });
 builder.Services.AddDbContext<BiletSatisDbContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    opt.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sql =>
+        {
+            // Geçici hatalarda (ağ kesintisi, sunucu yeniden başlatma, bulut
+            // sağlayıcısının bağlantıyı düşürmesi) istek doğrudan başarısız olmasın.
+            // Docker Compose kurulumunda uygulama container'ı, veritabanı container'ı
+            // hazır olmadan da ayağa kalkabiliyor; ilk sorgular bu yüzden düşüyordu.
+            //
+            // DİKKAT: Bu ayar açıkken kendi açtığın işlemler (BeginTransaction)
+            // yürütme stratejisinin içine alınmalı. Aksi halde EF çalışma anında
+            // "does not support user-initiated transactions" hatası verir — derleme
+            // sırasında değil, yalnızca o kod yolu çalıştığında. Projede iki yer
+            // böyle: çoklu koltuk ve genel giriş rezervasyonu; ikisi de
+            // CreateExecutionStrategy().ExecuteAsync(...) ile sarmalanmış durumda.
+            sql.EnableRetryOnFailure(
+                maxRetryCount: 3,
+                maxRetryDelay: TimeSpan.FromSeconds(5),
+                errorNumbersToAdd: null);
+        }));
 
 // Çerez ve antiforgery jetonlarını imzalayan anahtarlar veritabanında tutulur.
 // Varsayılanda dosya sistemine yazılırlar; container'da bu, her yeniden oluşturmada
