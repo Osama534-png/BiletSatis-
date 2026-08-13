@@ -3,7 +3,7 @@
 [![CI](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml/badge.svg)](https://github.com/Osama534-png/BiletSatis-/actions/workflows/ci.yml)
 ![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927)
-![Test](https://img.shields.io/badge/test-270%20ge%C3%A7iyor-2ea44f)
+![Test](https://img.shields.io/badge/test-301%20ge%C3%A7iyor-2ea44f)
 ![Lisans](https://img.shields.io/badge/lisans-MIT-blue)
 
 **Aynı bileti aynı anda 200 kişi isterse ne olur?** Bu proje o soruya kod yazarak değil, **ölçerek** cevap veriyor.
@@ -45,6 +45,8 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
   - [Çerez imzalama anahtarları neden veritabanında?](#çerez-imzalama-anahtarları-neden-veritabanında)
   - [Uygulamanın iki kopyası aynı anda çalışabilir mi?](#uygulamanın-iki-kopyası-aynı-anda-çalışabilir-mi)
   - [CSP neden var, XSS zaten engellenmiyor mu?](#csp-neden-var-xss-zaten-engellenmiyor-mu)
+  - [Mekanın kimliği neden bir metin?](#mekanın-kimliği-neden-bir-metin)
+  - ["En çok satan" neden yeni bir sütun gerektirdi?](#en-çok-satan-neden-yeni-bir-sütun-gerektirdi)
   - [Ana sayfa neden sunucuda sayfalanıyor?](#ana-sayfa-neden-sunucuda-sayfalanıyor)
   - [Bağlantı havuzu ve geçici hatalar](#bağlantı-havuzu-ve-geçici-hatalar)
   - [Veritabanı bütünlüğü](#veritabanı-bütünlüğü)
@@ -76,7 +78,7 @@ Ayırt edici yanı özellik listesi değil, iddiaların ölçülmüş olması. "
 | Bozuk girdi sunucuyu düşürmüyor | 49 uç, sınır değer + tip uyuşmazlığı + enjeksiyon denemesi | Hiçbiri 500 döndürmüyor |
 | Hız sınırı çalışıyor | Tek kullanıcıdan 70 ardışık POST | 60 geçti, 61.'den itibaren engellendi |
 
-**270 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
+**301 otomatik test** gerçek SQL Server'a karşı geçiyor (birim + entegrasyon + uçtan uca).
 
 ### Beş dakikada kendiniz doğrulayın
 
@@ -157,6 +159,10 @@ Arama, tarih, fiyat aralığı ve "tükenenleri göster" seçenekleri; sıralama
 </details>
 
 
+**Mekan sayfası.** Etkinlik detayındaki mekan kartından açılır: o mekanın yaklaşan ve geçmiş etkinlikleri, ortalama puanı ve en düşük bileti. Yaklaşan etkinliği kalmamış bir mekana gelindiğinde geçmiş sekmesi kendiliğinden açılır — arşiv doluyken "hiç etkinlik yok" demenin anlamı yok.
+
+**En çok satanlar.** Satılan bilet sayısına göre sıralı liste; dönem seçilebilir (son 7 gün / son 30 gün / tüm zamanlar). Yalnızca bilet alınabilir etkinlikler listelenir. Liste ana sayfada değil kendi sayfasında durur: ana sayfanın işi keşif (filtreler, kategoriler, yaklaşan etkinlikler), popülerlik sıralaması oraya ikinci bir liste daha ekleyip sayfayı uzatıyordu.
+
 <details>
 <summary><b>Bileti alan kullanıcının izlediği yol</b></summary>
 
@@ -190,6 +196,8 @@ Zor olanlar — her birinin gerekçesi [Mimari kararlar](#mimari-kararlar) böl�
 | **İmzalı QR ile kapı kontrolü** | HMAC imza + sabit süreli karşılaştırma + tek kullanım garantisi |
 | **Doğrulanmış değerlendirme** | Yorum için bilet almak yetmez; biletin kapıda okutulmuş olması gerekir |
 | **Yatay ölçeklenebilirlik** | Migration/seed dağıtık kilitle, bildirim gönderimi sahiplenmeyle korunur |
+| **Mekan sayfası** | Mekan ayrı bir tablo değil; kimliği metnin kendisi — gruplama anahtarı doğru seçilmezse şehirler karışır |
+| **En çok satanlar / trend** | Satış sayısı zaman taşımaz; "trend" için biletin ne zaman satıldığı kaydedilmek zorundaydı |
 
 ## Mimari kararlar
 
@@ -503,6 +511,36 @@ Bunun bir bedeli var: `onclick="..."` / `onsubmit="..."` gibi satır içi olay �
 
 Tarayıcıda ölçüldü: nonce'suz bir `<script>` enjekte edildiğinde çalışmıyor ve konsola *"Executing inline script violates the following Content Security Policy directive"* hatası düşüyor. Aynı sayfada jQuery, Bootstrap, `site.js` ve Google Fonts normal şekilde yükleniyor.
 
+### Mekanın kimliği neden bir metin?
+
+Mekan sayfası ("bu mekanda başka ne var") ayrı bir `Mekanlar` tablosu olmadan çalışıyor: gruplama anahtarı `Etkinlik.Mekan` metninin **tamamı**. Ayrı tablo daha doğru modelleme olurdu ama admin panelini, seeder'ı ve etkinlik ekleme/düzenleme akışlarının hepsini değiştirmeyi gerektirirdi — [Etkinlik → Seans ayrımının](#bilinen-kapsam-dışı-konular) reddedilme gerekçesinin aynısı.
+
+**Neden salon adı değil, metnin tamamı?** Yalnızca virgülden önceki kısma göre gruplansaydı farklı şehirlerdeki aynı adlı salonlar tek mekan sayılırdı; kullanıcı Ankara'daki salonun programında İzmir'deki etkinliği görürdü. Geliştirme verisinde bunun tam örneği var: `"harbiye acikhaya, Alanya"` ve `"harbiye acikhaya, Adana"` iki ayrı mekandır.
+
+Bunun bilinçli sınırı şu: aynı mekan iki kayıtta farklı yazılmışsa (`"Volkswagen Arena, İstanbul"` / `"Volkswagen Arena,İstanbul"`) sistem iki ayrı mekan görür. Aynı kısıt `Sehir` sütununda da geçerli ve veri girişi tek yerden yapıldığı için pratikte sorun çıkarmıyor.
+
+Bir de veri tarafında ders çıktı: özellik yazıldığında **her mekanın tam olarak bir etkinliği vardı**, iki etkinliğin mekanı ise boştu. Kod doğruydu ama demo veri onu hiç çalıştırmıyordu — özellik uygulamada "bozuk" görünüyordu. Gerçek bir mekan yılda onlarca etkinlik ağırlar; katalog buna göre düzeltildi.
+
+### "En çok satan" neden yeni bir sütun gerektirdi?
+
+Satılan bilet sayısı tek başına **zaman bilgisi taşımaz**: bir yıldır satıştaki etkinlik, iki gündür satılan ve çok daha hızlı giden etkinliği toplam sayıyla her zaman geçer. Yani "en çok satan" ile "trend" farklı sorulardır ve ikincisi projede hiç kayıtlı olmayan bir veriyi ister — biletin **ne zaman** satıldığını.
+
+`Biletler.SatisZamani` bunun için eklendi ve ödeme tamamlanırken yazılıyor. Ekleme, projenin en kritik sorgusuna dokunduğu için iki aşamada yapıldı: önce sütun (yazma yok) + test, sonra `SET` satırı + test. `WHERE` koşuluna ve etkilenen satır sayısı mantığına hiç dokunulmadı.
+
+```sql
+UPDATE Biletler
+SET Durum = 'Satıldı', ..., SatisZamani = GETUTCDATE()
+WHERE ...
+```
+
+**Eski satışlar bilerek geriye doldurulmadı.** O biletlerin ne zaman satıldığı hiçbir yerde yazmıyor; uydurulabilecek tek makul değer (migration anı) hepsini "bugün satıldı" gösterir ve trend listesini gerçekte olmayan bir satış patlamasıyla doldururdu. `NULL` kalmaları doğru cevap: bu kayıtlar "tüm zamanlar" sıralamasına girer, dönem sıralamalarına girmez. Sayfa bunu kullanıcıya boş liste gösterip susmak yerine açıkça söylüyor.
+
+Karşılaştırma için: `KodSurumu` sütunu eklenirken varsayılan `0` bırakılmış ve o güne kadarki bütün biletlerin QR'ı kapıda geçersiz hâle gelmişti ([bulgu 4](#kendi-kodunu-denetlemek)). Sütun eklerken asıl soru "kod ne yapıyor" değil, **"eski satırlarda bu değer ne anlama geliyor"**.
+
+Sıralama ve gruplama tamamen SQL'de; sunucu yalnızca ilk N etkinliği okur. Liste 30 saniye önbelleklenir — ana sayfa sayaçlarındaki gerekçenin aynısı.
+
+**Doluluk oranı dönemden bağımsızdır.** "Son 7 günde 10 bilet sattı" ile "kapasitesinin %10'u dolu" aynı şey değil; dönem satışını kapasiteye bölmek yanıltıcı olurdu. Sıralamayı dönem satışı belirler, doluluk çubuğunu toplam satış.
+
 ### Ana sayfa neden sunucuda sayfalanıyor?
 
 Ana sayfa başlangıçta **tüm etkinlikleri** çekip tarayıcıya gönderiyor, filtreleme ve sıralamayı JavaScript yapıyordu. 19 etkinlikle bu fark edilmiyordu; ölçünce görüldü ki 2000 etkinlikte sayfa **5,3 MB**'a çıkıyor ve yanıt süresi 22 ms'den 759 ms'ye tırmanıyor (rakamlar: `loadtests/k6/README.md`).
@@ -682,7 +720,7 @@ BiletSatis/
     Data/                  # DbContext, migration'lar, seed, Identity yapılandırması
     Services/              # Atomik SQL sorgularını içeren servisler
     BackgroundServices/    # CartExpiryWorker, WaitlistWorker, BildirimWorker, KimlikEpostaWorker
-    Controllers/           # Home, Etkinlik, Biletler, Kuyruk, Favori, Giris, Profil, Admin, Account
+    Controllers/           # Home, Etkinlik, Mekan, Populer, Biletler, Kuyruk, Favori, Giris, Profil, Admin, Account
     Views/                 # Razor görünümleri
     Properties/
       launchSettings.json  # "http" (normal) ve "yuktest" (k6 için) profilleri
@@ -762,7 +800,7 @@ Herhangi bir SMTP sağlayıcısı çalışır (Brevo, Mailtrap, kurumsal sunucu)
 
 ## Test
 
-**270 test**, hepsi geçiyor — her push'ta CI'da da.
+**301 test**, hepsi geçiyor — her push'ta CI'da da.
 
 ```bash
 dotnet test BiletSatis.Tests
@@ -776,8 +814,13 @@ En kritik test projenin tüm iddiasını kanıtlar: 50 ayrı bağlantıdan aynı
 
 **Uçtan uca testler** uygulamanın tamamını bellek içi bir test sunucusunda ayağa kaldırıp gerçek HTTP istekleri gönderir; böylece yönlendirme, yetkilendirme, antiforgery, model bağlama ve Razor görünümleri de kapsama girer. "Servis doğru ama sayfa bozuk" durumu ancak böyle yakalanır — nitekim denetimdeki hataların yarısı yalnızca bu seviyede görünüyordu.
 
+Bu seviyede iki tuzak testleri sinsi biçimde yanıltıyordu; ikisi de "test tek başına geçiyor ama pakette kalıyor" belirtisi veriyordu:
+
+- **Formdaki gizli alanlar HTML varlığı içerebilir.** Satır sürümü base64'tür ve içinde `+` geçtiğinde Razor onu özniteliğe `&#x2B;` diye yazar. Test yardımcısı ham öznitelik değerini okuyup geri gönderdiği için base64 bozuluyor, `byte[]` bağlanamıyor ve istek doğrulama hatasıyla dönüyordu — yani **kayıp güncelleme koruması çalışmıyor gibi görünüyordu.** Gerçek tarayıcı varlığı çözüp gönderdiği için üretim akışı doğruydu (ölçüldü: aynı istek çözülmüş değerle 302 döndürüyor). Hata uzun süre görünmedi çünkü satır sürümü veritabanı genelinde artan bir sayaç: base64'ünde `+` çıkana kadar ortaya çıkmıyor. **Kodun her satırı doğruydu, değişen veriydi** — [bulgu 4'ün](#kendi-kodunu-denetlemek) aynısı. Okunan değerler artık `HtmlDecode`'dan geçiyor.
+- **Bellek önbelleği testler arasında taşınıyor.** `IMemoryCache` singleton ve test sunucusu bütün paket boyunca ayakta; bir testin ürettiği liste, o testin verisi silindikten sonra bile sonraki teste sızıyordu. Önbelleğe dayanan sayfaları test eden yerler istekten önce `UygulamaFabrikasi.OnbellegiTemizle()` çağırıyor.
+
 <details>
-<summary><b>Kapsanan alanlar (19 test sınıfı)</b></summary>
+<summary><b>Kapsanan alanlar (21 test sınıfı)</b></summary>
 
 | Dosya | Ne test ediliyor |
 |---|---|
@@ -788,6 +831,8 @@ En kritik test projenin tüm iddiasını kanıtlar: 50 ayrı bağlantıdan aynı
 | `BiletDevirServisiTests` | Bilet devri: eski QR'ın geçersizleşmesi, okutulmuş biletin devredilememesi, eşzamanlı devir |
 | `DegerlendirmeServisiTests` | Değerlendirme hakkı, geçersiz puan, tek kayıt kuralı, eşzamanlı istek, ortalama ve dağılım |
 | `EtkinlikSorguServisiTests` | Ana sayfa filtreleri (kategori, şehir, fiyat, tarih, tükenenler), sıralama, sayfalama |
+| `MekanSorguServisiTests` | Mekan gruplaması, yaklaşan/geçmiş ayrımı ve sıralaması, sayfalama sınırı, aynı adlı farklı şehirdeki salonların ayrılması |
+| `PopulerlikServisiTests` | Satışa göre sıralama, dönem penceresi, satış zamanı bilinmeyen kayıtların yalnızca "tüm zamanlar"da sayılması, dolulukun dönemden bağımsızlığı |
 | `FavoriServisiTests` | Favori ekleme/çıkarma, kullanıcı ayrımı, cascade silme, eşzamanlı isteklerde mükerrer kayıt |
 | `AdminEtkinlikSilmeTests` | Satılmış bilet koruması, bilet ve kuyruk kayıtlarının temizlenmesi |
 | `EtkinlikEsZamanliDuzenlemeTests` | İki yöneticinin aynı etkinliği düzenlemesi (EF seviyesi) |
@@ -832,4 +877,6 @@ Koşular tek kullanımlık hesap bırakır; `sqlcmd -S localhost -E -d BiletSati
 - **Saat dilimi.** Sistem iki tür zaman değeri ayırır (bkz. Mimari Kararlar → [Zamanın iki türü](#zamanın-iki-türü-an-ve-takvim-saati)): gerçek anlar UTC, etkinlik tarihi yerel takvim saatidir. Bu, tek sunuculu ve tek saat dilimli bir kurulum için doğru çalışır. Uygulama farklı saat dilimlerindeki sunucularda çalışacaksa ya da kullanıcılara kendi saat dilimlerinde gösterim yapılacaksa, etkinlik tarihinin saat dilimi bilgisiyle birlikte saklanması gerekir (`datetimeoffset` ya da ayrı bir saat dilimi sütunu).
 - Kimlik e-postaları (doğrulama, şifre sıfırlama, adres değişikliği) süreç içi bir kanalda tutulur, veritabanına yazılmaz. Uygulama tam o anda kapanırsa gönderilmemiş bağlantı kaybolur; kullanıcı arayüzden yenisini isteyebilir. Bilet ve kuyruk bildirimleri bundan farklı: onlar veritabanı bayrağıyla izlenir ve kaybolmaz.
 - `AspNetUsers` tablosuna foreign key yok (bkz. Veritabanı bütünlüğü). Hesap silme özelliği eklenirse bu bağların kurulması gerekir.
+- **Trend listesinin dönem seçenekleri yalnızca `SatisZamani` sütunu eklendikten sonraki satışları kapsar.** Daha eski satışlar "tüm zamanlar" sıralamasında görünür; geriye doldurulmadılar (gerekçe: [ilgili mimari karar](#en-çok-satan-neden-yeni-bir-sütun-gerektirdi)). Sayfa bunu kullanıcıya açıkça yazar.
+- **Mekan ayrı bir varlık değil**, `Etkinlik.Mekan` metnidir. Aynı mekanı iki kayıtta farklı yazmak (fazladan boşluk, farklı büyük/küçük harf) onları iki ayrı mekan yapar. Mekanların kendi sayfası, adresi ya da koordinatı yok.
 - Arama `LIKE '%...%'` kullandığı için dizinden yararlanamaz. Filtreleme, sıralama ve sayfalamanın tamamı veritabanında yapılır (bkz. Mimari Kararlar), ama etkinlik sayısı onbinlere çıkarsa aramanın tam metin indeksine (full-text index) taşınması gerekir.
